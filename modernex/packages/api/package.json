@@ -10,7 +10,7 @@
     "build": "echo 'No build step — Node runs JS directly'",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint src --ext .js",
+    "lint": "eslint src",
     "migrate": "node src/db/migrate.js",
     "seed": "node src/db/seed.js",
     "recalc:invoice-gst": "node src/scripts/recalculateUnpaidInvoiceGST.js",
