@@ -1,0 +1,137 @@
+/* ═══════════════════════════════════════
+   DESIGN TOKENS — CSS variables only
+   All colours cascaded via data-theme attr
+   ═══════════════════════════════════════ */
+
+:root {
+  /* ── Dark (default) ── clean navy-dark, Salt-grade */
+  --bg0: #0B1018;
+  --bg1: #131C28;
+  --bg2: #1A2638;
+  --bg3: #223044;
+
+  /* Primary — refined coral/terracotta */
+  --rust: #E0622A;
+  --rustW: rgba(224, 98, 42, .12);
+  --rustB: rgba(224, 98, 42, .30);
+
+  /* Data accent — muted steel blue (replaces warm gold) */
+  --gold: #6B9EBA;
+  --goldW: rgba(107, 158, 186, .10);
+  --goldB: rgba(107, 158, 186, .28);
+
+  /* Success */
+  --sage: #35B07A;
+  --sageW: rgba(53, 176, 122, .10);
+  --sageB: rgba(53, 176, 122, .28);
+
+  /* Info */
+  --blue: #4D96D4;
+  --blueW: rgba(77, 150, 212, .10);
+  --blueB: rgba(77, 150, 212, .28);
+
+  /* Danger */
+  --red: #E05252;
+  --redW: rgba(224, 82, 82, .12);
+  --redB: rgba(224, 82, 82, .28);
+
+  /* Warning */
+  --amber: #D4890A;
+  --amberW: rgba(212, 137, 10, .12);
+  --amberB: rgba(212, 137, 10, .28);
+
+  /* Text */
+  --t1: #EDF3FA;
+  --t2: rgba(237, 243, 250, .90);
+  --t3: rgba(237, 243, 250, .66);
+
+  /* Borders */
+  --bd:  rgba(255, 255, 255, .07);
+  --bd2: rgba(224, 98, 42, .24);
+
+  /* Grid */
+  --grid-bg:           #131C28;
+  --grid-bg-alt:       #172236;
+  --grid-chrome:       #1A2638;
+  --grid-hover:        rgba(228, 237, 246, .04);
+  --grid-selected:     rgba(224, 98, 42, .14);
+  --grid-text:         #E4EDF6;
+  --grid-text-muted:   rgba(228, 237, 246, .68);
+  --grid-header-text:  #6B9EBA;
+  --grid-input-bg:     #0F1822;
+  --grid-panel-bg:     #172236;
+  --grid-icon:         rgba(228, 237, 246, .68);
+  --grid-resize-bar:   rgba(224, 98, 42, .22);
+  --grid-row-border:   rgba(255, 255, 255, .05);
+
+  /* Sizing */
+  --topbar-h:  50px;
+  --sidebar-w: 200px;
+  --radius:    5px;
+  --radius-lg: 10px;
+
+  /* Motion */
+  --dur: .20s;
+}
+
+[data-theme="light"] {
+  /* ── Light — soft grey ── */
+  --bg0: #F4F6F8;
+  --bg1: #FFFFFF;
+  --bg2: #F9FAFB;
+  --bg3: #ECEEF1;
+
+  /* Primary — refined coral */
+  --rust: #C03E18;
+  --rustW: rgba(192, 62, 24, .08);
+  --rustB: rgba(192, 62, 24, .22);
+
+  /* Data accent — slate-blue, clean */
+  --gold: #2E6B8A;
+  --goldW: rgba(46, 107, 138, .08);
+  --goldB: rgba(46, 107, 138, .20);
+
+  /* Success */
+  --sage: #1A7A50;
+  --sageW: rgba(26, 122, 80, .08);
+  --sageB: rgba(26, 122, 80, .20);
+
+  /* Info */
+  --blue: #1A5CA8;
+  --blueW: rgba(26, 92, 168, .08);
+  --blueB: rgba(26, 92, 168, .20);
+
+  /* Danger */
+  --red: #C62828;
+  --redW: rgba(198, 40, 40, .08);
+  --redB: rgba(198, 40, 40, .22);
+
+  /* Warning */
+  --amber: #B45309;
+  --amberW: rgba(180, 83, 9, .08);
+  --amberB: rgba(180, 83, 9, .22);
+
+  /* Text */
+  --t1: #0A1520;
+  --t2: rgba(10, 21, 32, .88);
+  --t3: rgba(10, 21, 32, .64);
+
+  /* Borders */
+  --bd:  rgba(15, 25, 36, .09);
+  --bd2: rgba(192, 62, 24, .18);
+
+  /* Grid */
+  --grid-bg:           #FFFFFF;
+  --grid-bg-alt:       #F9FAFB;
+  --grid-chrome:       #ECEEF1;
+  --grid-hover:        rgba(15, 25, 36, .03);
+  --grid-selected:     rgba(192, 62, 24, .07);
+  --grid-text:         #0F1924;
+  --grid-text-muted:   rgba(15, 25, 36, .65);
+  --grid-header-text:  #2E6B8A;
+  --grid-input-bg:     #F4F6F8;
+  --grid-panel-bg:     #ECEEF1;
+  --grid-icon:         rgba(15, 25, 36, .65);
+  --grid-resize-bar:   rgba(192, 62, 24, .18);
+  --grid-row-border:   rgba(15, 25, 36, .07);
+}

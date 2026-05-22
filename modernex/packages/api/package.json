@@ -1,0 +1,51 @@
+{
+  "name": "@modernex/api",
+  "version": "2.0.0",
+  "type": "module",
+  "description": "Modernex accounts API — Node.js + Express + SQLite",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "build": "echo 'No build step — Node runs JS directly'",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src --ext .js",
+    "migrate": "node src/db/migrate.js",
+    "seed": "node src/db/seed.js",
+    "recalc:invoice-gst": "node src/scripts/recalculateUnpaidInvoiceGST.js",
+    "demo:reset": "node src/scripts/demo-reset.js",
+    "clean": "node src/scripts/clean-data.js",
+    "sample:tx": "node src/scripts/sample-tx.js",
+    "sample:purge": "node src/scripts/sample-tx.js --purge",
+    "sample:purgeall": "node src/scripts/sample-tx.js --purgeall"
+  },
+  "dependencies": {
+    "@azure/storage-blob": "^12.17.0",
+    "@modernex/shared": "2.0.0",
+    "applicationinsights": "^2.9.5",
+    "bcrypt": "^5.1.1",
+    "better-sqlite3": "^11.0.0",
+    "compression": "^1.7.4",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.2.0",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^6.9.13",
+    "pdfkit": "^0.15.0",
+    "pino": "^9.0.0",
+    "pino-http": "^9.0.0",
+    "qrcode": "^1.5.3",
+    "pino-pretty": "^11.0.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "supertest": "^7.0.0",
+    "vitest": "^1.6.0"
+  }
+}

@@ -1,0 +1,904 @@
+@startuml Modernex_ERD
+!pragma layout smetana
+!theme plain
+skinparam linetype ortho
+skinparam shadowing false
+skinparam class {
+  BackgroundColor White
+  BorderColor #555555
+  HeaderBackgroundColor #DDEEFF
+  FontSize 11
+}
+skinparam note {
+  BackgroundColor #FFFFF0
+  BorderColor #999999
+}
+
+' ═══════════════════════════════════════════════════════════════
+' DOMAIN PACKAGES
+' ═══════════════════════════════════════════════════════════════
+
+package "Auth & Users" #E8F4FD {
+
+  entity users {
+    * id : INTEGER <<PK, AI>>
+    --
+    * username : TEXT <<UNIQUE>>
+    * password_hash : TEXT
+    * full_name : TEXT
+    * role : TEXT  ' admin|accounts|yard|sales
+    email : TEXT
+    phone : TEXT
+    active : INTEGER
+    failed_attempts : INTEGER
+    locked_until : TEXT
+    must_change_password : INTEGER
+  }
+
+  entity refresh_tokens {
+    * id : TEXT <<PK>>
+    --
+    * user_id : INTEGER <<FK>>
+    * issued_at : TEXT
+    * expires_at : TEXT
+    revoked : INTEGER
+    ip_address : TEXT
+  }
+
+}
+
+package "Master Data" #FFF3E0 {
+
+  entity customers {
+    * id : TEXT <<PK>>
+    --
+    * name : TEXT
+    gstin : TEXT
+    * state : TEXT
+    address : TEXT
+    contact : TEXT
+    email : TEXT
+    credit_days : INTEGER
+    credit_limit_paise : INTEGER
+    outstanding_paise : INTEGER
+    preferred_currency : TEXT
+    interest_rate_pct : REAL
+  }
+
+  entity vendors {
+    * id : TEXT <<PK>>
+    --
+    * name : TEXT
+    gstin : TEXT
+    * state : TEXT
+    * type : TEXT  ' Quarry|Broker|Transporter|Other
+    msme : INTEGER
+    msme_number : TEXT
+    pan : TEXT
+    tds_section : TEXT
+    tds_exempt : INTEGER
+    deductee_type : TEXT
+  }
+
+  entity collection_accounts {
+    * id : TEXT <<PK>>
+    --
+    * name : TEXT
+    * kind : TEXT  ' upi|bank|both
+    upi_id : TEXT
+    account_number : TEXT
+    ifsc : TEXT
+    bank_name : TEXT
+    is_default : INTEGER
+    active : INTEGER
+  }
+
+  entity locations {
+    * id : TEXT <<PK>>
+    --
+    * name : TEXT
+    * location_type : TEXT  ' quarry|yard|machine|showroom|dispatch|virtual
+    stage_hint : TEXT
+    is_active : INTEGER
+    sort_order : INTEGER
+  }
+
+  entity variety_master {
+    * id : TEXT <<PK>>
+    --
+    * name : TEXT
+    region : TEXT
+    category : TEXT
+    default_hsn : TEXT
+    active : INTEGER
+  }
+
+  entity company_details {
+    * id : INTEGER <<PK, CHECK=1>>
+    --
+    * name : TEXT
+    * gstin : TEXT
+    * pan : TEXT
+    * address : TEXT
+    * state : TEXT
+    fy : TEXT
+    invoice_prefix : TEXT
+    einvoice_threshold_paise : INTEGER
+  }
+
+}
+
+package "Inventory / Products" #E8F5E9 {
+
+  entity products {
+    * id : TEXT <<PK>>
+    --
+    * kind : TEXT  ' block|slab|tile|cts|strip|kerb|cobble|chips|dust|monument
+    * variety : TEXT
+    * hsn : TEXT
+    * uom : TEXT
+    grade : TEXT
+    lot_id : TEXT
+    * rate_paise : INTEGER
+    stock : REAL
+    unit_cost_paise : INTEGER
+    source_product_id : TEXT <<FK self>>
+    current_location_id : TEXT <<FK>>
+    active : INTEGER
+  }
+
+  entity product_blocks {
+    * product_id : TEXT <<PK, FK>>
+    --
+    * length_m : REAL
+    * width_m : REAL
+    * height_m : REAL
+    * cft : REAL
+    source_quarry : TEXT
+  }
+
+  entity product_slabs {
+    * product_id : TEXT <<PK, FK>>
+    --
+    * size_lw : TEXT  ' "2600×1600" mm
+    * thickness_mm : INTEGER
+    * sqft : REAL
+  }
+
+  entity product_tiles {
+    * product_id : TEXT <<PK, FK>>
+    --
+    * size_lw : TEXT
+    * thickness_mm : INTEGER
+    * sqft_per_tile : REAL
+    pieces_per_box : INTEGER
+  }
+
+  entity product_cts {
+    * product_id : TEXT <<PK, FK>>
+    --
+    customer_spec : TEXT
+    * length_mm : INTEGER
+    * width_mm : INTEGER
+    * thickness_mm : INTEGER
+    * sqft : REAL
+  }
+
+  entity product_strips {
+    * product_id : TEXT <<PK, FK>>
+    --
+    * length_mm : INTEGER
+    * width_mm : INTEGER
+    * thickness_mm : INTEGER
+    * rft_per_piece : REAL
+  }
+
+  entity product_kerbs {
+    * product_id : TEXT <<PK, FK>>
+    --
+    * profile : TEXT
+    * length_mm : INTEGER
+    * height_mm : INTEGER
+    * width_mm : INTEGER
+  }
+
+  entity product_cobbles {
+    * product_id : TEXT <<PK, FK>>
+    --
+    * cobble_type : TEXT
+    length_mm : INTEGER
+    width_mm : INTEGER
+    height_mm : INTEGER
+  }
+
+  entity product_chips {
+    * product_id : TEXT <<PK, FK>>
+    --
+    * mesh_size_mm : REAL
+    bulk_density : REAL
+  }
+
+  entity product_monuments {
+    * product_id : TEXT <<PK, FK>>
+    --
+    * monument_type : TEXT
+    * length_mm : INTEGER
+    * width_mm : INTEGER
+    * thickness_mm : INTEGER
+  }
+
+  entity inventory_moves {
+    * id : INTEGER <<PK, AI>>
+    --
+    * product_id : TEXT <<FK>>
+    qty : REAL
+    from_location_id : TEXT <<FK>>
+    to_location_id : TEXT <<FK>>
+    * move_type : TEXT  ' receive|move|consume|produce|dispatch|adjust
+    job_id : TEXT <<FK>>
+    created_at : TEXT
+    created_by : TEXT
+  }
+
+}
+
+package "Purchasing" #FCE4EC {
+
+  entity purchase_orders {
+    * id : TEXT <<PK>>
+    --
+    * date : TEXT
+    * vendor_id : TEXT <<FK>>
+    transport_vendor_id : TEXT <<FK>>
+    * variety : TEXT
+    * blocks : INTEGER
+    * cft : REAL
+    * rate_per_cft_paise : INTEGER
+    transport_paise : INTEGER
+    * total_paise : INTEGER
+    * status : TEXT  ' new|approved|received|cancelled
+    transport_bill_no : TEXT
+    vehicle_no : TEXT
+    lr_no : TEXT
+  }
+
+  entity purchase_order_receipts {
+    * id : INTEGER <<PK, AI>>
+    --
+    * po_id : TEXT <<FK>>
+    received_date : TEXT
+    cft_received : REAL
+    notes : TEXT
+  }
+
+  entity tds_sections {
+    * id : TEXT <<PK>>
+    --
+    * section : TEXT
+    * description : TEXT
+    * rate_pct : REAL
+    threshold_paise : INTEGER
+  }
+
+  entity tds_transactions {
+    * id : TEXT <<PK>>
+    --
+    * vendor_id : TEXT <<FK>>
+    po_id : TEXT <<FK>>
+    payment_id : TEXT <<FK>>
+    * section_id : TEXT
+    * base_paise : INTEGER
+    * tds_paise : INTEGER
+    * fy : TEXT
+    deposited : INTEGER
+  }
+
+  entity tds_challans {
+    * id : TEXT <<PK>>
+    --
+    * fy : TEXT
+    * quarter : TEXT
+    * amount_paise : INTEGER
+    bsr_code : TEXT
+    challan_no : TEXT
+    deposit_date : TEXT
+  }
+
+}
+
+package "Production" #F3E5F5 {
+
+  entity production_jobs {
+    * id : TEXT <<PK>>
+    --
+    lot_id : TEXT
+    * stage : TEXT  ' split|cut|polish|done
+    * status : TEXT  ' New|In Progress|Complete|Cancelled
+    * date : TEXT
+    labour_paise : INTEGER
+    power_paise : INTEGER
+    consumables_paise : INTEGER
+    yield_pct : REAL
+  }
+
+  entity production_job_inputs {
+    * job_id : TEXT <<PK, FK>>
+    * product_id : TEXT <<PK, FK>>
+    --
+    * qty_consumed : REAL
+    unit_cost_paise : INTEGER
+  }
+
+  entity production_job_outputs {
+    * job_id : TEXT <<PK, FK>>
+    * product_id : TEXT <<PK, FK>>
+    --
+    * qty_produced : REAL
+    unit_cost_paise : INTEGER
+  }
+
+}
+
+package "Sales" #FFFDE7 {
+
+  entity invoices {
+    * id : TEXT <<PK>>
+    --
+    * date : TEXT
+    * customer_id : TEXT <<FK>>
+    * customer_name : TEXT  ' denormalised
+    collection_account_id : TEXT <<FK>>
+    discount_pct : REAL
+    * taxable_paise : INTEGER
+    cgst_paise : INTEGER
+    sgst_paise : INTEGER
+    igst_paise : INTEGER
+    * total_paise : INTEGER
+    paid : INTEGER
+    due_date : TEXT
+    irn : TEXT
+    eway_bill : TEXT
+    currency : TEXT
+    export_type : TEXT  ' NONE|WITHOUT_TAX|WITH_TAX|DEEMED
+  }
+
+  entity invoice_items {
+    * id : INTEGER <<PK, AI>>
+    --
+    * invoice_id : TEXT <<FK>>
+    * line_no : INTEGER
+    product_id : TEXT <<FK>>
+    * variety : TEXT
+    * hsn : TEXT
+    * uom : TEXT
+    * qty : REAL
+    * rate_paise : INTEGER
+    * line_total_paise : INTEGER
+    dimension_snapshot : TEXT  ' JSON
+    grade : TEXT
+  }
+
+  entity payments {
+    * id : TEXT <<PK>>
+    --
+    * date : TEXT
+    * type : TEXT  ' receipt|payment
+    invoice_id : TEXT <<FK>>
+    po_id : TEXT <<FK>>
+    * party : TEXT
+    * amount_paise : INTEGER
+    * mode : TEXT
+    utr : TEXT
+    * category : TEXT  ' general|quarry|transport|invoice|refund|advance
+  }
+
+  entity post_dated_cheques {
+    * id : TEXT <<PK>>
+    --
+    invoice_id : TEXT <<FK>>
+    po_id : TEXT <<FK>>
+    customer_id : TEXT <<FK>>
+    vendor_id : TEXT <<FK>>
+    * amount_paise : INTEGER
+    * cheque_date : TEXT
+    * cheque_no : TEXT
+    status : TEXT  ' pending|presented|cleared|bounced|cancelled
+  }
+
+  entity debit_credit_notes {
+    * id : TEXT <<PK>>
+    --
+    * customer_id : TEXT <<FK>>
+    ref_invoice_id : TEXT <<FK>>
+    * type : TEXT  ' debit|credit
+    * amount_paise : INTEGER
+    * reason : TEXT
+    status : TEXT  ' draft|confirmed|cancelled
+  }
+
+  entity delivery_challans {
+    * id : TEXT <<PK>>
+    --
+    * customer_id : TEXT <<FK>>
+    invoice_id : TEXT <<FK>>
+    * date : TEXT
+    status : TEXT
+  }
+
+  entity delivery_challan_items {
+    * id : INTEGER <<PK, AI>>
+    --
+    * challan_id : TEXT <<FK>>
+    product_id : TEXT <<FK>>
+    * qty : REAL
+  }
+
+}
+
+package "Accounting & CoA" #E0F2F1 {
+
+  entity account_groups {
+    * id : TEXT <<PK>>
+    --
+    * name : TEXT
+    * nature : TEXT  ' asset|liability|income|expense|capital
+    parent_id : TEXT <<FK self>>
+    is_debit_balance : INTEGER
+  }
+
+  entity accounts {
+    * id : TEXT <<PK>>
+    --
+    * name : TEXT
+    * group_id : TEXT <<FK>>
+    * code : TEXT <<UNIQUE>>
+    * is_debit_balance : INTEGER
+    opening_balance_paise : INTEGER
+    is_system : INTEGER
+    active : INTEGER
+  }
+
+  entity journal_vouchers {
+    * id : TEXT <<PK>>
+    --
+    * date : TEXT
+    * type : TEXT  ' journal|payment|receipt|contra
+    * narration : TEXT
+    ref_module : TEXT
+    ref_id : TEXT
+    created_by : TEXT
+  }
+
+  entity journal_entries {
+    * id : INTEGER <<PK, AI>>
+    --
+    * voucher_id : TEXT <<FK>>
+    * account_id : TEXT <<FK>>
+    * debit_paise : INTEGER
+    * credit_paise : INTEGER
+    narration : TEXT
+  }
+
+  entity cost_centres {
+    * id : TEXT <<PK>>
+    --
+    * name : TEXT
+    parent_id : TEXT <<FK self>>
+    active : INTEGER
+  }
+
+  entity journal_entry_cc {
+    * entry_id : INTEGER <<PK, FK>>
+    * cost_centre_id : TEXT <<PK, FK>>
+    --
+    allocation_pct : REAL
+  }
+
+  entity budgets {
+    * id : INTEGER <<PK, AI>>
+    --
+    account_id : TEXT <<FK>>
+    account_group_id : TEXT <<FK>>
+    * fy : TEXT
+    * period : TEXT
+    * amount_paise : INTEGER
+  }
+
+  entity recurring_vouchers {
+    * id : TEXT <<PK>>
+    --
+    * narration : TEXT
+    * frequency : TEXT
+    next_due : TEXT
+    active : INTEGER
+  }
+
+  entity recurring_voucher_lines {
+    * id : INTEGER <<PK, AI>>
+    --
+    * rv_id : TEXT <<FK>>
+    * account_id : TEXT <<FK>>
+    * debit_paise : INTEGER
+    * credit_paise : INTEGER
+  }
+
+}
+
+package "Banking" #E3F2FD {
+
+  entity bank_accounts_reg {
+    * id : TEXT <<PK>>
+    --
+    * account_id : TEXT <<FK>>  ' → accounts (ACC-BANK*)
+    * bank_name : TEXT
+    * account_number : TEXT
+    ifsc : TEXT
+    opening_balance_paise : INTEGER
+    opening_date : TEXT
+  }
+
+  entity bank_statement_lines {
+    * id : INTEGER <<PK, AI>>
+    --
+    * bank_account_id : TEXT <<FK>>
+    * txn_date : TEXT
+    * amount_paise : INTEGER
+    * direction : TEXT  ' dr|cr
+    description : TEXT
+    matched_payment_id : TEXT <<FK>>
+    reconciled : INTEGER
+  }
+
+}
+
+package "Fixed Assets" #FFF8E1 {
+
+  entity fixed_assets {
+    * id : TEXT <<PK>>
+    --
+    * name : TEXT
+    * asset_class : TEXT
+    * purchase_date : TEXT
+    * cost_paise : INTEGER
+    * wdv_rate_pct : REAL
+    current_wdv_paise : INTEGER
+    account_id : TEXT <<FK>>
+    vendor_id : TEXT <<FK>>
+    disposed : INTEGER
+    disposal_date : TEXT
+  }
+
+  entity asset_depreciation_log {
+    * id : INTEGER <<PK, AI>>
+    --
+    * asset_id : TEXT <<FK>>
+    * period : TEXT
+    * depr_paise : INTEGER
+    journal_voucher_id : TEXT <<FK>>
+  }
+
+}
+
+package "GST Compliance" #F1F8E9 {
+
+  entity gst_filing_periods {
+    * id : INTEGER <<PK, AI>>
+    --
+    * period : TEXT  ' "Apr-2026"
+    * return_type : TEXT  ' GSTR1|GSTR3B|GSTR9
+    due_date : TEXT
+    filed : INTEGER
+    filed_date : TEXT
+    filed_by : TEXT
+  }
+
+  entity gstr2b_imports {
+    * id : INTEGER <<PK, AI>>
+    --
+    * period : TEXT
+    * imported_at : TEXT
+    * imported_by : TEXT
+    record_count : INTEGER
+  }
+
+  entity gstr2b_records {
+    * id : INTEGER <<PK, AI>>
+    --
+    * import_id : INTEGER <<FK>>
+    * supplier_gstin : TEXT
+    * invoice_no : TEXT
+    * taxable_paise : INTEGER
+    matched_po_id : TEXT <<FK>>
+    itc_eligible : INTEGER
+  }
+
+  entity itc_ledger {
+    * id : INTEGER <<PK, AI>>
+    --
+    * period : TEXT
+    * tax_type : TEXT  ' CGST|SGST|IGST
+    * opening_paise : INTEGER
+    * credits_paise : INTEGER
+    * utilised_paise : INTEGER
+    * closing_paise : INTEGER
+  }
+
+}
+
+package "HR & Payroll" #FBE9E7 {
+
+  entity employees {
+    * id : TEXT <<PK>>
+    --
+    * name : TEXT
+    * designation : TEXT
+    * department : TEXT
+    * basic_paise : INTEGER
+    * hra_pct : REAL
+    pf_applicable : INTEGER
+    esi_applicable : INTEGER
+    pt_applicable : INTEGER
+    bank_account : TEXT
+    ifsc : TEXT
+    pan : TEXT
+    uan : TEXT
+    esic_no : TEXT
+    date_of_joining : TEXT
+    active : INTEGER
+  }
+
+  entity payroll_runs {
+    * id : TEXT <<PK>>
+    --
+    * period : TEXT  ' "2026-04"
+    * status : TEXT  ' draft|processed|paid
+    * gross_total_paise : INTEGER
+    * net_total_paise : INTEGER
+    processed_by : TEXT
+    processed_at : TEXT
+    paid_at : TEXT
+  }
+
+  entity payroll_entries {
+    * id : INTEGER <<PK, AI>>
+    --
+    * run_id : TEXT <<FK>>
+    * employee_id : TEXT <<FK>>
+    * basic_paise : INTEGER
+    * gross_paise : INTEGER
+    * net_paise : INTEGER
+    * pf_employee_paise : INTEGER
+    * pf_employer_paise : INTEGER
+    esi_employee_paise : INTEGER
+    esi_employer_paise : INTEGER
+    pt_paise : INTEGER
+  }
+
+  entity bonus_runs {
+    * id : TEXT <<PK>>
+    --
+    * fy : TEXT
+    * rate_pct : REAL
+    * status : TEXT
+    processed_by : TEXT
+  }
+
+  entity bonus_entries {
+    * id : INTEGER <<PK, AI>>
+    --
+    * run_id : TEXT <<FK>>
+    * employee_id : TEXT <<FK>>
+    * bonus_paise : INTEGER
+  }
+
+  entity leave_types {
+    * id : TEXT <<PK>>
+    --
+    * name : TEXT
+    * days_per_year : INTEGER
+    carry_forward : INTEGER
+  }
+
+  entity leave_balances {
+    * id : INTEGER <<PK, AI>>
+    --
+    * employee_id : TEXT <<FK>>
+    * leave_type_id : TEXT
+    * fy : TEXT
+    * balance_days : REAL
+  }
+
+  entity leave_applications {
+    * id : TEXT <<PK>>
+    --
+    * employee_id : TEXT <<FK>>
+    * leave_type_id : TEXT
+    * from_date : TEXT
+    * to_date : TEXT
+    * days : REAL
+    * status : TEXT  ' pending|approved|rejected
+  }
+
+  entity epf_challans {
+    * id : TEXT <<PK>>
+    --
+    * period : TEXT
+    * employee_total_paise : INTEGER
+    * employer_total_paise : INTEGER
+    * admin_charges_paise : INTEGER
+    challan_no : TEXT
+    deposit_date : TEXT
+  }
+
+  entity esi_challans {
+    * id : TEXT <<PK>>
+    --
+    * period : TEXT
+    * total_paise : INTEGER
+    challan_no : TEXT
+    deposit_date : TEXT
+  }
+
+  entity pt_challans_tn {
+    * id : TEXT <<PK>>
+    --
+    * period : TEXT
+    * total_paise : INTEGER
+    challan_no : TEXT
+    deposit_date : TEXT
+  }
+
+  entity employee_tax_declarations {
+    * id : INTEGER <<PK, AI>>
+    --
+    * employee_id : TEXT <<FK>>
+    * fy : TEXT
+    * section : TEXT
+    * amount_paise : INTEGER
+    declaration_date : TEXT
+  }
+
+  entity gratuity_records {
+    * id : INTEGER <<PK, AI>>
+    --
+    * employee_id : TEXT <<FK>>
+    * eligible_date : TEXT
+    * years_of_service : REAL
+    * gratuity_paise : INTEGER
+    paid : INTEGER
+  }
+
+}
+
+package "System" #F5F5F5 {
+
+  entity audit_log {
+    * id : INTEGER <<PK, AI>>
+    --
+    * ts : TEXT
+    user_id : INTEGER
+    username : TEXT
+    * action : TEXT
+    table_name : TEXT
+    record_id : TEXT
+    before_json : TEXT
+    after_json : TEXT
+    ip_address : TEXT
+  }
+
+  entity fx_rates {
+    * currency : TEXT <<PK>>
+    * rate_date : TEXT <<PK>>
+    --
+    * inr_per_1 : REAL
+    * source : TEXT
+  }
+
+  entity doc_sequences {
+    * id : TEXT <<PK>>
+    --
+    * prefix : TEXT
+    * last_seq : INTEGER
+    * pad_len : INTEGER
+  }
+
+}
+
+
+' ═══════════════════════════════════════════════════════════════
+' RELATIONSHIPS
+' ═══════════════════════════════════════════════════════════════
+
+' Auth
+users ||--o{ refresh_tokens : "has"
+
+' Purchasing
+vendors ||--o{ purchase_orders : "supplies (vendor)"
+vendors |o--o{ purchase_orders : "transports (transport_vendor)"
+purchase_orders ||--o{ purchase_order_receipts : "received via"
+purchase_orders ||--o{ tds_transactions : "triggers"
+purchase_orders ||--o{ payments : "paid by"
+purchase_orders ||--o{ post_dated_cheques : "secured by"
+vendors ||--o{ tds_transactions : "deducted from"
+vendors ||--o{ fixed_assets : "purchased from"
+vendors ||--o{ post_dated_cheques : "issued to"
+payments |o--o| tds_transactions : "ref"
+tds_transactions }o--o| tds_challans : "deposited via"
+
+' Production
+production_jobs ||--o{ production_job_inputs : "consumes"
+production_jobs ||--o{ production_job_outputs : "produces"
+production_jobs ||--o{ inventory_moves : "triggers"
+products ||--o{ production_job_inputs : "consumed by"
+products ||--o{ production_job_outputs : "created by"
+products |o--o| products : "sourced from (self)"
+
+' Inventory — product subtypes (1-to-1 extension)
+products ||--o| product_blocks : "spec"
+products ||--o| product_slabs : "spec"
+products ||--o| product_tiles : "spec"
+products ||--o| product_cts : "spec"
+products ||--o| product_strips : "spec"
+products ||--o| product_kerbs : "spec"
+products ||--o| product_cobbles : "spec"
+products ||--o| product_chips : "spec"
+products ||--o| product_monuments : "spec"
+
+products }o--o| locations : "at location"
+products ||--o{ inventory_moves : "tracked by"
+locations ||--o{ inventory_moves : "from"
+locations ||--o{ inventory_moves : "to"
+
+' Sales
+customers ||--o{ invoices : "billed to"
+customers ||--o{ debit_credit_notes : "issued to"
+customers ||--o{ post_dated_cheques : "given by"
+customers ||--o{ delivery_challans : "delivered to"
+invoices ||--o{ invoice_items : "contains"
+invoices ||--o{ payments : "settled by"
+invoices ||--o{ post_dated_cheques : "secured by"
+invoices ||--o{ debit_credit_notes : "adjusted via"
+invoices ||--o{ delivery_challans : "dispatched via"
+invoice_items }o--o| products : "from stock"
+delivery_challans ||--o{ delivery_challan_items : "contains"
+delivery_challan_items }o--o| products : "includes"
+collection_accounts |o--o{ invoices : "collected into"
+
+' Accounting / CoA
+account_groups ||--o{ accounts : "classifies"
+account_groups |o--o| account_groups : "parent (self)"
+accounts ||--o{ journal_entries : "posted to"
+journal_vouchers ||--o{ journal_entries : "contains"
+journal_entries ||--o{ journal_entry_cc : "split by"
+cost_centres ||--o{ journal_entry_cc : "allocated to"
+cost_centres |o--o| cost_centres : "parent (self)"
+accounts |o--o{ budgets : "budgeted in"
+account_groups |o--o{ budgets : "budgeted in"
+recurring_vouchers ||--o{ recurring_voucher_lines : "defines"
+recurring_voucher_lines }o--o| accounts : "to/from"
+
+' Banking
+accounts ||--o| bank_accounts_reg : "linked to"
+bank_accounts_reg ||--o{ bank_statement_lines : "has lines"
+bank_statement_lines }o--o| payments : "matched to"
+
+' Fixed Assets
+accounts ||--o{ fixed_assets : "capitalised in"
+fixed_assets ||--o{ asset_depreciation_log : "depreciated in"
+journal_vouchers |o--o{ asset_depreciation_log : "journaled via"
+
+' GST
+gstr2b_imports ||--o{ gstr2b_records : "contains"
+gstr2b_records }o--o| purchase_orders : "matched to"
+
+' HR / Payroll
+employees ||--o{ payroll_entries : "paid via"
+employees ||--o{ bonus_entries : "awarded via"
+employees ||--o{ leave_balances : "tracks"
+employees ||--o{ leave_applications : "applies for"
+employees ||--o{ employee_tax_declarations : "declares"
+employees ||--o{ gratuity_records : "earns"
+payroll_runs ||--o{ payroll_entries : "run contains"
+bonus_runs ||--o{ bonus_entries : "run contains"
+
+@enduml

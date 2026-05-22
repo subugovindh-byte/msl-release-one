@@ -1,0 +1,35 @@
+{
+  "name": "modernex-accounts",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Modernex Stones LLP — Accounts & Operations System",
+  "workspaces": [
+    "packages/api",
+    "packages/web",
+    "packages/shared"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c cyan,magenta \"npm:dev -w @modernex/api\" \"npm:dev -w @modernex/web\"",
+    "dev:api": "npm run dev -w @modernex/api",
+    "dev:web": "npm run dev -w @modernex/web",
+    "build": "npm run build -w @modernex/shared && npm run build -w @modernex/web && npm run build -w @modernex/api",
+    "build:api": "npm run build -w @modernex/shared && npm run build -w @modernex/api",
+    "build:web": "npm run build -w @modernex/shared && npm run build -w @modernex/web",
+    "test": "npm run test -w @modernex/api && npm run test -w @modernex/web",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:install": "playwright install --with-deps",
+    "lint": "npm run lint -w @modernex/api && npm run lint -w @modernex/web",
+    "start": "node packages/api/dist/server.js",
+    "migrate": "npm run migrate -w @modernex/api",
+    "backup": "node scripts/backup-to-blob.js",
+    "restore": "node scripts/restore-from-blob.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.44.0",
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

@@ -1,0 +1,1301 @@
+// @ts-nocheck
+import React, { useState, useMemo, useEffect } from 'react';
+import QRCode from 'qrcode';
+import { VARIETIES, GRADES, STANDARD_SPECS } from '@modernex/shared';
+import {
+  useProducts, useCreateProduct, useCreateProductionJob,
+  useProductionJobs, useMoveProduct, usePurchaseOrders,
+} from '@/hooks/useApi';
+import { useToastStore } from '@/store';
+
+// ── helpers ───────────────────────────────────────────────────────────────────
+function sqftFromSize(sizeStr: string) {
+  const [l, w] = sizeStr.split('×').map(Number);
+  if (!l || !w) return 0;
+  return +((l * w) / 92903.04).toFixed(2);
+}
+
+function cftFromM(l: number, w: number, h: number) {
+  if (!l || !w || !h) return 0;
+  return +((l * w * h) * 35.3147).toFixed(2);
+}
+
+const LOCATION_LABEL: Record<string, string> = {
+  RAW_YARD: 'Raw Yard', GANGSAW_IN: 'Gangsaw In',
+  GANGSAW_OUT: 'Gangsaw Out', FINISHED_YARD: 'Finished Yard', SHOWROOM: 'Showroom',
+};
+
+async function printLabel(p: any) {
+  const d = p.dimensions || {};
+  let dimStr = '';
+  if (p.kind === 'block') {
+    const lmm = d.length_m ? Math.round(d.length_m * 1000) : null;
+    const wmm = d.width_m  ? Math.round(d.width_m  * 1000) : null;
+    const hmm = d.height_m ? Math.round(d.height_m * 1000) : null;
+    if (lmm && wmm && hmm) dimStr = `${lmm}×${wmm}×${hmm} mm · ${cftFromM(d.length_m,d.width_m,d.height_m)} CFT`;
+  } else if (d.size_lw) {
+    dimStr = `${d.size_lw}${d.thickness_mm ? ` · ${d.thickness_mm}mm` : ''}${d.sqft ? ` · ${d.sqft} sqft` : ''}${d.sqft_per_tile ? ` · ${d.sqft_per_tile} sqft/tile` : ''}`;
+  }
+  const loc  = LOCATION_LABEL[p.current_location_id] || p.current_location_id || '';
+  const rate = p.rate_paise ? `₹${(p.rate_paise/100).toLocaleString('en-IN')}` : '';
+  const qrDataUrl = await QRCode.toDataURL(p.id, { width: 100, margin: 1, color: { dark: '#000', light: '#fff' } });
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Label ${p.id}</title>
+<style>
+@page{size:80mm 50mm;margin:0}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Arial,sans-serif;width:80mm;height:50mm;display:flex;align-items:stretch}
+.label{display:flex;align-items:center;gap:5px;padding:4px 5px;width:80mm;height:50mm;border:1px solid #999}
+.qr{flex-shrink:0}
+.info{flex:1;overflow:hidden}
+.id{font-size:10px;font-weight:700;font-family:monospace;letter-spacing:.02em}
+.variety{font-size:9px;font-weight:600;margin-top:1px}
+.row{font-size:7px;color:#333;margin-top:2px}
+.badges{margin-top:3px;display:flex;gap:3px}
+.badge{border:1px solid #555;border-radius:2px;padding:0 3px;font-size:6.5px;font-weight:700;text-transform:uppercase}
+.company{font-size:6px;color:#888;margin-top:4px;border-top:1px solid #ddd;padding-top:2px}
+</style></head><body>
+<div class="label">
+  <div class="qr"><img src="${qrDataUrl}" width="90" height="90"/></div>
+  <div class="info">
+    <div class="id">${p.id}</div>
+    <div class="variety">${p.variety}</div>
+    <div class="row">LOT: <b>${p.lot_id || '—'}</b></div>
+    ${dimStr ? `<div class="row">${dimStr}</div>` : ''}
+    <div class="badges">
+      <span class="badge">${p.kind}</span>
+      ${p.grade ? `<span class="badge">${p.grade}</span>` : ''}
+      ${p.stock != null ? `<span class="badge">Qty ${p.stock}</span>` : ''}
+    </div>
+    <div class="row" style="margin-top:3px">${loc}${rate ? ` · ${rate}` : ''}</div>
+    <div class="company">MODERNEX STONES LLP</div>
+  </div>
+</div>
+<script>window.onload=()=>{window.print();}<\/script>
+</body></html>`;
+
+  const w = window.open('', '_blank', 'width=340,height=220,toolbar=0,menubar=0');
+  if (w) { w.document.write(html); w.document.close(); }
+}
+
+const SLAB_SIZES = STANDARD_SPECS.slab.sizes_mm.map(s => s.lw);
+const SLAB_THICKNESSES = STANDARD_SPECS.slab.thicknesses_mm;
+const TILE_SIZES = STANDARD_SPECS.tile.sizes_mm.map(s => s.lw);
+const TILE_THICKNESSES = [10, 12, 15, 18, 20, 30, 40, 50];
+
+// ── shared primitive styles ────────────────────────────────────────────────────
+const card: React.CSSProperties = {
+  background: 'var(--bg1)', border: '1px solid var(--bd)', borderRadius: 8,
+  padding: '16px 20px',
+};
+
+const fieldStyle: React.CSSProperties = {
+  display: 'flex', flexDirection: 'column', gap: 4,
+};
+
+const labelStyle: React.CSSProperties = {
+  fontSize: 11, fontWeight: 600, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '0.04em',
+};
+
+const inputStyle: React.CSSProperties = {
+  background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 5,
+  color: 'var(--t1)', fontSize: 13, padding: '7px 10px', outline: 'none',
+};
+
+const selectStyle: React.CSSProperties = { ...inputStyle, cursor: 'pointer' };
+
+const btnPrimary: React.CSSProperties = {
+  background: 'var(--rust)', color: '#fff', border: 'none', borderRadius: 5,
+  padding: '8px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+};
+
+const btnSecondary: React.CSSProperties = {
+  background: 'var(--bg2)', color: 'var(--t2)', border: '1px solid var(--bd)', borderRadius: 5,
+  padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+};
+
+const row2: React.CSSProperties = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 };
+const row3: React.CSSProperties = { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 };
+
+function Lbl({ children }: { children: any }) {
+  return <label style={labelStyle}>{children}</label>;
+}
+function Inp(props: any) {
+  return <input style={inputStyle} {...props} />;
+}
+function Sel({ children, ...props }: any) {
+  return <select style={selectStyle} {...props}>{children}</select>;
+}
+function Hint({ children }: { children: any }) {
+  return <span style={{ fontSize: 11, color: 'var(--t3)', marginTop: 2 }}>{children}</span>;
+}
+function Fld({ label, hint, children }: { label: string; hint?: string; children: any }) {
+  return (
+    <div style={fieldStyle}>
+      <Lbl>{label}</Lbl>
+      {children}
+      {hint && <Hint>{hint}</Hint>}
+    </div>
+  );
+}
+
+// ── pipeline stat card ────────────────────────────────────────────────────────
+function StatCard({ label, count, sub, color }: { label: string; count: number; sub?: string; color?: string }) {
+  return (
+    <div style={{ ...card, textAlign: 'center', minWidth: 120 }}>
+      <div style={{ fontSize: 28, fontWeight: 700, color: color || 'var(--rust)', lineHeight: 1.1 }}>{count}</div>
+      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--t1)', marginTop: 4 }}>{label}</div>
+      {sub && <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 2 }}>{sub}</div>}
+    </div>
+  );
+}
+
+// ── tabs ─────────────────────────────────────────────────────────────────────
+type Tab = 'receive' | 'split' | 'cut' | 'polish' | 'route' | 'history';
+const TABS: { id: Tab; label: string; step?: string }[] = [
+  { id: 'receive', label: 'Receive Block', step: '1' },
+  { id: 'split',   label: 'Split Block',   step: '2' },
+  { id: 'cut',     label: 'Cut Slabs',     step: '3' },
+  { id: 'polish',  label: 'Polish & Grade',step: '4' },
+  { id: 'route',   label: 'Route to Sale', step: '5' },
+  { id: 'history', label: 'Job History' },
+];
+
+function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void }) {
+  return (
+    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 20 }}>
+      {TABS.map(t => (
+        <button
+          key={t.id}
+          onClick={() => onChange(t.id)}
+          style={{
+            background: active === t.id ? 'var(--rust)' : 'var(--bg2)',
+            color: active === t.id ? '#fff' : 'var(--t2)',
+            border: `1px solid ${active === t.id ? 'var(--rust)' : 'var(--bd)'}`,
+            borderRadius: 5, padding: '6px 14px', fontSize: 13, fontWeight: 600,
+            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+          }}
+        >
+          {t.step && (
+            <span style={{
+              background: active === t.id ? 'rgba(255,255,255,0.25)' : 'var(--rustW)',
+              color: active === t.id ? '#fff' : 'var(--rust)',
+              borderRadius: 20, fontSize: 10, fontWeight: 700, padding: '1px 6px',
+            }}>{t.step}</span>
+          )}
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB 1 — RECEIVE BLOCK
+// ─────────────────────────────────────────────────────────────────────────────
+function nextLotId(allProducts: any[], allPos: any[]): string {
+  const nums: number[] = [];
+  const re = /LOT-0*(\d+)/i;
+  for (const p of allProducts) {
+    const m = re.exec(p.lot_id || '');
+    if (m) nums.push(+m[1]);
+  }
+  for (const po of allPos) {
+    const m = re.exec(po.lot_id || po.id || '');
+    if (m) nums.push(+m[1]);
+  }
+  const next = nums.length ? Math.max(...nums) + 1 : 1;
+  return `LOT-${String(next).padStart(3, '0')}`;
+}
+
+function ReceiveBlock({ notify }: { notify: any }) {
+  const createProduct = useCreateProduct();
+  const { data: posData }      = usePurchaseOrders({});
+  const { data: allProdsData } = useProducts({});
+  const pos      = (posData?.purchase_orders || []).filter((p: any) => p.status !== 'cancelled');
+  const allProds = allProdsData?.products   || [];
+
+  const suggested = useMemo(() => nextLotId(allProds, pos), [allProds, pos]);
+
+  const [form, setForm] = useState({
+    variety: VARIETIES[0],
+    lot_id: '',
+    po_id: '',
+    length_m: '',
+    width_m: '',
+    height_m: '',
+    rate_paise: '',
+    notes: '',
+  });
+
+  // Auto-fill lot_id once data loads (only if user hasn't typed anything)
+  useEffect(() => {
+    setForm(f => f.lot_id ? f : { ...f, lot_id: suggested });
+  }, [suggested]);
+
+  // When PO selected, derive lot from PO id if lot_id not manually set
+  function onPoChange(poId: string) {
+    setForm(f => {
+      const po = pos.find((p: any) => p.id === poId);
+      const newLot = po ? nextLotId(allProds, pos) : suggested;
+      return { ...f, po_id: poId, lot_id: f.lot_id || newLot };
+    });
+  }
+
+  const cft = cftFromM(+form.length_m / 1000, +form.width_m / 1000, +form.height_m / 1000);
+
+  function set(k: string, v: string) { setForm(f => ({ ...f, [k]: v })); }
+
+  async function submit(e: any) {
+    e.preventDefault();
+    if (!form.variety || !form.lot_id || !form.length_m || !form.width_m || !form.height_m) {
+      notify('Fill variety, lot ID and all dimensions', 'error'); return;
+    }
+    try {
+      const product = await createProduct.mutateAsync({
+        kind: 'block',
+        variety: form.variety,
+        lot_id: form.lot_id,
+        rate_paise: form.rate_paise ? Math.round(+form.rate_paise * 100) : 0,
+        stock: 1,
+        notes: form.notes || (form.po_id ? `From PO ${form.po_id}` : undefined),
+        dimensions: {
+          length_m: +form.length_m / 1000,
+          width_m: +form.width_m / 1000,
+          height_m: +form.height_m / 1000,
+        },
+      });
+      notify(`Block ${(product as any)?.product?.id ?? ''} registered at Raw Yard`, 'success');
+      // Reset but keep variety; lot will re-compute from new data
+      setForm(f => ({ ...f, lot_id: '', po_id: '', length_m: '', width_m: '', height_m: '', rate_paise: '', notes: '' }));
+    } catch (err: any) {
+      notify(err.message || 'Failed to register block', 'error');
+    }
+  }
+
+  return (
+    <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 560 }}>
+      <p style={{ margin: 0, fontSize: 13, color: 'var(--t3)' }}>
+        Register an incoming quarry block. It will be placed at <strong style={{ color: 'var(--t1)' }}>Raw Yard</strong> and available for splitting.
+      </p>
+
+      <div style={row2}>
+        <Fld label="Variety">
+          <Sel value={form.variety} onChange={e => set('variety', e.target.value)}>
+            {VARIETIES.map(v => <option key={v}>{v}</option>)}
+          </Sel>
+        </Fld>
+        <Fld label="Lot ID" hint="auto-assigned — editable">
+          <div style={{ position: 'relative' }}>
+            <Inp
+              value={form.lot_id}
+              onChange={e => set('lot_id', e.target.value)}
+              placeholder={suggested}
+              required
+              style={{ ...inputStyle, paddingRight: 72, width: '100%', boxSizing: 'border-box' }}
+            />
+            {form.lot_id !== suggested && (
+              <button
+                type="button"
+                onClick={() => set('lot_id', suggested)}
+                style={{
+                  position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
+                  background: 'var(--rustW)', color: 'var(--rust)', border: 'none',
+                  borderRadius: 4, fontSize: 10, fontWeight: 700, padding: '2px 7px', cursor: 'pointer',
+                }}
+              >reset</button>
+            )}
+          </div>
+        </Fld>
+      </div>
+
+      {pos.length > 0 && (
+        <Fld label="Link to Purchase Order (optional)">
+          <Sel value={form.po_id} onChange={e => onPoChange(e.target.value)}>
+            <option value="">— none —</option>
+            {pos.map((po: any) => (
+              <option key={po.id} value={po.id}>{po.id} · {po.variety} [{po.status}]</option>
+            ))}
+          </Sel>
+        </Fld>
+      )}
+
+      <div style={{ borderTop: '1px solid var(--bd)', paddingTop: 12 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--t3)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          Block Dimensions
+        </div>
+        <div style={row3}>
+          <Fld label="Length (mm)">
+            <Inp type="number" step="1" min="0" value={form.length_m} onChange={e => set('length_m', e.target.value)} placeholder="2440" required />
+          </Fld>
+          <Fld label="Width (mm)">
+            <Inp type="number" step="1" min="0" value={form.width_m} onChange={e => set('width_m', e.target.value)} placeholder="1220" required />
+          </Fld>
+          <Fld label="Height (mm)">
+            <Inp type="number" step="1" min="0" value={form.height_m} onChange={e => set('height_m', e.target.value)} placeholder="1220" required />
+          </Fld>
+        </div>
+        {cft > 0 && (
+          <div style={{ marginTop: 8, fontSize: 13, color: 'var(--gold)', fontWeight: 600 }}>
+            ≈ {cft} CFT
+          </div>
+        )}
+      </div>
+
+      <div style={row2}>
+        <Fld label="Rate per CFT (₹)" hint="optional">
+          <Inp type="number" min="0" value={form.rate_paise} onChange={e => set('rate_paise', e.target.value)} placeholder="500" />
+        </Fld>
+        <Fld label="Notes" hint="optional">
+          <Inp value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Any remark..." />
+        </Fld>
+      </div>
+
+      <div>
+        <button type="submit" style={btnPrimary} disabled={createProduct.isPending}>
+          {createProduct.isPending ? 'Registering…' : 'Register Block at Raw Yard'}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB 2 — SPLIT BLOCK
+// ─────────────────────────────────────────────────────────────────────────────
+function SplitBlock({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; notify: any; preselectId?: string }) {
+  const createJob = useCreateProductionJob();
+
+  const [form, setForm] = useState({
+    block_id: '',
+    sub1: { length_m: '', width_m: '', height_m: '' },
+    sub2: { length_m: '', width_m: '', height_m: '' },
+    labour_paise: '',
+    notes: '',
+  });
+
+  useEffect(() => { if (preselectId) setForm(f => ({ ...f, block_id: preselectId })); }, [preselectId]);
+
+  function set(k: string, v: any) { setForm(f => ({ ...f, [k]: v })); }
+  function setSub(n: 1|2, k: string, v: string) {
+    const key = n === 1 ? 'sub1' : 'sub2';
+    setForm(f => ({ ...f, [key]: { ...f[key], [k]: v } }));
+  }
+
+  const selectedBlock = rawBlocks.find(b => b.id === form.block_id);
+
+  async function submit(e: any) {
+    e.preventDefault();
+    if (!form.block_id) { notify('Select a block to split', 'error'); return; }
+    const { sub1, sub2 } = form;
+    if (!sub1.length_m || !sub1.width_m || !sub1.height_m || !sub2.length_m || !sub2.width_m || !sub2.height_m) {
+      notify('Enter dimensions for both sub-blocks', 'error'); return;
+    }
+    try {
+      const lot_id = selectedBlock?.lot_id || form.block_id;
+      const variety = selectedBlock?.variety || '';
+      await createJob.mutateAsync({
+        lot_id,
+        stage: 'split',
+        inputs: [{ product_id: form.block_id, qty_consumed: 1 }],
+        outputs: [
+          { kind: 'block', variety, grade: null, rate_paise: 0, qty: 1, dimensions: { length_m: +sub1.length_m / 1000, width_m: +sub1.width_m / 1000, height_m: +sub1.height_m / 1000 } },
+          { kind: 'block', variety, grade: null, rate_paise: 0, qty: 1, dimensions: { length_m: +sub2.length_m / 1000, width_m: +sub2.width_m / 1000, height_m: +sub2.height_m / 1000 } },
+        ],
+        labour_paise: form.labour_paise ? Math.round(+form.labour_paise * 100) : 0,
+        power_paise: 0,
+        consumables_paise: 0,
+        notes: form.notes || null,
+      });
+      notify('Split job created — 2 sub-blocks registered at Raw Yard', 'success');
+      setForm({ block_id: '', sub1: { length_m: '', width_m: '', height_m: '' }, sub2: { length_m: '', width_m: '', height_m: '' }, labour_paise: '', notes: '' });
+    } catch (err: any) {
+      notify(err.message || 'Failed to create split job', 'error');
+    }
+  }
+
+  const cft1 = cftFromM(+form.sub1.length_m / 1000, +form.sub1.width_m / 1000, +form.sub1.height_m / 1000);
+  const cft2 = cftFromM(+form.sub2.length_m / 1000, +form.sub2.width_m / 1000, +form.sub2.height_m / 1000);
+
+  if (rawBlocks.length === 0) {
+    return (
+      <div style={{ ...card, color: 'var(--t3)', fontSize: 13 }}>
+        No blocks available at Raw Yard. Register a block in step 1 first.
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 600 }}>
+      <p style={{ margin: 0, fontSize: 13, color: 'var(--t3)' }}>
+        Split a gangsaw block into two sub-blocks (1A and 1B). Sub-blocks stay at Raw Yard for further cutting.
+      </p>
+
+      <Fld label="Select Block">
+        <Sel value={form.block_id} onChange={e => set('block_id', e.target.value)} required>
+          <option value="">— select block —</option>
+          {rawBlocks.map((b: any) => {
+            const dims = b.dimensions || {};
+            const cft = cftFromM(dims.length_m, dims.width_m, dims.height_m);
+            return (
+              <option key={b.id} value={b.id}>
+                {b.id} · {b.variety} {b.lot_id ? `(${b.lot_id})` : ''} {cft > 0 ? `— ${cft} CFT` : ''}
+              </option>
+            );
+          })}
+        </Sel>
+      </Fld>
+
+      {selectedBlock && (
+        <div style={{ fontSize: 12, color: 'var(--t3)', marginTop: -8 }}>
+          Variety: <strong style={{ color: 'var(--t1)' }}>{selectedBlock.variety}</strong>
+          {selectedBlock.dimensions?.length_m && (
+            <> · {cftFromM(selectedBlock.dimensions.length_m, selectedBlock.dimensions.width_m, selectedBlock.dimensions.height_m)} CFT</>
+          )}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 12 }}>
+        {/* Sub-block 1A */}
+        <div style={{ flex: 1, ...card, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--rust)' }}>Sub-block 1A</div>
+          <div style={row3}>
+            <Fld label="Length (mm)">
+              <Inp type="number" step="1" min="0" value={form.sub1.length_m} onChange={e => setSub(1, 'length_m', e.target.value)} placeholder="2440" required />
+            </Fld>
+            <Fld label="Width (mm)">
+              <Inp type="number" step="1" min="0" value={form.sub1.width_m} onChange={e => setSub(1, 'width_m', e.target.value)} placeholder="1220" required />
+            </Fld>
+            <Fld label="Height (mm)">
+              <Inp type="number" step="1" min="0" value={form.sub1.height_m} onChange={e => setSub(1, 'height_m', e.target.value)} placeholder="600" required />
+            </Fld>
+          </div>
+          {cft1 > 0 && <div style={{ fontSize: 12, color: 'var(--gold)' }}>≈ {cft1} CFT</div>}
+        </div>
+        {/* Sub-block 1B */}
+        <div style={{ flex: 1, ...card, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--rust)' }}>Sub-block 1B</div>
+          <div style={row3}>
+            <Fld label="Length (mm)">
+              <Inp type="number" step="1" min="0" value={form.sub2.length_m} onChange={e => setSub(2, 'length_m', e.target.value)} placeholder="2440" required />
+            </Fld>
+            <Fld label="Width (mm)">
+              <Inp type="number" step="1" min="0" value={form.sub2.width_m} onChange={e => setSub(2, 'width_m', e.target.value)} placeholder="1220" required />
+            </Fld>
+            <Fld label="Height (mm)">
+              <Inp type="number" step="1" min="0" value={form.sub2.height_m} onChange={e => setSub(2, 'height_m', e.target.value)} placeholder="600" required />
+            </Fld>
+          </div>
+          {cft2 > 0 && <div style={{ fontSize: 12, color: 'var(--gold)' }}>≈ {cft2} CFT</div>}
+        </div>
+      </div>
+
+      <div style={row2}>
+        <Fld label="Labour Cost (₹)" hint="optional">
+          <Inp type="number" min="0" value={form.labour_paise} onChange={e => set('labour_paise', e.target.value)} placeholder="0" />
+        </Fld>
+        <Fld label="Notes" hint="optional">
+          <Inp value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Any remark..." />
+        </Fld>
+      </div>
+
+      <div>
+        <button type="submit" style={btnPrimary} disabled={createJob.isPending}>
+          {createJob.isPending ? 'Creating…' : 'Create Split Job'}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB 3 — CUT (GANGSAW) — slab or tile output
+// ─────────────────────────────────────────────────────────────────────────────
+function CutSlabs({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; notify: any; preselectId?: string }) {
+  const createJob = useCreateProductionJob();
+
+  const [outputKind, setOutputKind] = useState<'slab' | 'tile'>('slab');
+  const [form, setForm] = useState({
+    block_id: '',
+    count: '',
+    // slab fields
+    slab_size: SLAB_SIZES[4] || '2600×1600',
+    slab_thickness: '20',
+    // tile fields
+    tile_size: TILE_SIZES[3] || '600×600',
+    tile_thickness: '18',
+    // shared
+    grade: 'A',
+    rate_rs: '',
+    labour_paise: '',
+    power_paise: '',
+    notes: '',
+  });
+
+  useEffect(() => { if (preselectId) setForm(f => ({ ...f, block_id: preselectId })); }, [preselectId]);
+
+  function set(k: string, v: string) { setForm(f => ({ ...f, [k]: v })); }
+
+  const selectedBlock = rawBlocks.find(b => b.id === form.block_id);
+
+  const isSlab = outputKind === 'slab';
+  const size   = isSlab ? form.slab_size : form.tile_size;
+  const sqft   = sqftFromSize(size);
+
+  function buildOutput() {
+    const variety = selectedBlock?.variety || '';
+    const rate_paise = Math.round(+form.rate_rs * 100);
+    const qty = +form.count;
+    if (isSlab) {
+      return {
+        kind: 'slab', variety, grade: form.grade, rate_paise, qty,
+        dimensions: { size_lw: form.slab_size, thickness_mm: +form.slab_thickness, sqft },
+      };
+    }
+    return {
+      kind: 'tile', variety, grade: form.grade, rate_paise, qty,
+      dimensions: {
+        size_lw: form.tile_size,
+        thickness_mm: +form.tile_thickness,
+        sqft_per_tile: sqft,
+        pieces_per_box: STANDARD_SPECS.tile.pieces_per_box[form.tile_size] || 1,
+      },
+    };
+  }
+
+  async function submit(e: any) {
+    e.preventDefault();
+    if (!form.block_id) { notify('Select a block to cut', 'error'); return; }
+    if (!form.count || +form.count < 1) { notify('Enter piece count', 'error'); return; }
+    if (!form.rate_rs) { notify('Enter rate per sqft', 'error'); return; }
+    try {
+      const lot_id = selectedBlock?.lot_id || form.block_id;
+      await createJob.mutateAsync({
+        lot_id,
+        stage: 'cut',
+        inputs: [{ product_id: form.block_id, qty_consumed: 1 }],
+        outputs: [buildOutput()],
+        labour_paise: form.labour_paise ? Math.round(+form.labour_paise * 100) : 0,
+        power_paise:  form.power_paise  ? Math.round(+form.power_paise  * 100) : 0,
+        consumables_paise: 0,
+        notes: form.notes || null,
+      });
+      notify(`Cut job done — ${form.count} ${outputKind}s at Gangsaw Out`, 'success');
+      setForm(f => ({ ...f, block_id: '', count: '', notes: '' }));
+    } catch (err: any) {
+      notify(err.message || 'Failed to create cut job', 'error');
+    }
+  }
+
+  if (rawBlocks.length === 0) {
+    return (
+      <div style={{ ...card, color: 'var(--t3)', fontSize: 13 }}>
+        No blocks available at Raw Yard. Register and optionally split a block first.
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 560 }}>
+      <p style={{ margin: 0, fontSize: 13, color: 'var(--t3)' }}>
+        Gangsaw cut job — produces <strong style={{ color: 'var(--t1)' }}>slabs</strong> or <strong style={{ color: 'var(--t1)' }}>tiles</strong>. Output lands at <strong style={{ color: 'var(--t1)' }}>Gangsaw Out</strong>.
+      </p>
+
+      {/* Output kind toggle */}
+      <div style={{ display: 'flex', gap: 6 }}>
+        {(['slab', 'tile'] as const).map(k => (
+          <button key={k} type="button"
+            onClick={() => setOutputKind(k)}
+            style={{
+              padding: '5px 16px', borderRadius: 5, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              background: outputKind === k ? 'var(--gold)' : 'var(--bg2)',
+              color: outputKind === k ? '#fff' : 'var(--t2)',
+              border: `1px solid ${outputKind === k ? 'var(--gold)' : 'var(--bd)'}`,
+            }}
+          >{k === 'slab' ? 'Slab' : 'Tile'}</button>
+        ))}
+      </div>
+
+      <Fld label="Select Block">
+        <Sel value={form.block_id} onChange={e => set('block_id', e.target.value)} required>
+          <option value="">— select block —</option>
+          {rawBlocks.map((b: any) => {
+            const dims = b.dimensions || {};
+            const cft = cftFromM(dims.length_m, dims.width_m, dims.height_m);
+            return (
+              <option key={b.id} value={b.id}>
+                {b.id} · {b.variety} {b.lot_id ? `(${b.lot_id})` : ''} {cft > 0 ? `— ${cft} CFT` : ''}
+              </option>
+            );
+          })}
+        </Sel>
+      </Fld>
+
+      <div style={row2}>
+        <Fld label={`${isSlab ? 'Slab' : 'Tile'} Count (pieces)`} hint={isSlab ? '10–75 typically' : 'from one block'}>
+          <Inp type="number" min="1" max="5000" value={form.count}
+            onChange={e => set('count', e.target.value)}
+            placeholder={isSlab ? '25' : '200'} required />
+        </Fld>
+
+        {isSlab ? (
+          <Fld label="Slab Size">
+            <Sel value={form.slab_size} onChange={e => set('slab_size', e.target.value)}>
+              {SLAB_SIZES.map(s => (
+                <option key={s} value={s}>{s} ({sqftFromSize(s)} sqft)</option>
+              ))}
+            </Sel>
+          </Fld>
+        ) : (
+          <Fld label="Tile Size">
+            <Sel value={form.tile_size} onChange={e => set('tile_size', e.target.value)}>
+              {TILE_SIZES.map(s => (
+                <option key={s} value={s}>{s} ({sqftFromSize(s)} sqft/tile)</option>
+              ))}
+            </Sel>
+          </Fld>
+        )}
+      </div>
+
+      <div style={row3}>
+        <Fld label="Thickness (mm)">
+          {isSlab ? (
+            <Sel value={form.slab_thickness} onChange={e => set('slab_thickness', e.target.value)}>
+              {SLAB_THICKNESSES.map(t => <option key={t} value={t}>{t} mm</option>)}
+            </Sel>
+          ) : (
+            <Sel value={form.tile_thickness} onChange={e => set('tile_thickness', e.target.value)}>
+              {TILE_THICKNESSES.map(t => <option key={t} value={t}>{t} mm</option>)}
+            </Sel>
+          )}
+        </Fld>
+        <Fld label="Grade">
+          <Sel value={form.grade} onChange={e => set('grade', e.target.value)}>
+            {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
+          </Sel>
+        </Fld>
+        <Fld label="Rate per sqft (₹)" hint="selling rate">
+          <Inp type="number" min="0" step="0.01" value={form.rate_rs}
+            onChange={e => set('rate_rs', e.target.value)} placeholder="420" required />
+        </Fld>
+      </div>
+
+      {sqft > 0 && form.count && form.rate_rs && (
+        <div style={{ ...card, background: 'var(--bg2)', fontSize: 12, color: 'var(--t2)' }}>
+          {form.count} {outputKind}s × {sqft} sqft × ₹{form.rate_rs}/sqft
+          {' = '}
+          <strong style={{ color: 'var(--sage)' }}>
+            ₹{(+form.count * sqft * +form.rate_rs).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+          </strong> total value
+        </div>
+      )}
+
+      <div style={row2}>
+        <Fld label="Labour Cost (₹)" hint="optional">
+          <Inp type="number" min="0" value={form.labour_paise} onChange={e => set('labour_paise', e.target.value)} placeholder="0" />
+        </Fld>
+        <Fld label="Power Cost (₹)" hint="optional">
+          <Inp type="number" min="0" value={form.power_paise} onChange={e => set('power_paise', e.target.value)} placeholder="0" />
+        </Fld>
+      </div>
+
+      <Fld label="Notes" hint="optional">
+        <Inp value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="e.g. gangsaw machine #2" />
+      </Fld>
+
+      <div>
+        <button type="submit" style={btnPrimary} disabled={createJob.isPending}>
+          {createJob.isPending ? 'Creating…' : `Create Cut Job → ${isSlab ? 'Slabs' : 'Tiles'}`}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB 4 — POLISH & GRADE
+// ─────────────────────────────────────────────────────────────────────────────
+function PolishGrade({ gangsawSlabs, notify, preselectId }: { gangsawSlabs: any[]; notify: any; preselectId?: string }) {
+  const createJob = useCreateProductionJob();
+
+  const [form, setForm] = useState({
+    slab_id: '',
+    out_qty: '',
+    grade: 'A',
+    rate_rs: '',
+    labour_paise: '',
+    notes: '',
+  });
+
+  useEffect(() => { if (preselectId) setForm(f => ({ ...f, slab_id: preselectId })); }, [preselectId]);
+
+  function set(k: string, v: string) { setForm(f => ({ ...f, [k]: v })); }
+
+  const selectedSlab = gangsawSlabs.find(s => s.id === form.slab_id);
+
+  async function submit(e: any) {
+    e.preventDefault();
+    if (!form.slab_id) { notify('Select a slab batch to polish', 'error'); return; }
+    if (!form.out_qty || +form.out_qty < 1) { notify('Enter output quantity', 'error'); return; }
+    if (!form.rate_rs) { notify('Enter rate per sqft', 'error'); return; }
+    const lot_id = selectedSlab?.lot_id || form.slab_id;
+    const variety = selectedSlab?.variety || '';
+    const dims = selectedSlab?.dimensions || {};
+    const isTile = selectedSlab?.kind === 'tile';
+    try {
+      await createJob.mutateAsync({
+        lot_id,
+        stage: 'polish',
+        inputs: [{ product_id: form.slab_id, qty_consumed: selectedSlab?.stock || +form.out_qty }],
+        outputs: [{
+          kind: isTile ? 'tile' : 'slab',
+          variety,
+          grade: form.grade,
+          rate_paise: Math.round(+form.rate_rs * 100),
+          qty: +form.out_qty,
+          dimensions: isTile ? {
+            size_lw: dims.size_lw || '600×600',
+            thickness_mm: dims.thickness_mm || 18,
+            sqft_per_tile: dims.sqft_per_tile || sqftFromSize(dims.size_lw || '600×600'),
+            pieces_per_box: dims.pieces_per_box || 1,
+          } : {
+            size_lw: dims.size_lw || '2600×1600',
+            thickness_mm: dims.thickness_mm || 20,
+            sqft: dims.sqft || sqftFromSize(dims.size_lw || '2600×1600'),
+          },
+        }],
+        labour_paise: form.labour_paise ? Math.round(+form.labour_paise * +form.out_qty * 100) : 0,
+        power_paise: 0,
+        consumables_paise: 0,
+        notes: form.notes || null,
+      });
+      notify(`Polish job done — ${form.out_qty} ${isTile ? 'tile' : 'slab'}(s) at Finished Yard`, 'success');
+      setForm(f => ({ ...f, slab_id: '', out_qty: '', notes: '' }));
+    } catch (err: any) {
+      notify(err.message || 'Failed to create polish job', 'error');
+    }
+  }
+
+  if (gangsawSlabs.length === 0) {
+    return (
+      <div style={{ ...card, color: 'var(--t3)', fontSize: 13 }}>
+        No slabs or tiles at Gangsaw Out. Complete a cut job first (step 3).
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 500 }}>
+      <p style={{ margin: 0, fontSize: 13, color: 'var(--t3)' }}>
+        Run polishing on rough slabs or tiles. Graded output moves to <strong style={{ color: 'var(--t1)' }}>Finished Yard</strong>.
+      </p>
+
+      <Fld label="Select Slab / Tile Batch (from Gangsaw Out)">
+        <Sel value={form.slab_id} onChange={e => set('slab_id', e.target.value)} required>
+          <option value="">— select batch —</option>
+          {gangsawSlabs.map((s: any) => {
+            const dims = s.dimensions || {};
+            return (
+              <option key={s.id} value={s.id}>
+                {s.id} [{s.kind}] · {s.variety} {dims.size_lw ? `${dims.size_lw}` : ''} {dims.thickness_mm ? `${dims.thickness_mm}mm` : ''} {s.grade ? `[${s.grade}]` : ''} · {s.stock} pcs
+              </option>
+            );
+          })}
+        </Sel>
+      </Fld>
+
+      {selectedSlab && (
+        <div style={{ fontSize: 12, color: 'var(--t3)' }}>
+          Available: <strong style={{ color: 'var(--t1)' }}>{selectedSlab.stock} pcs</strong>
+          {selectedSlab.dimensions?.size_lw && <> · {selectedSlab.dimensions.size_lw} · {selectedSlab.dimensions.thickness_mm}mm</>}
+        </div>
+      )}
+
+      <div style={row3}>
+        <Fld label="Output Quantity" hint="pieces after polishing">
+          <Inp type="number" min="1" value={form.out_qty}
+            max={selectedSlab?.stock || undefined}
+            onChange={e => set('out_qty', e.target.value)}
+            placeholder={selectedSlab ? String(selectedSlab.stock) : '15'} required />
+        </Fld>
+        <Fld label="Grade after polishing">
+          <Sel value={form.grade} onChange={e => set('grade', e.target.value)}>
+            {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
+          </Sel>
+        </Fld>
+        <Fld label="Rate per sqft (₹)">
+          <Inp type="number" min="0" step="0.01" value={form.rate_rs} onChange={e => set('rate_rs', e.target.value)} placeholder="500" required />
+        </Fld>
+      </div>
+
+      <div style={row2}>
+        <Fld label="Labour Cost per piece (₹)"
+          hint={form.labour_paise && form.out_qty
+            ? `Total: ₹${(+form.labour_paise * +form.out_qty).toLocaleString('en-IN')}`
+            : 'per slab / tile — multiplied by output qty'}>
+          <Inp type="number" min="0" step="0.01" value={form.labour_paise} onChange={e => set('labour_paise', e.target.value)} placeholder="90" />
+        </Fld>
+        <Fld label="Notes" hint="optional">
+          <Inp value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Any remark..." />
+        </Fld>
+      </div>
+
+      <div>
+        <button type="submit" style={btnPrimary} disabled={createJob.isPending}>
+          {createJob.isPending ? 'Creating…' : 'Create Polish Job'}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB 5 — ROUTE TO SALE
+// ─────────────────────────────────────────────────────────────────────────────
+function RouteToSale({ finishedSlabs, notify, preselectId }: { finishedSlabs: any[]; notify: any; preselectId?: string }) {
+  const moveProduct = useMoveProduct();
+  const [selected, setSelected] = useState<string[]>([]);
+  const [destination, setDestination] = useState('SHOWROOM');
+  const [moving, setMoving] = useState(false);
+
+  useEffect(() => {
+    if (preselectId) setSelected(s => s.includes(preselectId) ? s : [...s, preselectId]);
+  }, [preselectId]);
+
+  function toggleSlab(id: string) {
+    setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
+  }
+  function toggleAll() {
+    setSelected(s => s.length === finishedSlabs.length ? [] : finishedSlabs.map(s => s.id));
+  }
+
+  async function doMove() {
+    if (!selected.length) { notify('Select at least one slab', 'error'); return; }
+    setMoving(true);
+    try {
+      await Promise.all(selected.map(id =>
+        moveProduct.mutateAsync({ id, data: { to_location_id: destination, move_type: 'move' } })
+      ));
+      notify(`${selected.length} slab(s) moved to ${destination}`, 'success');
+      setSelected([]);
+    } catch (err: any) {
+      notify(err.message || 'Failed to move slabs', 'error');
+    } finally {
+      setMoving(false);
+    }
+  }
+
+  if (finishedSlabs.length === 0) {
+    return (
+      <div style={{ ...card, color: 'var(--t3)', fontSize: 13 }}>
+        No slabs at Finished Yard. Complete a polish job first (step 4).
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 640 }}>
+      <p style={{ margin: 0, fontSize: 13, color: 'var(--t3)' }}>
+        Move finished slabs to <strong style={{ color: 'var(--t1)' }}>Showroom</strong> or another location for sale.
+      </p>
+
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+        <Fld label="Destination">
+          <Sel value={destination} onChange={e => setDestination(e.target.value)} style={{ ...selectStyle, minWidth: 160 }}>
+            <option value="SHOWROOM">Showroom</option>
+            <option value="FINISHED_YARD">Finished Yard</option>
+            <option value="RAW_YARD">Raw Yard</option>
+          </Sel>
+        </Fld>
+        <div style={{ marginTop: 20 }}>
+          <button type="button" style={btnSecondary} onClick={toggleAll}>
+            {selected.length === finishedSlabs.length ? 'Deselect All' : 'Select All'}
+          </button>
+        </div>
+        <div style={{ marginTop: 20 }}>
+          <button type="button" style={btnPrimary} onClick={doMove} disabled={moving || !selected.length}>
+            {moving ? 'Moving…' : `Move ${selected.length || ''} Slab(s)`}
+          </button>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {finishedSlabs.map((s: any) => {
+          const dims = s.dimensions || {};
+          const sel = selected.includes(s.id);
+          return (
+            <div
+              key={s.id}
+              onClick={() => toggleSlab(s.id)}
+              style={{
+                ...card, cursor: 'pointer', padding: '10px 16px',
+                borderColor: sel ? 'var(--rust)' : 'var(--bd)',
+                background: sel ? 'var(--rustW)' : 'var(--bg1)',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              }}
+            >
+              <div>
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--t1)' }}>{s.id}</span>
+                <span style={{ fontSize: 12, color: 'var(--t3)', marginLeft: 10 }}>
+                  {s.variety} · {dims.size_lw || ''} · {s.grade || ''} · {s.stock} pcs
+                </span>
+              </div>
+              <div style={{
+                width: 18, height: 18, borderRadius: 4,
+                border: `2px solid ${sel ? 'var(--rust)' : 'var(--bd)'}`,
+                background: sel ? 'var(--rust)' : 'transparent',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                {sel && <span style={{ color: '#fff', fontSize: 11 }}>✓</span>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB 6 — JOB HISTORY
+// ─────────────────────────────────────────────────────────────────────────────
+function JobHistory({ jobs, isLoading }: { jobs: any[]; isLoading: boolean }) {
+  const [search, setSearch] = useState('');
+  const [stageFilter, setStageFilter] = useState('all');
+
+  const filtered = jobs.filter(j => {
+    const matchStage = stageFilter === 'all' || j.stage === stageFilter;
+    const q = search.toLowerCase();
+    const matchSearch = !search
+      || j.id?.toLowerCase().includes(q)
+      || j.lot_id?.toLowerCase().includes(q)
+      || j.stage?.toLowerCase().includes(q)
+      || j.status?.toLowerCase().includes(q);
+    return matchStage && matchSearch;
+  });
+
+  const thStyle: React.CSSProperties = {
+    textAlign: 'left', padding: '8px 12px', fontSize: 11, fontWeight: 700,
+    color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '0.04em',
+    borderBottom: '1px solid var(--bd)', background: 'var(--bg2)',
+  };
+  const tdStyle: React.CSSProperties = {
+    padding: '8px 12px', fontSize: 12, color: 'var(--t2)', borderBottom: '1px solid var(--bd)',
+  };
+
+  function statusColor(s: string) {
+    if (s === 'Complete') return 'var(--sage)';
+    if (s === 'In Progress') return 'var(--amber)';
+    if (s === 'Cancelled') return 'var(--red)';
+    return 'var(--t3)';
+  }
+
+  function stageBadge(stage: string) {
+    const colors: Record<string, string> = {
+      split: 'var(--blue)', cut: 'var(--amber)', polish: 'var(--sage)', done: 'var(--rust)',
+    };
+    return (
+      <span style={{
+        background: 'var(--bg2)', color: colors[stage] || 'var(--t3)',
+        padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 700,
+      }}>{stage}</span>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <Inp value={search} onChange={e => setSearch(e.target.value)} placeholder="Search jobs…" style={{ ...inputStyle, minWidth: 200 }} />
+        <Sel value={stageFilter} onChange={e => setStageFilter(e.target.value)}>
+          <option value="all">All stages</option>
+          <option value="split">Split</option>
+          <option value="cut">Cut</option>
+          <option value="polish">Polish</option>
+          <option value="done">Done</option>
+        </Sel>
+      </div>
+
+      {isLoading ? (
+        <div style={{ color: 'var(--t3)', fontSize: 13 }}>Loading…</div>
+      ) : (
+        <div style={{ overflowX: 'auto', borderRadius: 8, border: '1px solid var(--bd)' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 700 }}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Job ID</th>
+                <th style={thStyle}>Date</th>
+                <th style={thStyle}>Lot</th>
+                <th style={thStyle}>Stage</th>
+                <th style={thStyle}>Status</th>
+                <th style={thStyle}>Inputs</th>
+                <th style={thStyle}>Outputs</th>
+                <th style={thStyle}>Cost</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr><td colSpan={8} style={{ ...tdStyle, textAlign: 'center', color: 'var(--t3)' }}>No jobs found</td></tr>
+              ) : (
+                filtered.map((j: any) => {
+                  const cost = (j.labour_paise || 0) + (j.power_paise || 0) + (j.consumables_paise || 0);
+                  const inputsSummary = (j.inputs || []).map((i: any) => `${i.product_id} (${i.qty_consumed})`).join(', ');
+                  const outputsSummary = (j.outputs || []).map((o: any) => `${o.product_id} (${o.qty_produced})`).join(', ');
+                  return (
+                    <tr key={j.id} style={{ background: 'var(--bg1)' }}>
+                      <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--t1)', fontFamily: 'monospace', fontSize: 11 }}>{j.id}</td>
+                      <td style={tdStyle}>{j.date}</td>
+                      <td style={tdStyle}>{j.lot_id}</td>
+                      <td style={tdStyle}>{stageBadge(j.stage)}</td>
+                      <td style={{ ...tdStyle, fontWeight: 600, color: statusColor(j.status) }}>{j.status}</td>
+                      <td style={{ ...tdStyle, fontSize: 11, color: 'var(--t3)', maxWidth: 180 }}>{inputsSummary}</td>
+                      <td style={{ ...tdStyle, fontSize: 11, color: 'var(--t3)', maxWidth: 180 }}>{outputsSummary}</td>
+                      <td style={tdStyle}>{cost > 0 ? `₹${(cost / 100).toLocaleString('en-IN')}` : '—'}</td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PIPELINE INVENTORY TABLE
+// ─────────────────────────────────────────────────────────────────────────────
+const STAGE_META: Record<string, { label: string; color: string; step: string }> = {
+  RAW_YARD:      { label: 'Raw Yard',     color: 'var(--rust)',  step: '①' },
+  GANGSAW_OUT:   { label: 'Gangsaw Out',  color: 'var(--amber)', step: '③' },
+  GANGSAW_IN:    { label: 'Gangsaw In',   color: 'var(--blue)',  step: '②' },
+  FINISHED_YARD: { label: 'Finished Yard',color: 'var(--sage)',  step: '④' },
+  SHOWROOM:      { label: 'Showroom',     color: 'var(--gold)',  step: '⑤' },
+};
+
+function PipelineInventory({ groups, onAction }: { groups: Record<string, any[]>; onAction?: (tab: string, productId: string) => void }) {
+  const [open, setOpen] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(Object.keys(STAGE_META).map(k => [k, true]))
+  );
+
+  const thStyle: React.CSSProperties = {
+    textAlign: 'left', padding: '6px 10px', fontSize: 11, fontWeight: 700,
+    color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '0.04em',
+    background: 'var(--bg2)', borderBottom: '1px solid var(--bd)',
+  };
+  const tdStyle: React.CSSProperties = {
+    padding: '7px 10px', fontSize: 12, color: 'var(--t2)', borderBottom: '1px solid var(--bd)',
+    whiteSpace: 'nowrap',
+  };
+
+  const stageActions: Record<string, Array<{ label: string; tab: string; color: string }>> = {
+    RAW_YARD:      [{ label: 'Split →', tab: 'split', color: 'var(--amber)' }, { label: 'Cut →', tab: 'cut', color: 'var(--rust)' }],
+    GANGSAW_IN:    [{ label: 'Cut →',   tab: 'cut',   color: 'var(--rust)' }],
+    GANGSAW_OUT:   [{ label: 'Polish →', tab: 'polish', color: 'var(--sage)' }],
+    FINISHED_YARD: [{ label: 'Route →', tab: 'route',  color: 'var(--gold)' }],
+    SHOWROOM:      [],
+  };
+
+  const stageOrder = ['RAW_YARD','GANGSAW_IN','GANGSAW_OUT','FINISHED_YARD','SHOWROOM'];
+  const anyData = stageOrder.some(s => (groups[s] || []).length > 0);
+
+  if (!anyData) {
+    return (
+      <div style={{ ...card, color: 'var(--t3)', fontSize: 13, textAlign: 'center', padding: 28 }}>
+        No production inventory yet — register your first block in step 1.
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {stageOrder.map(stageKey => {
+        const rows = groups[stageKey] || [];
+        if (!rows.length) return null;
+        const meta = STAGE_META[stageKey];
+        const isOpen = open[stageKey] !== false;
+        return (
+          <div key={stageKey} style={{ border: '1px solid var(--bd)', borderRadius: 8, overflow: 'hidden' }}>
+            {/* Stage header */}
+            <div
+              onClick={() => setOpen(o => ({ ...o, [stageKey]: !isOpen }))}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '8px 14px', cursor: 'pointer',
+                background: 'var(--bg2)', borderBottom: isOpen ? '1px solid var(--bd)' : 'none',
+              }}
+            >
+              <span style={{ fontSize: 16 }}>{meta.step}</span>
+              <span style={{ fontWeight: 700, fontSize: 13, color: meta.color }}>{meta.label}</span>
+              <span style={{
+                marginLeft: 4, background: meta.color, color: '#fff',
+                borderRadius: 20, fontSize: 10, fontWeight: 700, padding: '1px 8px',
+              }}>{rows.length} record{rows.length > 1 ? 's' : ''}</span>
+              <span style={{ marginLeft: 'auto', color: 'var(--t3)', fontSize: 12 }}>{isOpen ? '▲' : '▼'}</span>
+            </div>
+
+            {isOpen && (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>
+                      <th style={thStyle}>Product ID</th>
+                      <th style={thStyle}>Lot</th>
+                      <th style={thStyle}>Kind</th>
+                      <th style={thStyle}>Variety</th>
+                      <th style={thStyle}>Dimensions</th>
+                      <th style={thStyle}>Grade</th>
+                      <th style={{ ...thStyle, textAlign: 'right' }}>Stock</th>
+                      <th style={{ ...thStyle, textAlign: 'right' }}>Rate</th>
+                      <th style={{ ...thStyle, textAlign: 'center' }}>Label</th>
+                      {onAction && (stageActions[stageKey] || []).length > 0 && <th style={{ ...thStyle, textAlign: 'center' }}>Action</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((p: any) => {
+                      const d = p.dimensions || {};
+                      let dimStr = '';
+                      if (p.kind === 'block') {
+                        const lmm = d.length_m ? Math.round(d.length_m * 1000) : null;
+                        const wmm = d.width_m  ? Math.round(d.width_m  * 1000) : null;
+                        const hmm = d.height_m ? Math.round(d.height_m * 1000) : null;
+                        if (lmm && wmm && hmm) {
+                          const cft = cftFromM(d.length_m, d.width_m, d.height_m);
+                          dimStr = `${lmm}×${wmm}×${hmm} mm · ${cft} CFT`;
+                        }
+                      } else if (d.size_lw) {
+                        dimStr = `${d.size_lw} · ${d.thickness_mm || '?'}mm`;
+                        if (d.sqft)          dimStr += ` · ${d.sqft} sqft`;
+                        if (d.sqft_per_tile) dimStr += ` · ${d.sqft_per_tile} sqft/tile`;
+                      }
+                      return (
+                        <tr key={p.id} style={{ background: 'var(--bg1)' }}>
+                          <td style={{ ...tdStyle, fontFamily: 'monospace', fontSize: 11, color: 'var(--t1)', fontWeight: 600 }}>{p.id}</td>
+                          <td style={{ ...tdStyle, color: 'var(--gold)', fontWeight: 600 }}>{p.lot_id || '—'}</td>
+                          <td style={tdStyle}>
+                            <span style={{
+                              background: 'var(--bg2)', color: meta.color,
+                              padding: '2px 7px', borderRadius: 10, fontSize: 10, fontWeight: 700,
+                            }}>{p.kind}</span>
+                          </td>
+                          <td style={tdStyle}>{p.variety}</td>
+                          <td style={{ ...tdStyle, color: 'var(--t3)', fontSize: 11 }}>{dimStr || '—'}</td>
+                          <td style={{ ...tdStyle, fontWeight: 700, color: p.grade === 'A+' ? 'var(--sage)' : p.grade === 'B' ? 'var(--amber)' : 'var(--t2)' }}>
+                            {p.grade || '—'}
+                          </td>
+                          <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 700, color: 'var(--t1)' }}>{p.stock}</td>
+                          <td style={{ ...tdStyle, textAlign: 'right', color: 'var(--t3)' }}>
+                            {p.rate_paise ? `₹${(p.rate_paise / 100).toLocaleString('en-IN')}` : '—'}
+                          </td>
+                          <td style={{ ...tdStyle, textAlign: 'center' }}>
+                            <button onClick={() => printLabel(p)} title="Print QR label" style={{
+                              background: 'transparent', border: '1px solid var(--bd)',
+                              color: 'var(--t3)', borderRadius: 4, padding: '2px 7px',
+                              fontSize: 11, cursor: 'pointer',
+                            }}>🏷</button>
+                          </td>
+                          {onAction && (stageActions[stageKey] || []).length > 0 && (
+                            <td style={{ ...tdStyle, textAlign: 'center' }}>
+                              <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
+                                {(stageActions[stageKey] || []).map(({ label, tab, color }) => (
+                                  <button key={tab} onClick={() => onAction(tab, p.id)} style={{
+                                    background: 'transparent', border: `1px solid ${color}`,
+                                    color, borderRadius: 4, padding: '2px 8px',
+                                    fontSize: 11, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
+                                  }}>{label}</button>
+                                ))}
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN PAGE
+// ─────────────────────────────────────────────────────────────────────────────
+export function ProductionPage() {
+  const [tab, setTab] = useState<Tab>('receive');
+  const [preselectId, setPreselectId] = useState<string | undefined>();
+  const workflowRef = React.useRef<HTMLDivElement>(null);
+  const { notify } = useToastStore();
+
+  function handleAction(nextTab: string, productId: string) {
+    setPreselectId(productId);
+    setTab(nextTab as Tab);
+    setTimeout(() => workflowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  }
+
+  const { data: rawBlocksData }   = useProducts({ kind: 'block', location: 'RAW_YARD',      minStock: 1 });
+  const { data: gangsawOutSlabs } = useProducts({ kind: 'slab',  location: 'GANGSAW_OUT',   minStock: 1 });
+  const { data: gangsawOutTiles } = useProducts({ kind: 'tile',  location: 'GANGSAW_OUT',   minStock: 1 });
+  // combine for polish step
+  const gangsawOutDataProducts = [...(gangsawOutSlabs?.products || []), ...(gangsawOutTiles?.products || [])];
+  // alias for pipeline card
+  const gangsawOutData = { products: gangsawOutDataProducts };
+  const { data: finishedSlabsData } = useProducts({ kind: 'slab',  location: 'FINISHED_YARD', minStock: 1 });
+  const { data: finishedTilesData } = useProducts({ kind: 'tile',  location: 'FINISHED_YARD', minStock: 1 });
+  const { data: showroomSlabsData } = useProducts({ kind: 'slab',  location: 'SHOWROOM',      minStock: 1 });
+  const { data: showroomTilesData } = useProducts({ kind: 'tile',  location: 'SHOWROOM',      minStock: 1 });
+  const { data: jobsData, isLoading: jobsLoading } = useProductionJobs({});
+
+  const rawBlocks     = rawBlocksData?.products || [];
+  const gangsawSlabs  = gangsawOutData?.products || [];
+  const finishedSlabs = [...(finishedSlabsData?.products || []), ...(finishedTilesData?.products || [])];
+  const showroomSlabs = [...(showroomSlabsData?.products || []), ...(showroomTilesData?.products || [])];
+  const jobs          = jobsData?.jobs          || [];
+
+  const pipelineGroups = useMemo(() => ({
+    RAW_YARD:      rawBlocks,
+    GANGSAW_OUT:   gangsawSlabs,
+    FINISHED_YARD: finishedSlabs,
+    SHOWROOM:      showroomSlabs,
+  }), [rawBlocks, gangsawSlabs, finishedSlabs, showroomSlabs]);
+
+  return (
+    <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {/* Header */}
+      <div>
+        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: 'var(--t1)' }}>Production</h1>
+        <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--t3)' }}>Granite processing pipeline — from quarry block to finished slab</p>
+      </div>
+
+      {/* Pipeline overview */}
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <StatCard label="Blocks @ Raw Yard"  count={rawBlocks.length}    color="var(--rust)" />
+        <StatCard label="Gangsaw Out" count={gangsawSlabs.reduce((s, p) => s + (p.stock || 0), 0)} sub={`${gangsawSlabs.length} batches (slab+tile)`} color="var(--amber)" />
+        <StatCard label="Finished Yard"       count={finishedSlabs.reduce((s, p) => s + (p.stock || 0), 0)} sub={`${finishedSlabs.length} batches`} color="var(--sage)" />
+        <StatCard label="In Showroom"         count={showroomSlabs.reduce((s, p) => s + (p.stock || 0), 0)} sub={`${showroomSlabs.length} batches`} color="var(--gold)" />
+        <StatCard label="Total Jobs"          count={jobs.length} color="var(--blue)" />
+      </div>
+
+      {/* Pipeline inventory */}
+      <PipelineInventory groups={pipelineGroups} onAction={handleAction} />
+
+      {/* Workflow tabs */}
+      <div ref={workflowRef} style={card}>
+        <TabBar active={tab} onChange={t => { setTab(t); setPreselectId(undefined); }} />
+        <div>
+          {tab === 'receive'  && <ReceiveBlock notify={notify} />}
+          {tab === 'split'    && <SplitBlock rawBlocks={rawBlocks} notify={notify} preselectId={preselectId} />}
+          {tab === 'cut'      && <CutSlabs rawBlocks={rawBlocks} notify={notify} preselectId={preselectId} />}
+          {tab === 'polish'   && <PolishGrade gangsawSlabs={gangsawSlabs} notify={notify} preselectId={preselectId} />}
+          {tab === 'route'    && <RouteToSale finishedSlabs={finishedSlabs} notify={notify} preselectId={preselectId} />}
+          {tab === 'history'  && <JobHistory jobs={jobs} isLoading={jobsLoading} />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default ProductionPage;

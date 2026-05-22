@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  modernex:
+    build: .
+    container_name: modernex
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      DB_PATH: /app/data/modernex.db
+      JWT_SECRET: ${JWT_SECRET:?must be set}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080}
+      AZURE_STORAGE_CONNECTION_STRING: ${AZURE_STORAGE_CONNECTION_STRING:-}
+      AZURE_BLOB_CONTAINER: ${AZURE_BLOB_CONTAINER:-backups}
+      COMPANY_NAME: ${COMPANY_NAME:-Modernex Stones LLP}
+      COMPANY_UPI: ${COMPANY_UPI:-modernexstones@hdfcbank}
+      GSTIN: ${GSTIN:-33AABFM1234A1Z7}
+      HSN_CODE: ${HSN_CODE:-2516}
+    volumes:
+      - modernex-data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  modernex-data:

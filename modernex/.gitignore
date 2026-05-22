@@ -1,0 +1,20 @@
+node_modules/
+dist/
+build/
+.env
+.env.local
+.env.production
+*.log
+.DS_Store
+# SQLite DB in any data/ subdirectory
+**/data/*.db
+**/data/*.db-wal
+**/data/*.db-shm
+# Dev PID files
+*.pid
+coverage/
+test-results/
+playwright-report/
+.vscode/settings.json
+.idea/
+*.tsbuildinfo

@@ -1,0 +1,71 @@
+# ══════════════════════════════════════════════════════
+# Split-deployment stack — API and Web as separate services
+#
+# Usage:
+#   docker compose -f docker-compose.split.yml up -d
+#
+# Differences from docker-compose.yml (monolithic):
+#   - `api`  service → Dockerfile.api   (Node.js only, port 8080)
+#   - `web`  service → Dockerfile.web   (nginx static, port 80)
+#   - Frontend calls API via the internal Docker network
+#     using the service name `api`.
+#
+# For production with a real domain, set CORS_ORIGIN and
+# build VITE_API_URL into the web image, or use a reverse
+# proxy (nginx/Traefik) and leave VITE_API_URL blank.
+# ══════════════════════════════════════════════════════
+
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: modernex-api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      DB_PATH: /app/data/modernex.db
+      JWT_SECRET: ${JWT_SECRET:?must be set}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
+      AZURE_STORAGE_CONNECTION_STRING: ${AZURE_STORAGE_CONNECTION_STRING:-}
+      AZURE_BLOB_CONTAINER: ${AZURE_BLOB_CONTAINER:-backups}
+      COMPANY_NAME: ${COMPANY_NAME:-Modernex Stones LLP}
+      COMPANY_UPI: ${COMPANY_UPI:-modernexstones@hdfcbank}
+      GSTIN: ${GSTIN:-33AABFM1234A1Z7}
+      HSN_CODE: ${HSN_CODE:-2516}
+    volumes:
+      - modernex-data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        # When the frontend and API are on the same host separated by ports,
+        # use the public API URL. Leave blank to use a reverse proxy.
+        VITE_API_URL: ${VITE_API_URL:-}
+    container_name: modernex-web
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/index.html"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  modernex-data:
