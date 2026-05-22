@@ -20,7 +20,7 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:install": "playwright install --with-deps",
     "lint": "npm run lint -w @modernex/api && npm run lint -w @modernex/web",
-    "start": "node packages/api/dist/server.js",
+    "start": "node packages/api/src/server.js",
     "migrate": "npm run migrate -w @modernex/api",
     "backup": "node scripts/backup-to-blob.js",
     "restore": "node scripts/restore-from-blob.js"

@@ -1,3 +1,7 @@
+import path from 'node:path';
+import { fileURLToPath } from 'url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -131,11 +135,13 @@ export function createApp() {
 
   // ── STATIC FRONTEND (production) ──
   if (config.isProd()) {
-    app.use(express.static(path.resolve('../web/dist')));
+    // __dirname = packages/api/src/ → ../../web/dist = packages/web/dist
+    const webDist = path.join(__dirname, '../../web/dist');
+    app.use(express.static(webDist));
     // SPA fallback
     app.get('*', (req, res) => {
       if (req.path.startsWith('/api/')) return notFoundHandler(req, res);
-      res.sendFile(path.resolve('../web/dist/index.html'));
+      res.sendFile(path.join(webDist, 'index.html'));
     });
   }
 
@@ -189,12 +195,8 @@ export async function start() {
 
 // Run directly - check if this module is the main entry point
 // In ES modules, we need to compare the resolved file URLs
-import path from 'node:path';
-import { fileURLToPath } from 'url';
-import { resolve } from 'path';
-
-const isMainModule = process.argv[1] && 
-  fileURLToPath(import.meta.url) === resolve(process.argv[1]);
+const isMainModule = process.argv[1] &&
+  fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
 
 if (isMainModule) {
   start();

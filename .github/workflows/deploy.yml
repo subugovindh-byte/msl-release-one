@@ -1,0 +1,104 @@
+name: Deploy to Azure
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  AZURE_WEBAPP_NAME: modernex-prod
+  AZURE_RG: modernex-rg
+  NODE_VERSION: '20.x'
+
+defaults:
+  run:
+    working-directory: modernex
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: modernex/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build frontend
+        run: npm run build -w @modernex/web
+
+      - name: Create production package
+        run: |
+          # Build a lean deploy dir: API + shared source + pre-built frontend
+          mkdir -p ../deploy/packages/api
+          mkdir -p ../deploy/packages/shared
+          mkdir -p ../deploy/packages/web/dist
+
+          # API — source + migrations + seed assets
+          cp -r packages/api/src         ../deploy/packages/api/
+          cp -r packages/api/migrations  ../deploy/packages/api/
+          cp -r packages/api/seed-assets ../deploy/packages/api/
+          cp    packages/api/package.json ../deploy/packages/api/
+
+          # Shared — source only
+          cp -r packages/shared/src     ../deploy/packages/shared/
+          cp    packages/shared/package.json ../deploy/packages/shared/
+
+          # Built frontend (served as static files by the API)
+          cp -r packages/web/dist/. ../deploy/packages/web/dist/
+
+          # Root package.json — api + shared workspaces only (no React deps pulled in)
+          echo '{"name":"modernex-prod","version":"2.0.0","type":"module","workspaces":["packages/api","packages/shared"],"scripts":{"start":"node packages/api/src/server.js"},"engines":{"node":">=20.0.0"}}' \
+            > ../deploy/package.json
+
+          # Install production-only deps (compiles better-sqlite3 for Linux)
+          cd ../deploy && npm install --omit=dev
+
+          # Zip everything (symlinks preserved with -y)
+          zip -ry ../deploy.zip . -x "*.git*" "*.DS_Store*" "*.pid"
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          package: deploy.zip
+
+      - name: Post-deploy health check
+        run: |
+          sleep 40
+          for i in 1 2 3 4 5; do
+            if curl -fsS "https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/api/health"; then
+              echo "✓ Deployment healthy"
+              exit 0
+            fi
+            echo "Attempt $i failed, retrying in 15s..."
+            sleep 15
+          done
+          echo "✗ Health check failed after 5 attempts"
+          exit 1
+
+      - name: Upload deployment log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-logs-${{ github.sha }}
+          path: modernex/packages/api/logs/
+          retention-days: 7
