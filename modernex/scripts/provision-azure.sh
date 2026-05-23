@@ -63,16 +63,16 @@ else
   success "Created resource group '$RESOURCE_GROUP'."
 fi
 
-# ── 2. App Service Plan (F1 Free) ─────────────────────────────────────────────
-step "2/6  App Service Plan (F1 Free — ₹0/month)"
+# ── 2. App Service Plan (B1) ──────────────────────────────────────────────────
+step "2/6  App Service Plan (B1)"
 
 if az appservice plan show -g "$RESOURCE_GROUP" -n "$PLAN_NAME" --output none 2>/dev/null; then
   success "App Service Plan '$PLAN_NAME' already exists — skipping."
 else
-  info "Creating App Service Plan '$PLAN_NAME' (F1 Linux)..."
+  info "Creating App Service Plan '$PLAN_NAME' (B1 Linux)..."
   az appservice plan create \
     -g "$RESOURCE_GROUP" -n "$PLAN_NAME" \
-    --sku F1 --is-linux \
+    --sku B1 --is-linux \
     --output none
   success "Created App Service Plan '$PLAN_NAME'."
 fi
@@ -122,7 +122,7 @@ az webapp config appsettings set \
     BCRYPT_ROUNDS=12 \
     PORT=8080 \
     "CORS_ORIGIN=${APP_URL}" \
-    SCM_DO_BUILD_DURING_DEPLOYMENT=false \
+    SCM_DO_BUILD_DURING_DEPLOYMENT=true \
     LOG_LEVEL=info \
   --output none
 

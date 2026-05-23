@@ -42,10 +42,9 @@ jobs:
 
       - name: Create production package
         run: |
-          # Build a lean deploy dir: API + shared source + pre-built frontend
           mkdir -p ../deploy/packages/api
-          mkdir -p ../deploy/packages/shared
           mkdir -p ../deploy/packages/web/dist
+          mkdir -p ../deploy/node_modules/@modernex/shared
 
           # API — source + migrations + seed assets
           cp -r packages/api/src         ../deploy/packages/api/
@@ -53,24 +52,35 @@ jobs:
           cp -r packages/api/seed-assets ../deploy/packages/api/
           cp    packages/api/package.json ../deploy/packages/api/
 
-          # Shared — source only
-          cp -r packages/shared/src     ../deploy/packages/shared/
-          cp    packages/shared/package.json ../deploy/packages/shared/
+          # @modernex/shared: embed as real files in node_modules (not a workspace symlink).
+          # Workspace symlinks stored in node_modules.tar.gz by Oryx resolve relative to the
+          # build container's temp dir, not /home/site/wwwroot, causing ERR_MODULE_NOT_FOUND.
+          cp -r packages/shared/src/. ../deploy/node_modules/@modernex/shared/src/
+          cp    packages/shared/package.json ../deploy/node_modules/@modernex/shared/
 
           # Built frontend (served as static files by the API)
           cp -r packages/web/dist/. ../deploy/packages/web/dist/
 
-          # Root package.json — api + shared workspaces only (no React deps pulled in)
-          echo '{"name":"modernex-prod","version":"2.0.0","type":"module","workspaces":["packages/api","packages/shared"],"scripts":{"start":"node packages/api/src/server.js"},"engines":{"node":">=22.0.0"}}' \
-            > ../deploy/package.json
+          # Root package.json: flat deps from packages/api (no workspaces; @modernex/shared pre-bundled)
+          python3 -c "
+          import json
+          with open('packages/api/package.json') as f:
+              api = json.load(f)
+          deps = {k: v for k, v in api['dependencies'].items() if k != '@modernex/shared'}
+          root = {'name':'modernex-prod','version':'2.0.0','type':'module',
+                  'scripts':{'start':'node packages/api/src/server.js'},
+                  'engines':{'node':'>=22.0.0'},'dependencies':deps}
+          print(json.dumps(root, indent=2))
+          " > ../deploy/package.json
 
-          # Generate lock file so Azure uses exact versions (no npm install here —
-          # Azure Oryx builds natively on the target platform, avoiding ABI issues
-          # with native modules like better-sqlite3)
+          # Lock file for npm packages — Oryx installs them natively on Azure (avoids
+          # ABI issues with native modules like better-sqlite3)
           cd ../deploy && npm install --package-lock-only --ignore-scripts 2>&1 | tail -5
 
-          # Zip source + lock file; NO node_modules (Azure installs them)
+          # Zip: source + lock file + pre-bundled @modernex/shared; no other node_modules
           zip -ry ../deploy.zip . -x "*.git*" "*.DS_Store*" "*.pid" "*/node_modules/*" "node_modules/*"
+          # Add @modernex/shared back as real files (already excluded above, re-add cleanly)
+          zip -ry ../deploy.zip node_modules/@modernex/
 
       - name: Login to Azure
         uses: azure/login@v2
