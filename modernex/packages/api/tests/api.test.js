@@ -36,13 +36,34 @@ describe('API integration', () => {
     console.log('Running seed...');
     await seed();
     
-    // Verify seed actually inserted products
+    // Insert test customers for invoice tests
+    // C001 = intra-state (Tamil Nadu → CGST+SGST), C004 = inter-state (→ IGST)
     const { getDb } = await import('../src/db/connection.js');
     const db = getDb();
+    db.prepare(`
+      INSERT OR IGNORE INTO customers (id, name, gstin, state, credit_days)
+      VALUES ('C001', 'Test Customer TN', '33AABCT1332L1ZS', 'Tamil Nadu', 0)
+    `).run();
+    db.prepare(`
+      INSERT OR IGNORE INTO customers (id, name, gstin, state, credit_days)
+      VALUES ('C004', 'Test Customer KA', '29AABCT1332L1ZT', 'Karnataka', 0)
+    `).run();
+
+    // Insert a test product so product-related tests have data
+    db.prepare(`
+      INSERT OR IGNORE INTO products (id, kind, variety, hsn, uom, rate_paise, stock, active)
+      VALUES ('PRD-TEST-001', 'slab', 'Viscont White', '2516', 'sqft', 5000, 10, 1)
+    `).run();
+    // Also insert slab dimensions required by the 1:1 join
+    db.prepare(`
+      INSERT OR IGNORE INTO product_slabs (product_id, size_lw, thickness_mm, sqft)
+      VALUES ('PRD-TEST-001', '2600x1600', 18, 30.98)
+    `).run();
+
     const productCount = db.prepare('SELECT COUNT(*) AS n FROM products').get().n;
     const userCount = db.prepare('SELECT COUNT(*) AS n FROM users').get().n;
     console.log(`After seed: ${userCount} users, ${productCount} products`);
-    
+
     app = createApp();
   });
 
@@ -109,7 +130,7 @@ describe('API integration', () => {
         items: [{
           product_id: product.id,
           variety: product.variety,
-          grade: product.grade,
+          grade: product.grade ?? undefined,
           hsn: '2516',
           uom: 'sqft',
           uom_qty: product.dimensions?.sqft || 1,
