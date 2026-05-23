@@ -320,11 +320,48 @@ usersRouter.delete('/:id', (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// ─── POST /users/me/change-password — non-admin self-service ───
-// Exception to the admin-only router guard
+// ─── Self-service router — any authenticated user ───
 export const selfServiceRouter = Router();
 selfServiceRouter.use(authenticate);
 
+// GET /users/me
+selfServiceRouter.get('/me', (req, res, next) => {
+  try {
+    const db = getDb();
+    const user = db.prepare(
+      'SELECT id, username, full_name, role, email, phone, address, contact, last_login, created_at FROM users WHERE id = ?'
+    ).get(req.user.id);
+    if (!user) return next(new NotFoundError('User not found'));
+    const roles = db.prepare(
+      'SELECT r.id, r.name, r.description FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = ?'
+    ).all(req.user.id);
+    res.json({ user: { ...user, roles } });
+  } catch (err) { next(err); }
+});
+
+// PATCH /users/me
+selfServiceRouter.patch('/me', async (req, res, next) => {
+  try {
+    const { full_name, email, phone, address, contact } = req.body;
+    const db = getDb();
+    db.prepare(`
+      UPDATE users SET
+        full_name = COALESCE(?, full_name),
+        email     = ?,
+        phone     = ?,
+        address   = ?,
+        contact   = ?
+      WHERE id = ?
+    `).run(full_name || null, email || null, phone || null, address || null, contact || null, req.user.id);
+    const updated = db.prepare(
+      'SELECT id, username, full_name, role, email, phone, address, contact FROM users WHERE id = ?'
+    ).get(req.user.id);
+    audit(req, 'USER_PROFILE_UPDATE', 'users', req.user.id, null, updated);
+    res.json({ user: updated });
+  } catch (err) { next(err); }
+});
+
+// POST /users/me/change-password
 selfServiceRouter.post('/me/change-password', async (req, res, next) => {
   try {
     const { current_password, new_password } = req.body;

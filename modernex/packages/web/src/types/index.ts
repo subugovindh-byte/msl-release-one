@@ -30,6 +30,10 @@ export interface User {
   role: UserRole;
   roles?: Role[];
   active: boolean;
+  email?: string;
+  phone?: string;
+  address?: string;
+  contact?: string;
   lastLogin?: string;
   createdAt: string;
   updatedAt: string;

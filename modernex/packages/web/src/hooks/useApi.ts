@@ -369,6 +369,29 @@ export function useResetPassword() {
   });
 }
 
+export function useMyProfile() {
+  return useQuery({
+    queryKey: ['profile', 'me'],
+    queryFn: () => api.get<{ user: Record<string, unknown> }>('/users/me'),
+  });
+}
+
+export function useUpdateProfile() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { full_name?: string; email?: string; phone?: string; address?: string; contact?: string }) =>
+      api.patch<{ user: Record<string, unknown> }>('/users/me', data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['profile', 'me'] }); },
+  });
+}
+
+export function useChangeOwnPassword() {
+  return useMutation({
+    mutationFn: ({ current_password, new_password }: { current_password: string; new_password: string }) =>
+      api.post<{ ok: boolean }>('/users/me/change-password', { current_password, new_password }),
+  });
+}
+
 // ─── Collection Accounts ───
 export function useCollectionAccounts() {
   return useQuery({

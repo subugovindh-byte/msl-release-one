@@ -27,6 +27,7 @@ import { FixedAssetsPage } from '@/pages/FixedAssetsPage';
 import { ChartOfAccountsPage } from '@/pages/ChartOfAccountsPage';
 import { MsmeReportPage } from '@/pages/MsmeReportPage';
 import { HelpPage } from '@/pages/HelpPage';
+import { ProfilePage } from '@/pages/ProfilePage';
 import { ToastContainer } from '@/components/ToastContainer';
 import { useCompany } from '@/hooks/useApi';
 
@@ -170,15 +171,21 @@ export function App() {
 
       <div className="body-wrap">
         <div className={`sidebar${menuOpen ? ' open' : ''}`}>
-          <div className="sb-user">
+          <NavLink
+            to="/profile"
+            className="sb-user"
+            onClick={() => setMenuOpen(false)}
+            style={{ textDecoration: 'none', cursor: 'pointer' }}
+            title="My Profile & Settings"
+          >
             <div className="sb-av">
               {user.fullName?.[0] || user.username[0]}
             </div>
-            <div>
+            <div style={{ minWidth: 0 }}>
               <div className="sb-name">{user.fullName || user.username}</div>
-              <div className="sb-role">{user.role}</div>
+              <div className="sb-role">{user.role} · Settings</div>
             </div>
-          </div>
+          </NavLink>
 
           {NAV.map((item, i) =>
             item.sec ? (
@@ -249,6 +256,7 @@ export function App() {
               <Route path="/coa" element={<ChartOfAccountsPage />} />
               <Route path="/msme" element={<MsmeReportPage />} />
               <Route path="/help" element={<HelpPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
               <Route path="/invoice/:id" element={<InvoiceReceiptPage />} />
               <Route path="/purchase/:id" element={<PurchaseOrderReceiptPage />} />
               <Route path="*" element={<Navigate to="/pos" />} />
