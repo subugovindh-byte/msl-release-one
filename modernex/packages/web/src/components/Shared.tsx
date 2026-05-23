@@ -245,6 +245,123 @@ export function EmptyState({ title, description, action }: EmptyStateProps) {
   );
 }
 
+// ─── Stat / KPI Card ───
+interface StatCardProps {
+  label: string;
+  value: string | number;
+  sub?: string;
+  valueColor?: string;
+}
+
+export function StatCard({ label, value, sub, valueColor = 'var(--t1)' }: StatCardProps) {
+  return (
+    <div style={{
+      backgroundColor: 'var(--bg2)', border: '1px solid var(--bd)',
+      borderRadius: 8, padding: 16, display: 'flex', flexDirection: 'column',
+    }}>
+      <div style={{
+        fontSize: 11, color: 'var(--t3)', marginBottom: 8,
+        textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600,
+      }}>
+        {label}
+      </div>
+      <div style={{ fontSize: 24, fontWeight: 700, color: valueColor, marginBottom: 4 }}>
+        {value}
+      </div>
+      {sub && <div style={{ fontSize: 12, color: 'var(--t3)' }}>{sub}</div>}
+    </div>
+  );
+}
+
+// ─── Modal ───
+interface ModalProps {
+  open: boolean;
+  onClose: () => void;
+  children: ReactNode;
+  maxWidth?: number;
+}
+
+export function Modal({ open, onClose, children, maxWidth = 480 }: ModalProps) {
+  if (!open) return null;
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+        zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 16,
+      }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div style={{
+        background: 'var(--bg1)', border: '1px solid var(--bd)',
+        borderRadius: 10, padding: 24, width: '100%', maxWidth,
+        maxHeight: '90dvh', overflowY: 'auto',
+      }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ─── Confirm Dialog ───
+interface ConfirmDialogProps {
+  open: boolean;
+  title: string;
+  message?: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  danger?: boolean;
+  loading?: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+export function ConfirmDialog({
+  open, title, message, confirmLabel = 'Confirm', cancelLabel = 'Cancel',
+  danger = false, loading = false, onConfirm, onCancel,
+}: ConfirmDialogProps) {
+  return (
+    <Modal open={open} onClose={onCancel} maxWidth={380}>
+      <p style={{ margin: '0 0 8px', fontWeight: 700, fontSize: 15 }}>{title}</p>
+      {message && <p style={{ margin: '0 0 20px', color: 'var(--t3)', fontSize: 13 }}>{message}</p>}
+      <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+        <button
+          onClick={onCancel}
+          style={{ padding: '8px 18px', border: '1px solid var(--bd)', borderRadius: 5, background: 'var(--bg2)', color: 'var(--t2)', cursor: 'pointer', fontWeight: 600, fontSize: 13 }}
+        >
+          {cancelLabel}
+        </button>
+        <button
+          onClick={onConfirm}
+          disabled={loading}
+          style={{ padding: '8px 18px', border: 'none', borderRadius: 5, background: danger ? 'var(--red)' : 'var(--rust)', color: 'white', cursor: 'pointer', fontWeight: 600, fontSize: 13 }}
+        >
+          {loading ? 'Working…' : confirmLabel}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Page Header ───
+interface PageHeaderProps {
+  title: string;
+  subtitle?: string;
+  action?: ReactNode;
+}
+
+export function PageHeader({ title, subtitle, action }: PageHeaderProps) {
+  return (
+    <div className="page-header">
+      <div>
+        <h1 style={{ marginBottom: subtitle ? 6 : 0 }}>{title}</h1>
+        {subtitle && <p style={{ color: 'var(--t3)', fontSize: 13, margin: 0 }}>{subtitle}</p>}
+      </div>
+      {action && <div>{action}</div>}
+    </div>
+  );
+}
+
 // ─── Error Boundary ───
 interface ErrorBoundaryProps {
   children: ReactNode;

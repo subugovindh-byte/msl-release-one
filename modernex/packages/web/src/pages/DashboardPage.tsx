@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '@/utils/api';
 import { formatINR } from '@/utils/format';
 import { useToastStore } from '@/store';
+import { StatCard, PageHeader } from '@/components/Shared';
 
 interface DashboardData {
   summary: {
@@ -68,12 +69,10 @@ export function DashboardPage() {
 
   return (
     <div className="page">
-      <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ marginBottom: '8px' }}>Dashboard</h1>
-        <p style={{ color: 'var(--t3)', fontSize: '13px', marginBottom: '0' }}>
-          Overview of business metrics and performance
-        </p>
-      </div>
+      <PageHeader
+        title="Dashboard"
+        subtitle="Overview of business metrics and performance"
+      />
 
       {/* Key Metrics Grid */}
       <div style={{
@@ -82,36 +81,12 @@ export function DashboardPage() {
         gap: '16px',
         marginBottom: '32px'
       }}>
-        <MetricCard
-          title="Revenue (Taxable)"
-          value={formatINR(summary.revenue_paise)}
-          subtitle={`${summary.invoice_count} invoices`}
-        />
-        <MetricCard
-          title="Accounts Receivable"
-          value={formatINR(summary.ar_paise)}
-          subtitle={`${summary.unpaid_count} unpaid`}
-        />
-        <MetricCard
-          title="Collected"
-          value={formatINR(summary.collected_paise)}
-          subtitle="Payments received"
-        />
-        <MetricCard
-          title="Accounts Payable"
-          value={formatINR(summary.ap_paise)}
-          subtitle="Purchase orders"
-        />
-        <MetricCard
-          title="Inventory Value"
-          value={formatINR(summary.stock_value_paise)}
-          subtitle={`${summary.total_products} products`}
-        />
-        <MetricCard
-          title="Net GST Liability"
-          value={formatINR(summary.net_gst_paise)}
-          subtitle={`Output: ${formatINR(summary.gst_output_paise)}`}
-        />
+        <StatCard label="Revenue (Taxable)" value={formatINR(summary.revenue_paise)} sub={`${summary.invoice_count} invoices`} />
+        <StatCard label="Accounts Receivable" value={formatINR(summary.ar_paise)} sub={`${summary.unpaid_count} unpaid`} />
+        <StatCard label="Collected" value={formatINR(summary.collected_paise)} sub="Payments received" />
+        <StatCard label="Accounts Payable" value={formatINR(summary.ap_paise)} sub="Purchase orders" />
+        <StatCard label="Inventory Value" value={formatINR(summary.stock_value_paise)} sub={`${summary.total_products} products`} />
+        <StatCard label="Net GST Liability" value={formatINR(summary.net_gst_paise)} sub={`Output: ${formatINR(summary.gst_output_paise)}`} />
       </div>
 
       {/* Alerts */}
@@ -284,44 +259,3 @@ export function DashboardPage() {
   );
 }
 
-function MetricCard({ title, value, subtitle }: {
-  title: string;
-  value: string;
-  subtitle: string;
-}) {
-  return (
-    <div style={{
-      backgroundColor: 'var(--bg2)',
-      border: '1px solid var(--bd)',
-      borderRadius: '8px',
-      padding: '16px',
-      display: 'flex',
-      flexDirection: 'column'
-    }}>
-      <div style={{
-        fontSize: '11px',
-        color: 'var(--t3)',
-        marginBottom: '8px',
-        textTransform: 'uppercase',
-        letterSpacing: '0.5px',
-        fontWeight: 600
-      }}>
-        {title}
-      </div>
-      <div style={{
-        fontSize: '24px',
-        fontWeight: 700,
-        color: 'var(--t1)',
-        marginBottom: '4px'
-      }}>
-        {value}
-      </div>
-      <div style={{
-        fontSize: '12px',
-        color: 'var(--t3)'
-      }}>
-        {subtitle}
-      </div>
-    </div>
-  );
-}

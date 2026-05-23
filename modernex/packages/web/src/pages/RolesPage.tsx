@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useRoles, usePermissions, useCreateRole, useUpdateRole, useDeleteRole } from '@/hooks/useApi';
 import { useAuthStore, useToastStore } from '@/store';
+import { PageHeader, ConfirmDialog } from '@/components/Shared';
 import type { Role, Permission } from '@/types';
 
 const RESOURCES = ['pos', 'inventory', 'invoices', 'purchases', 'payments', 'payroll', 'reports', 'users', 'settings'];
@@ -95,18 +96,13 @@ export function RolesPage() {
 
   return (
     <div className="page">
-      <div className="page-header">
-        <div>
-          <h1 style={{ marginBottom: 8 }}>Roles & Permissions</h1>
-          <p style={{ color: 'var(--t3)', fontSize: 13, marginBottom: 0 }}>
-            Define what each role can access. System roles can have permissions edited but cannot be renamed or deleted.
-          </p>
-        </div>
-        <button onClick={openCreate}
-          style={{ padding: '10px 20px', backgroundColor: 'var(--rust)', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 14 }}>
-          + New Role
-        </button>
-      </div>
+      <PageHeader
+        title="Roles & Permissions"
+        subtitle="Define what each role can access. System roles can have permissions edited but cannot be renamed or deleted."
+        action={
+          <button onClick={openCreate} className="btn btn-p">+ New Role</button>
+        }
+      />
 
       {/* ── Create / Edit panel ── */}
       {panel && (
@@ -177,18 +173,16 @@ export function RolesPage() {
         </div>
       )}
 
-      {/* ── Confirm delete ── */}
-      {confirmDelete && (
-        <div style={{ ...panelStyle, background: 'var(--redW)', borderColor: 'var(--redB)' }}>
-          <p style={{ margin: '0 0 14px', fontWeight: 600 }}>Delete role <strong>{confirmDelete.name}</strong>?</p>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button onClick={() => handleDelete(confirmDelete)} disabled={deleteRole.isPending} style={btn('var(--red)', true)}>
-              {deleteRole.isPending ? 'Deleting…' : 'Yes, Delete'}
-            </button>
-            <button onClick={() => setConfirmDelete(null)} style={btn('var(--t3)', true)}>Cancel</button>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={!!confirmDelete}
+        title={`Delete role "${confirmDelete?.name}"?`}
+        message="This cannot be undone. Users assigned this role will lose its permissions."
+        confirmLabel="Yes, Delete"
+        danger
+        loading={deleteRole.isPending}
+        onConfirm={() => confirmDelete && handleDelete(confirmDelete)}
+        onCancel={() => setConfirmDelete(null)}
+      />
 
       {isLoading ? (
         <p style={{ color: 'var(--t3)' }}>Loading…</p>
