@@ -61,14 +61,16 @@ jobs:
           cp -r packages/web/dist/. ../deploy/packages/web/dist/
 
           # Root package.json — api + shared workspaces only (no React deps pulled in)
-          echo '{"name":"modernex-prod","version":"2.0.0","type":"module","workspaces":["packages/api","packages/shared"],"scripts":{"start":"node packages/api/src/server.js"},"engines":{"node":">=20.0.0"}}' \
+          echo '{"name":"modernex-prod","version":"2.0.0","type":"module","workspaces":["packages/api","packages/shared"],"scripts":{"start":"node packages/api/src/server.js"},"engines":{"node":">=22.0.0"}}' \
             > ../deploy/package.json
 
-          # Install production-only deps (compiles better-sqlite3 for Linux)
-          cd ../deploy && npm install --omit=dev
+          # Generate lock file so Azure uses exact versions (no npm install here —
+          # Azure Oryx builds natively on the target platform, avoiding ABI issues
+          # with native modules like better-sqlite3)
+          cd ../deploy && npm install --package-lock-only --ignore-scripts 2>&1 | tail -5
 
-          # Zip everything (symlinks preserved with -y)
-          zip -ry ../deploy.zip . -x "*.git*" "*.DS_Store*" "*.pid"
+          # Zip source + lock file; NO node_modules (Azure installs them)
+          zip -ry ../deploy.zip . -x "*.git*" "*.DS_Store*" "*.pid" "*/node_modules/*" "node_modules/*"
 
       - name: Login to Azure
         uses: azure/login@v2
