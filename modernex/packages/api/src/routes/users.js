@@ -162,6 +162,27 @@ usersRouter.patch('/:id', validate(userUpdateSchema), (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ─── POST /users/reset-password-all ───
+usersRouter.post('/reset-password-all', validate(z.object({ new_password: z.string().min(8).max(200) })), async (req, res, next) => {
+  try {
+    const db = getDb();
+    const hash = await bcrypt.hash(req.body.new_password, config.bcryptRounds);
+
+    const result = db.prepare(`
+      UPDATE users SET password_hash = ?, must_change_password = 1,
+        failed_attempts = 0, locked_until = NULL
+      WHERE active = 1 AND id != ?
+    `).run(hash, req.user.id);
+
+    db.prepare('UPDATE refresh_tokens SET revoked = 1 WHERE user_id != ?').run(req.user.id);
+
+    audit(req, 'USER_PASSWORD_RESET_ALL', 'users', null, null,
+          { count: result.changes, reset_by: req.user.username });
+
+    res.json({ ok: true, count: result.changes });
+  } catch (err) { next(err); }
+});
+
 // ─── POST /users/:id/reset-password ───
 usersRouter.post('/:id/reset-password', validate(passwordResetSchema), async (req, res, next) => {
   try {

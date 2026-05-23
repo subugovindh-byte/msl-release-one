@@ -287,6 +287,29 @@ export function useUnlockUser() {
   });
 }
 
+export function useResetAllPasswords() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (new_password: string) =>
+      api.post<{ ok: boolean; count: number }>('/users/reset-password-all', { new_password }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.users.all }); },
+  });
+}
+
+export function useForgotPassword() {
+  return useMutation({
+    mutationFn: (username: string) =>
+      api.post<{ ok: boolean; reset_token?: string; expires_in?: number }>('/auth/forgot-password', { username }),
+  });
+}
+
+export function useResetPassword() {
+  return useMutation({
+    mutationFn: ({ token, new_password }: { token: string; new_password: string }) =>
+      api.post<{ ok: boolean }>('/auth/reset-password', { token, new_password }),
+  });
+}
+
 // ─── Collection Accounts ───
 export function useCollectionAccounts() {
   return useQuery({

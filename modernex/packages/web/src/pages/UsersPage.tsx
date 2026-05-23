@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import type { ColDef } from 'ag-grid-community';
 import {
   useUsers, useCreateUser, useUpdateUser,
-  useDeleteUser, useResetUserPassword, useUnlockUser,
+  useDeleteUser, useResetUserPassword, useUnlockUser, useResetAllPasswords,
 } from '@/hooks/useApi';
 import { useAuthStore, useToastStore } from '@/store';
 import { DataGridTable } from '@/components/DataGridTable';
@@ -25,7 +25,7 @@ const BADGE: Record<Role, { bg: string; color: string }> = {
 const BLANK_CREATE = { username: '', full_name: '', email: '', password: '', role: 'accounts' as Role, must_change_password: true };
 const BLANK_EDIT   = { full_name: '', email: '', phone: '', role: 'accounts' as Role };
 
-type Panel = { mode: 'create' } | { mode: 'edit'; user: any } | null;
+type Panel = { mode: 'create' } | { mode: 'edit'; user: any } | { mode: 'reset-all' } | null;
 
 export function UsersPage() {
   const { user: me } = useAuthStore();
@@ -37,9 +37,12 @@ export function UsersPage() {
   const unlockUser      = useUnlockUser();
   const { notify }      = useToastStore();
 
+  const resetAllPasswords = useResetAllPasswords();
+
   const [panel, setPanel]         = useState<Panel>(null);
   const [createForm, setCreateForm] = useState({ ...BLANK_CREATE });
   const [editForm, setEditForm]   = useState({ ...BLANK_EDIT });
+  const [resetAllPw, setResetAllPw] = useState('');
   const [confirmDelete, setConfirmDelete] = useState<any>(null);
   const [tempPassword, setTempPassword]   = useState<string | null>(null);
 
@@ -111,6 +114,16 @@ export function UsersPage() {
     } catch (err: any) { notify(err.message || 'Failed', 'error'); }
   };
 
+  const handleResetAll = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res: any = await resetAllPasswords.mutateAsync(resetAllPw);
+      notify(`Password reset for ${res.count} user(s). They must change it on next login.`, 'success');
+      setPanel(null);
+      setResetAllPw('');
+    } catch (err: any) { notify(err.message || 'Failed', 'error'); }
+  };
+
   const colDefs = useMemo<ColDef[]>(() => [
     {
       headerName: 'Username', field: 'username', minWidth: 140, pinned: 'left',
@@ -171,10 +184,16 @@ export function UsersPage() {
           <h1 style={{ marginBottom: 8 }}>User Management</h1>
           <p style={{ color: 'var(--t3)', fontSize: 13, marginBottom: 0 }}>Each person gets their own login — no shared accounts</p>
         </div>
-        <button onClick={() => { setPanel({ mode: 'create' }); setCreateForm({ ...BLANK_CREATE }); }}
-          style={{ padding: '10px 20px', backgroundColor: 'var(--rust)', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 14 }}>
-          + New User
-        </button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={() => { setPanel({ mode: 'reset-all' }); setResetAllPw(''); }}
+            style={{ padding: '10px 20px', backgroundColor: 'var(--amber)', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 14 }}>
+            Reset All Passwords
+          </button>
+          <button onClick={() => { setPanel({ mode: 'create' }); setCreateForm({ ...BLANK_CREATE }); }}
+            style={{ padding: '10px 20px', backgroundColor: 'var(--rust)', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 14 }}>
+            + New User
+          </button>
+        </div>
       </div>
 
       {/* ── Temp password display ── */}
@@ -224,6 +243,32 @@ export function UsersPage() {
             <div style={{ display: 'flex', gap: 10 }}>
               <button type="submit" disabled={createUser.isPending} style={btn('var(--rust)', true)}>{createUser.isPending ? 'Creating…' : 'Create User'}</button>
               <button type="button" onClick={() => setPanel(null)} style={btn('var(--t3)', true)}>Cancel</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* ── Reset All panel ── */}
+      {panel?.mode === 'reset-all' && (
+        <div style={{ ...panelStyle, background: 'var(--amberW)', borderColor: 'var(--amberB)' }}>
+          <h3 style={{ marginTop: 0, marginBottom: 6, color: 'var(--amber)' }}>Reset All User Passwords</h3>
+          <p style={{ fontSize: 13, color: 'var(--t2)', marginTop: 0, marginBottom: 16 }}>
+            Sets the same password for <strong>all active users except you</strong>. They will be forced to change it on next login.
+          </p>
+          <form onSubmit={handleResetAll}>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 220 }}>
+                <label className="fl">New Password for All Users *</label>
+                <input className="fi" type="password" value={resetAllPw}
+                  onChange={e => setResetAllPw(e.target.value)}
+                  required minLength={8} placeholder="Min 8 characters" />
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button type="submit" disabled={resetAllPasswords.isPending} style={btn('var(--amber)', true)}>
+                  {resetAllPasswords.isPending ? 'Resetting…' : 'Reset All'}
+                </button>
+                <button type="button" onClick={() => setPanel(null)} style={btn('var(--t3)', true)}>Cancel</button>
+              </div>
             </div>
           </form>
         </div>

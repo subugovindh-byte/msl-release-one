@@ -9,7 +9,7 @@ import { authLimiter } from '../middleware/rateLimit.js';
 import { authenticate } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { loginSchema } from '@modernex/shared';
-import { AuthError } from '../middleware/error.js';
+import { AuthError, AppError } from '../middleware/error.js';
 import { audit } from '../services/audit.js';
 
 export const authRouter = Router();
@@ -173,4 +173,71 @@ authRouter.post('/logout', authenticate, (req, res) => {
 // ─── GET /auth/me ───
 authRouter.get('/me', authenticate, (req, res) => {
   res.json({ user: req.user });
+});
+
+// ─── POST /auth/forgot-password ───
+authRouter.post('/forgot-password', authLimiter, async (req, res, next) => {
+  try {
+    const { username } = req.body;
+    if (!username) throw new AppError('Username required', 400);
+
+    const db = getDb();
+    const user = db.prepare('SELECT id FROM users WHERE username = ? AND active = 1').get(username);
+
+    if (!user) {
+      // Constant-time fail — don't reveal whether the username exists
+      await bcrypt.hash('dummy', config.bcryptRounds);
+      return res.json({ ok: true });
+    }
+
+    // Invalidate any existing unused tokens for this user
+    db.prepare('UPDATE password_reset_tokens SET used = 1 WHERE user_id = ? AND used = 0').run(user.id);
+
+    const tokenId = crypto.randomBytes(16).toString('hex');
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+
+    db.prepare(
+      'INSERT INTO password_reset_tokens (id, user_id, expires_at) VALUES (?, ?, ?)'
+    ).run(tokenId, user.id, expiresAt);
+
+    audit(req, 'PASSWORD_RESET_REQUEST', 'users', user.id, null, { username });
+
+    res.json({ ok: true, reset_token: tokenId, expires_in: 1800 });
+  } catch (err) { next(err); }
+});
+
+// ─── POST /auth/reset-password ───
+authRouter.post('/reset-password', authLimiter, async (req, res, next) => {
+  try {
+    const { token, new_password } = req.body;
+    if (!token || !new_password) throw new AppError('token and new_password required', 400);
+    if (new_password.length < 8) throw new AppError('Password must be at least 8 characters', 400);
+    if (new_password.length > 200) throw new AppError('Password too long', 400);
+
+    const db = getDb();
+    const tokenRow = db.prepare(`
+      SELECT prt.id, prt.user_id, u.username
+      FROM password_reset_tokens prt
+      JOIN users u ON u.id = prt.user_id
+      WHERE prt.id = ? AND prt.used = 0 AND prt.expires_at > datetime('now')
+    `).get(token);
+
+    if (!tokenRow) throw new AppError('Invalid or expired reset token', 400);
+
+    const hash = await bcrypt.hash(new_password, config.bcryptRounds);
+
+    db.prepare(`
+      UPDATE users SET password_hash = ?, must_change_password = 0,
+        failed_attempts = 0, locked_until = NULL
+      WHERE id = ?
+    `).run(hash, tokenRow.user_id);
+
+    db.prepare('UPDATE password_reset_tokens SET used = 1 WHERE id = ?').run(token);
+    db.prepare('UPDATE refresh_tokens SET revoked = 1 WHERE user_id = ?').run(tokenRow.user_id);
+
+    audit(req, 'PASSWORD_RESET_COMPLETE', 'users', tokenRow.user_id, null,
+          { username: tokenRow.username });
+
+    res.json({ ok: true });
+  } catch (err) { next(err); }
 });
