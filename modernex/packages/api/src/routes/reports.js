@@ -61,13 +61,26 @@ reportsRouter.get('/dashboard', (req, res) => {
 reportsRouter.get('/pnl', requireRole('admin', 'accounts'), (req, res) => {
   const { from, to } = req.query;
   const db = getDb();
-  const dr = dateRange('i', from, to);
+  const dr   = dateRange('i',  from, to);
   const podr = dateRange('po', from, to);
+  const cpdr = dateRange('cp', from, to);
 
-  const revenue    = db.prepare(`SELECT COALESCE(SUM(taxable_paise),0) as v FROM invoices i WHERE 1=1${dr.sql}`).get(...dr.params).v;
-  const rawMat     = db.prepare(`SELECT COALESCE(SUM(taxable_paise),0) as v FROM purchase_orders po WHERE 1=1${podr.sql}`).get(...podr.params).v;
-  const production = db.prepare(`SELECT COALESCE(SUM(labour_paise+power_paise+consumables_paise),0) as v FROM production_jobs WHERE 1=1${dr.sql.replace('i.','')}`).get(...dr.params).v;
-  const transport  = db.prepare(`SELECT COALESCE(SUM(transport_paise),0) as v FROM purchase_orders po WHERE 1=1${podr.sql}`).get(...podr.params).v;
+  const revenue     = db.prepare(`SELECT COALESCE(SUM(taxable_paise),0) as v FROM invoices i WHERE 1=1${dr.sql}`).get(...dr.params).v;
+  const rawMat      = db.prepare(`SELECT COALESCE(SUM(taxable_paise),0) as v FROM purchase_orders po WHERE 1=1${podr.sql}`).get(...podr.params).v;
+  const production  = db.prepare(`SELECT COALESCE(SUM(labour_paise+power_paise+consumables_paise),0) as v FROM production_jobs WHERE 1=1${dr.sql.replace('i.','')}`).get(...dr.params).v;
+  const transport   = db.prepare(`SELECT COALESCE(SUM(transport_paise),0) as v FROM purchase_orders po WHERE 1=1${podr.sql}`).get(...podr.params).v;
+  const cpTotal     = db.prepare(`SELECT COALESCE(SUM(total_paise),0) as v FROM consumable_purchases cp WHERE status != 'cancelled' AND 1=1${cpdr.sql}`).get(...cpdr.params).v;
+
+  // Consumables by category
+  const cpByCategory = db.prepare(`
+    SELECT category, COALESCE(SUM(total_paise),0) as amount_paise
+    FROM consumable_purchases cp WHERE status != 'cancelled' AND 1=1${cpdr.sql}
+    GROUP BY category ORDER BY amount_paise DESC
+  `).all(...cpdr.params);
+
+  // Payroll
+  const payroll = db.prepare(`SELECT COALESCE(SUM(total_net_paise),0) as v FROM payroll_runs WHERE status='paid' AND month >= ? AND month <= ?`)
+    .get((from || '2020-01').slice(0,7), (to || new Date().toISOString()).slice(0,7)).v;
 
   const revByKind = db.prepare(`
     SELECT ii.product_kind as kind, COALESCE(SUM(ii.line_total_paise),0) as revenue
@@ -75,13 +88,20 @@ reportsRouter.get('/pnl', requireRole('admin', 'accounts'), (req, res) => {
     WHERE 1=1${dr.sql} GROUP BY ii.product_kind
   `).all(...dr.params);
 
-  const grossProfit = revenue - rawMat - production - transport;
+  const cogs = rawMat + production + transport;
+  const grossProfit = revenue - cogs;
+  const opExpenses = cpTotal + payroll;
+  const netProfit = grossProfit - opExpenses;
+
   res.json({
     period: { from, to },
     income: { revenue_paise: revenue },
-    expenses: { raw_material_paise: rawMat, production_paise: production, transport_paise: transport },
+    cogs: { raw_material_paise: rawMat, production_paise: production, transport_paise: transport, total_cogs_paise: cogs },
     gross_profit_paise: grossProfit,
-    margin_pct: revenue > 0 ? ((grossProfit / revenue) * 100).toFixed(2) : 0,
+    gross_margin_pct: revenue > 0 ? +((grossProfit / revenue) * 100).toFixed(2) : 0,
+    operating_expenses: { consumables_paise: cpTotal, payroll_paise: payroll, total_opex_paise: opExpenses, by_category: cpByCategory },
+    net_profit_paise: netProfit,
+    net_margin_pct: revenue > 0 ? +((netProfit / revenue) * 100).toFixed(2) : 0,
     revenue_by_kind: revByKind,
   });
 });
@@ -699,7 +719,8 @@ reportsRouter.get('/cash-flow', requireRole('admin', 'accounts'), (req, res) => 
   const assetPurchases = db.prepare('SELECT COALESCE(SUM(purchase_cost_paise),0) as v FROM fixed_assets WHERE purchase_date >= ? AND purchase_date <= ?').get(fyStart, fyEnd).v;
   const assetDisposals = db.prepare('SELECT COALESCE(SUM(disposal_value_paise),0) as v FROM fixed_assets WHERE disposal_date >= ? AND disposal_date <= ? AND disposed=1').get(fyStart, fyEnd).v;
 
-  const operating_cf = collections - vendorPayments - payroll;
+  const consumablesPaid = db.prepare("SELECT COALESCE(SUM(total_paise),0) as v FROM consumable_purchases WHERE status='paid' AND date >= ? AND date <= ?").get(fyStart, fyEnd).v;
+  const operating_cf = collections - vendorPayments - payroll - consumablesPaid;
   const investing_cf = (assetDisposals || 0) - (assetPurchases || 0);
   const financing_cf = 0; // loans/equity changes — requires manual entry
 
@@ -709,6 +730,7 @@ reportsRouter.get('/cash-flow', requireRole('admin', 'accounts'), (req, res) => 
       collections_paise: collections,
       vendor_payments_paise: vendorPayments,
       payroll_paise: payroll,
+      consumables_paid_paise: consumablesPaid,
       net_operating_cf_paise: operating_cf,
     },
     investing_activities: {
@@ -911,4 +933,82 @@ reportsRouter.post('/gstr2b-import', requireRole('admin', 'accounts'), (req, res
 
     res.status(201).json({ success: true, imported: records.length });
   } catch (err) { next(err); }
+});
+
+// ─── GET /reports/stock-valuation ── Weighted-average cost per product ─────────
+reportsRouter.get('/stock-valuation', requireRole('admin', 'accounts', 'yard'), (req, res) => {
+  const db = getDb();
+  try {
+    const products = db.prepare(`
+      SELECT p.id, p.kind, p.variety, p.grade, p.stock, p.uom,
+             p.rate_paise, p.cost_paise, p.lot_id, p.location
+      FROM products p
+      WHERE p.active = 1 AND p.stock > 0
+      ORDER BY p.kind, p.variety, p.lot_id
+    `).all();
+
+    const byVariety = {};
+    let totalValue = 0;
+    for (const p of products) {
+      const costPaise = p.cost_paise || p.rate_paise || 0;
+      const value = costPaise * (p.stock || 1);
+      totalValue += value;
+      if (!byVariety[p.variety]) byVariety[p.variety] = { count: 0, stock: 0, value_paise: 0 };
+      byVariety[p.variety].count++;
+      byVariety[p.variety].stock += (p.stock || 1);
+      byVariety[p.variety].value_paise += value;
+    }
+
+    res.json({
+      products: products.map(p => ({
+        ...p,
+        cost_paise: p.cost_paise || p.rate_paise || 0,
+        value_paise: (p.cost_paise || p.rate_paise || 0) * (p.stock || 1),
+      })),
+      by_variety: Object.entries(byVariety).map(([variety, v]) => ({ variety, ...v })),
+      total_value_paise: totalValue,
+      total_products: products.length,
+    });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ─── GET /reports/depreciation ── Auto depreciation schedule (SLM) ────────────
+reportsRouter.get('/depreciation', requireRole('admin', 'accounts'), (req, res) => {
+  const db = getDb();
+  try {
+    const assets = db.prepare(
+      `SELECT * FROM fixed_assets WHERE disposed = 0 OR disposed IS NULL ORDER BY purchase_date`
+    ).all();
+
+    const today = new Date();
+    const schedule = assets.map(a => {
+      const cost = a.purchase_cost_paise || 0;
+      const salvage = a.salvage_value_paise || 0;
+      const life = a.useful_life_years || 5;
+      const rate = a.depreciation_rate_pct || (100 / life);
+      const annualDep = Math.round((cost - salvage) * rate / 100);
+      const monthlyDep = Math.round(annualDep / 12);
+
+      const start = new Date(a.purchase_date || a.created_at);
+      const monthsInService = Math.max(0,
+        (today.getFullYear() - start.getFullYear()) * 12 + (today.getMonth() - start.getMonth())
+      );
+      const accumulatedDep = Math.min(cost - salvage, monthlyDep * monthsInService);
+      const bookValue = Math.max(salvage, cost - accumulatedDep);
+
+      return { ...a, annual_dep_paise: annualDep, monthly_dep_paise: monthlyDep,
+        months_in_service: monthsInService, accumulated_dep_paise: accumulatedDep,
+        book_value_paise: bookValue, fully_depreciated: bookValue <= salvage };
+    });
+
+    res.json({
+      assets: schedule,
+      summary: {
+        total_cost_paise: schedule.reduce((s, a) => s + (a.purchase_cost_paise || 0), 0),
+        total_accumulated_dep_paise: schedule.reduce((s, a) => s + a.accumulated_dep_paise, 0),
+        total_book_value_paise: schedule.reduce((s, a) => s + a.book_value_paise, 0),
+        monthly_dep_paise: schedule.filter(a => !a.fully_depreciated).reduce((s, a) => s + a.monthly_dep_paise, 0),
+      },
+    });
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });

@@ -2,17 +2,18 @@ import { useState } from 'react';
 import type { ColDef } from 'ag-grid-community';
 import { useQuery } from '@tanstack/react-query';
 import { api as apiClient } from '@/utils/api';
-import { useInvoices } from '@/hooks/useApi';
+import { useInvoices, useStockValuation, useDepreciationSchedule } from '@/hooks/useApi';
 import { DataGridTable } from '@/components/DataGridTable';
 import { formatINR } from '@/utils/format';
 
-type Tab = 'sales' | 'pl' | 'gstr' | 'cashbook' | 'bankbook' | 'outstanding' | 'cashflow' | 'balancesheet' | 'ratios' | 'ledger';
+type Tab = 'sales' | 'pl' | 'gstr' | 'cashbook' | 'bankbook' | 'outstanding' | 'cashflow' | 'balancesheet' | 'ratios' | 'ledger' | 'stock' | 'depreciation';
 
 const TAB_LABELS: Record<Tab, string> = {
   sales: 'Sales MIS', pl: 'P&L', gstr: 'GSTR',
   cashbook: 'Cash Book', bankbook: 'Bank Book',
   outstanding: 'AR/AP Aging', cashflow: 'Cash Flow',
   balancesheet: 'Balance Sheet', ratios: 'Ratio Analysis', ledger: 'Ledger',
+  stock: 'Stock Valuation', depreciation: 'Depreciation',
 };
 
 const TabBtn = ({ tab, active, label, onClick }: any) => (
@@ -38,6 +39,8 @@ export function ReportsPage() {
 
   const { data: invoicesData } = useInvoices({});
   const invoices: any[] = invoicesData?.invoices || [];
+  const { data: stockData } = useStockValuation();
+  const { data: depData } = useDepreciationSchedule();
 
   // ── Fetch current tab data ──────────────────────────────────────────────────
   const { data: plData } = useQuery({
@@ -457,6 +460,92 @@ export function ReportsPage() {
               </table>
               {(ledgerData as any)?.entries?.length === 0 && <p style={{ color: 'var(--t3)' }}>No journal entries for this account in the selected period.</p>}
             </div>
+          )}
+        </div>
+      )}
+
+      {/* ── STOCK VALUATION ──────────────────────────────────────────────────── */}
+      {activeTab === 'stock' && (
+        <div>
+          {stockData && (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 20 }}>
+                <MetricCard label="Total SKUs" value={String((stockData as any)?.summary?.total_skus || 0)} />
+                <MetricCard label="Total Value" value={formatINR((stockData as any)?.summary?.total_value_paise || 0)} />
+                <MetricCard label="Varieties" value={String((stockData as any)?.by_variety?.length || 0)} />
+              </div>
+              {((stockData as any)?.by_variety || []).map((grp: any) => (
+                <div key={grp.variety} style={{ marginBottom: 20 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg3)', padding: '8px 14px', borderRadius: '6px 6px 0 0', borderBottom: '2px solid var(--bd)' }}>
+                    <span style={{ fontWeight: 700, fontSize: 13 }}>{grp.variety}</span>
+                    <span style={{ fontSize: 12, color: 'var(--t3)' }}>{grp.count} SKUs · {formatINR(grp.total_value_paise)}</span>
+                  </div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                    <thead><tr style={{ backgroundColor: 'var(--bg2)' }}>
+                      {['SKU / Product', 'Type', 'Stock', 'Unit Cost', 'Value'].map(h => (
+                        <th key={h} style={{ padding: '6px 10px', textAlign: ['Unit Cost','Value','Stock'].includes(h) ? 'right' : 'left', fontSize: 10, textTransform: 'uppercase', fontWeight: 700 }}>{h}</th>
+                      ))}
+                    </tr></thead>
+                    <tbody>
+                      {grp.products.map((p: any) => (
+                        <tr key={p.id} style={{ borderBottom: '1px solid var(--bd)' }}>
+                          <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontSize: 11 }}>{p.id}<br /><span style={{ fontSize: 10, color: 'var(--t3)' }}>{p.name || ''}</span></td>
+                          <td style={{ padding: '7px 10px', textTransform: 'capitalize', color: 'var(--t3)', fontSize: 11 }}>{p.type}</td>
+                          <td style={{ padding: '7px 10px', textAlign: 'right' }}>{p.stock_qty}</td>
+                          <td style={{ padding: '7px 10px', textAlign: 'right' }}>{formatINR(p.cost_paise)}</td>
+                          <td style={{ padding: '7px 10px', textAlign: 'right', fontWeight: 600 }}>{formatINR(p.value_paise)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+              {!(stockData as any)?.by_variety?.length && <p style={{ color: 'var(--t3)' }}>No stock items found.</p>}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── DEPRECIATION ─────────────────────────────────────────────────────── */}
+      {activeTab === 'depreciation' && (
+        <div>
+          {depData && (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 20 }}>
+                <MetricCard label="Total Assets" value={String((depData as any)?.summary?.total_assets || 0)} />
+                <MetricCard label="Gross Block" value={formatINR((depData as any)?.summary?.gross_block_paise || 0)} />
+                <MetricCard label="Accumulated Dep." value={formatINR((depData as any)?.summary?.total_accumulated_dep_paise || 0)} />
+                <MetricCard label="Net Block" value={formatINR((depData as any)?.summary?.net_block_paise || 0)} />
+              </div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead><tr style={{ backgroundColor: 'var(--bg3)' }}>
+                  {['Asset', 'Category', 'Purchase Date', 'Cost', 'Rate', 'Monthly Dep.', 'Accumulated', 'Book Value', 'Status'].map(h => (
+                    <th key={h} style={{ padding: '7px 10px', textAlign: ['Cost','Monthly Dep.','Accumulated','Book Value'].includes(h) ? 'right' : 'left', fontSize: 10, textTransform: 'uppercase', fontWeight: 700, whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}
+                </tr></thead>
+                <tbody>
+                  {((depData as any)?.assets || []).map((a: any) => (
+                    <tr key={a.id} style={{ borderBottom: '1px solid var(--bd)', opacity: a.fully_depreciated ? 0.6 : 1 }}>
+                      <td style={{ padding: '7px 10px' }}><div style={{ fontWeight: 600 }}>{a.name}</div><div style={{ fontSize: 10, color: 'var(--t3)' }}>{a.id}</div></td>
+                      <td style={{ padding: '7px 10px', color: 'var(--t3)', fontSize: 11 }}>{a.category}</td>
+                      <td style={{ padding: '7px 10px', color: 'var(--t3)', fontSize: 11 }}>{a.purchase_date}</td>
+                      <td style={{ padding: '7px 10px', textAlign: 'right' }}>{formatINR(a.cost_paise)}</td>
+                      <td style={{ padding: '7px 10px', textAlign: 'right', color: 'var(--t3)' }}>{a.depreciation_rate}%</td>
+                      <td style={{ padding: '7px 10px', textAlign: 'right' }}>{formatINR(a.monthly_dep_paise)}</td>
+                      <td style={{ padding: '7px 10px', textAlign: 'right', color: 'var(--rust)' }}>{formatINR(a.accumulated_dep_paise)}</td>
+                      <td style={{ padding: '7px 10px', textAlign: 'right', fontWeight: 700 }}>{formatINR(a.book_value_paise)}</td>
+                      <td style={{ padding: '7px 10px' }}>
+                        {a.fully_depreciated
+                          ? <span style={{ padding: '2px 6px', borderRadius: 8, fontSize: 10, backgroundColor: 'var(--bg3)', color: 'var(--t3)', fontWeight: 600 }}>Fully Dep.</span>
+                          : <span style={{ padding: '2px 6px', borderRadius: 8, fontSize: 10, backgroundColor: '#e8f5e9', color: '#2e7d32', fontWeight: 600 }}>Active</span>
+                        }
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {!(depData as any)?.assets?.length && <p style={{ color: 'var(--t3)' }}>No fixed assets found.</p>}
+            </>
           )}
         </div>
       )}

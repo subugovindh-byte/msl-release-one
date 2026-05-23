@@ -978,3 +978,29 @@ export function useCancelConsumablePurchase() {
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.consumables.all }),
   });
 }
+
+// ─── STOCK VALUATION ──────────────────────────────────────────────────────────
+export function useStockValuation() {
+  return useQuery({ queryKey: ['reports', 'stock-valuation'], queryFn: () => api.get<any>('/reports/stock-valuation') });
+}
+
+// ─── DEPRECIATION SCHEDULE ────────────────────────────────────────────────────
+export function useDepreciationSchedule() {
+  return useQuery({ queryKey: ['reports', 'depreciation'], queryFn: () => api.get<any>('/reports/depreciation') });
+}
+
+// ─── BUDGETS ──────────────────────────────────────────────────────────────────
+export function useBudgets(params?: { fy?: string; month?: string }) {
+  return useQuery({ queryKey: ['budgets', 'list', params], queryFn: () => api.get<any>('/budgets', { params }), enabled: !!params?.fy });
+}
+export function useUpsertBudget() {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: (d: any) => api.post<any>('/budgets', d), onSuccess: () => qc.invalidateQueries({ queryKey: ['budgets'] }) });
+}
+export function useDeleteBudget() {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: (id: number) => api.delete<any>(`/budgets/${id}`), onSuccess: () => qc.invalidateQueries({ queryKey: ['budgets'] }) });
+}
+export function useBudgetVsActual(params?: { fy?: string; month?: string }) {
+  return useQuery({ queryKey: ['budgets', 'vs-actual', params], queryFn: () => api.get<any>('/budgets/vs-actual', { params }), enabled: !!params?.fy });
+}

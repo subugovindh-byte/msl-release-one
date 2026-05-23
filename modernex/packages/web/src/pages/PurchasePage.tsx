@@ -47,6 +47,7 @@ export function PurchasePage() {
     rate_per_cft_paise: 0,
     transport_paise: 0,
     notes: '',
+    date: new Date().toISOString().slice(0, 10),
   });
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -55,7 +56,7 @@ export function PurchasePage() {
       await createPO.mutateAsync(form);
       notify('Purchase order created successfully', 'success');
       setShowCreate(false);
-      setForm({ vendor_id: '', variety: '', blocks: 1, cft: 0, rate_per_cft_paise: 0, transport_paise: 0, notes: '' });
+      setForm({ vendor_id: '', variety: '', blocks: 1, cft: 0, rate_per_cft_paise: 0, transport_paise: 0, notes: '', date: new Date().toISOString().slice(0, 10) });
     } catch (err: any) {
       notify(err.message || 'Failed to create purchase order', 'error');
     }
@@ -249,6 +250,10 @@ export function PurchasePage() {
           <form onSubmit={handleCreate}>
             <div className="fg2" style={{ gap: '16px', marginBottom: '16px' }}>
               <div>
+                <label className="fl">Date *</label>
+                <input type="date" className="fi" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} required />
+              </div>
+              <div>
                 <label className="fl">Vendor *</label>
                 <select value={form.vendor_id} onChange={(e) => setForm({ ...form, vendor_id: e.target.value })} required className="fsel">
                   <option value="">Select vendor...</option>
@@ -289,12 +294,12 @@ export function PurchasePage() {
               </div>
               <div>
                 <label className="fl">CFT *</label>
-                <input type="number" value={numericInputValue(form.cft)} onChange={(e) => setForm({ ...form, cft: parseFloat(e.target.value) || 0 })} onFocus={selectOnFocus} required min="0" step="0.01" className="fi" />
-                {form.cft > 0 && (
-                  <div style={{ fontSize: 11, color: 'var(--gold)', marginTop: 4, fontWeight: 600 }}>
-                    ≈ {(form.cft * 0.0283168).toFixed(3)} CBM
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input type="number" value={numericInputValue(form.cft)} onChange={(e) => setForm({ ...form, cft: parseFloat(e.target.value) || 0 })} onFocus={selectOnFocus} required min="0" step="0.01" className="fi" style={{ flex: 1 }} />
+                  <div style={{ minWidth: 100, fontSize: 12, color: 'var(--gold)', fontWeight: 600, fontFamily: "'IBM Plex Mono', monospace" }}>
+                    = {(form.cft * 0.0283168).toFixed(3)} CBM
                   </div>
-                )}
+                </div>
               </div>
               <div>
                 <label className="fl">Rate per CFT (₹) *</label>

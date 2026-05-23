@@ -48,6 +48,7 @@ import { payrollRouter } from './routes/payroll.js';
 import { pdcRouter } from './routes/pdc.js';
 import { chartOfAccountsRouter } from './routes/chartOfAccounts.js';
 import { bankReconRouter } from './routes/bankRecon.js';
+import { budgetsRouter } from './routes/budgets.js';
 import { msmeRouter } from './routes/msme.js';
 
 export function createApp() {
@@ -136,6 +137,7 @@ export function createApp() {
   app.use('/api/pdc', pdcRouter);
   app.use('/api/coa', chartOfAccountsRouter);
   app.use('/api/bank-recon', bankReconRouter);
+  app.use('/api/budgets', budgetsRouter);
   app.use('/api/msme', msmeRouter);
 
   // ── STATIC FRONTEND (production) ──

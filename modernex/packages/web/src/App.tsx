@@ -29,6 +29,8 @@ import { MsmeReportPage } from '@/pages/MsmeReportPage';
 import { HelpPage } from '@/pages/HelpPage';
 import { ProfilePage } from '@/pages/ProfilePage';
 import { ConsumablesPage } from '@/pages/ConsumablesPage';
+import { BankReconPage } from '@/pages/BankReconPage';
+import { BudgetPage } from '@/pages/BudgetPage';
 import { ToastContainer } from '@/components/ToastContainer';
 import { useCompany } from '@/hooks/useApi';
 
@@ -52,6 +54,8 @@ const NAV: NavSection[] = [
   { id: 'accounts', path: '/accounts', lbl: 'Accounts', icon: '₹' },
   { id: 'coa', path: '/coa', lbl: 'Chart of Accounts', icon: '⊞' },
   { id: 'reports', path: '/reports', lbl: 'Reports', icon: '◢' },
+  { id: 'bank-recon', path: '/bank-recon', lbl: 'Bank Reconciliation', icon: '⇌' },
+  { id: 'budget', path: '/budget', lbl: 'Budget vs Actual', icon: '◫' },
   { id: 'compliance', path: '/compliance', lbl: 'Compliance', icon: '◳' },
   { sec: 'HR & Payroll' },
   { id: 'payroll', path: '/payroll', lbl: 'Payroll', icon: '◑' },
@@ -260,6 +264,8 @@ export function App() {
               <Route path="/help" element={<HelpPage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/consumables" element={<ConsumablesPage />} />
+              <Route path="/bank-recon" element={<BankReconPage />} />
+              <Route path="/budget" element={<BudgetPage />} />
               <Route path="/invoice/:id" element={<InvoiceReceiptPage />} />
               <Route path="/purchase/:id" element={<PurchaseOrderReceiptPage />} />
               <Route path="*" element={<Navigate to="/pos" />} />
