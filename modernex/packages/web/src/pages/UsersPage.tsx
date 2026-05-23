@@ -3,6 +3,7 @@ import type { ColDef } from 'ag-grid-community';
 import {
   useUsers, useCreateUser, useUpdateUser,
   useDeleteUser, useResetUserPassword, useUnlockUser, useResetAllPasswords,
+  useRoles, useAssignUserRoles,
 } from '@/hooks/useApi';
 import { useAuthStore, useToastStore } from '@/store';
 import { DataGridTable } from '@/components/DataGridTable';
@@ -25,7 +26,7 @@ const BADGE: Record<Role, { bg: string; color: string }> = {
 const BLANK_CREATE = { username: '', full_name: '', email: '', password: '', role: 'accounts' as Role, must_change_password: true };
 const BLANK_EDIT   = { full_name: '', email: '', phone: '', role: 'accounts' as Role };
 
-type Panel = { mode: 'create' } | { mode: 'edit'; user: any } | { mode: 'reset-all' } | null;
+type Panel = { mode: 'create' } | { mode: 'edit'; user: any } | { mode: 'roles'; user: any } | { mode: 'reset-all' } | null;
 
 export function UsersPage() {
   const { user: me } = useAuthStore();
@@ -38,6 +39,11 @@ export function UsersPage() {
   const { notify }      = useToastStore();
 
   const resetAllPasswords = useResetAllPasswords();
+  const { data: rolesData } = useRoles();
+  const assignUserRoles     = useAssignUserRoles();
+  const allRoles = rolesData?.roles ?? [];
+
+  const [roleAssignment, setRoleAssignment] = useState<Set<number>>(new Set());
 
   const [panel, setPanel]         = useState<Panel>(null);
   const [createForm, setCreateForm] = useState({ ...BLANK_CREATE });
@@ -124,6 +130,23 @@ export function UsersPage() {
     } catch (err: any) { notify(err.message || 'Failed', 'error'); }
   };
 
+  const openRoles = (u: any) => {
+    const current = new Set<number>((u.roles ?? []).map((r: any) => r.id));
+    setRoleAssignment(current);
+    setPanel({ mode: 'roles', user: u });
+  };
+
+  const handleAssignRoles = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (panel?.mode !== 'roles') return;
+    if (!roleAssignment.size) { notify('Select at least one role', 'error'); return; }
+    try {
+      await assignUserRoles.mutateAsync({ userId: panel.user.id, role_ids: [...roleAssignment] });
+      notify('Roles updated', 'success');
+      setPanel(null);
+    } catch (err: any) { notify(err.message || 'Failed', 'error'); }
+  };
+
   const colDefs = useMemo<ColDef[]>(() => [
     {
       headerName: 'Username', field: 'username', minWidth: 140, pinned: 'left',
@@ -139,10 +162,21 @@ export function UsersPage() {
     { headerName: 'Full Name', field: 'full_name', minWidth: 170, flex: 1, valueFormatter: p => p.value || '—' },
     { headerName: 'Email',     field: 'email',     minWidth: 190, flex: 1, valueFormatter: p => p.value || '—' },
     {
-      headerName: 'Role', field: 'role', minWidth: 105,
+      headerName: 'Roles', field: 'roles', minWidth: 160, flex: 1,
       cellRenderer: (p: any) => {
-        const c = BADGE[p.value as Role] ?? { bg: 'var(--bg3)', color: 'var(--t2)' };
-        return <span style={{ padding: '2px 10px', background: c.bg, color: c.color, borderRadius: 10, fontSize: 11, fontWeight: 700, textTransform: 'capitalize' }}>{p.value}</span>;
+        const roles: any[] = p.value ?? [];
+        if (!roles.length) {
+          const c = BADGE[p.data?.role as Role] ?? { bg: 'var(--bg3)', color: 'var(--t2)' };
+          return <span style={{ padding: '2px 8px', background: c.bg, color: c.color, borderRadius: 10, fontSize: 11, fontWeight: 700, textTransform: 'capitalize' }}>{p.data?.role}</span>;
+        }
+        return (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center', height: '100%' }}>
+            {roles.map((r: any) => {
+              const c = BADGE[r.name as Role] ?? { bg: 'var(--bg3)', color: 'var(--t2)' };
+              return <span key={r.id} style={{ padding: '1px 7px', background: c.bg, color: c.color, borderRadius: 10, fontSize: 10, fontWeight: 700, textTransform: 'capitalize' }}>{r.name}</span>;
+            })}
+          </div>
+        );
       },
     },
     {
@@ -155,7 +189,7 @@ export function UsersPage() {
     },
     { headerName: 'Last Login', field: 'last_login', minWidth: 120, valueFormatter: p => p.value ? new Date(p.value).toLocaleDateString('en-IN') : 'Never' },
     {
-      headerName: 'Actions', minWidth: 230, sortable: false, filter: false,
+      headerName: 'Actions', minWidth: 280, sortable: false, filter: false,
       cellRenderer: (p: any) => {
         const u = p.data;
         const isMe = u.id === me?.id;
@@ -163,6 +197,7 @@ export function UsersPage() {
         return (
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', height: '100%' }}>
             <button onClick={() => openEdit(u)} style={btn('var(--blue)')}>Edit</button>
+            <button onClick={() => openRoles(u)} style={btn('var(--sage)')}>Roles</button>
             <button onClick={() => handleReset(u)} style={btn('var(--gold)')}>Reset PW</button>
             {isLocked && <button onClick={() => handleUnlock(u)} style={btn('var(--amber)')}>Unlock</button>}
             {!isMe && (
@@ -269,6 +304,45 @@ export function UsersPage() {
                 </button>
                 <button type="button" onClick={() => setPanel(null)} style={btn('var(--t3)', true)}>Cancel</button>
               </div>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* ── Role assignment panel ── */}
+      {panel?.mode === 'roles' && (
+        <div style={panelStyle}>
+          <h3 style={{ marginTop: 0, marginBottom: 6 }}>Assign Roles — {panel.user.username}</h3>
+          <p style={{ fontSize: 13, color: 'var(--t3)', marginTop: 0, marginBottom: 16 }}>
+            Select one or more roles. Effective permissions are the union of all assigned roles.
+          </p>
+          <form onSubmit={handleAssignRoles}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10, marginBottom: 16 }}>
+              {allRoles.map((r: any) => (
+                <label key={r.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 12px', background: 'var(--bg1)', border: `1px solid ${roleAssignment.has(r.id) ? 'var(--rust)' : 'var(--bd)'}`, borderRadius: 6, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={roleAssignment.has(r.id)}
+                    onChange={() => setRoleAssignment(prev => { const n = new Set(prev); n.has(r.id) ? n.delete(r.id) : n.add(r.id); return n; })}
+                    style={{ marginTop: 2, width: 14, height: 14 }} />
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 13, textTransform: 'capitalize' }}>{r.name}
+                      {!!r.is_system && <span style={{ marginLeft: 6, fontSize: 9, color: 'var(--t3)' }}>system</span>}
+                    </div>
+                    {r.description && <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 2 }}>{r.description}</div>}
+                    <div style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+                      {(r.permissions ?? []).slice(0, 6).map((p: any) => (
+                        <span key={p.id} style={{ fontSize: 9, padding: '1px 5px', background: 'var(--bg3)', color: 'var(--t2)', borderRadius: 8 }}>{p.resource}:{p.action}</span>
+                      ))}
+                      {(r.permissions ?? []).length > 6 && <span style={{ fontSize: 9, color: 'var(--t3)' }}>+{r.permissions.length - 6} more</span>}
+                    </div>
+                  </div>
+                </label>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button type="submit" disabled={assignUserRoles.isPending} style={btn('var(--rust)', true)}>
+                {assignUserRoles.isPending ? 'Saving…' : 'Save Roles'}
+              </button>
+              <button type="button" onClick={() => setPanel(null)} style={btn('var(--t3)', true)}>Cancel</button>
             </div>
           </form>
         </div>

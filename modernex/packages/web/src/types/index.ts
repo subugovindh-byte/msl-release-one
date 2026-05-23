@@ -4,13 +4,31 @@
 
 
 // ─── User & Auth ───
-export type UserRole = 'admin' | 'accounts' | 'yard' | 'sales' | 'viewer';
+export type UserRole = 'admin' | 'accounts' | 'yard' | 'sales' | string;
+
+export interface Permission {
+  id: number;
+  resource: string;
+  action: string;
+  description?: string;
+}
+
+export interface Role {
+  id: number;
+  name: string;
+  description?: string;
+  is_system: number;
+  created_at?: string;
+  created_by?: string;
+  permissions?: Permission[];
+}
 
 export interface User {
   id: number;
   username: string;
   fullName: string;
   role: UserRole;
+  roles?: Role[];
   active: boolean;
   lastLogin?: string;
   createdAt: string;

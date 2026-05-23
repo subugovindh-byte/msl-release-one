@@ -13,6 +13,7 @@ import { ReportsPage } from '@/pages/ReportsPage';
 import { MastersPage } from '@/pages/MastersPage';
 import { CollectionAccountsPage } from '@/pages/CollectionAccountsPage';
 import { UsersPage } from '@/pages/UsersPage';
+import { RolesPage } from '@/pages/RolesPage';
 import { SystemPage } from '@/pages/SystemPage';
 import { VarietyPhotosPage } from '@/pages/VarietyPhotosPage';
 import { InvoiceReceiptPage } from '@/pages/InvoiceReceiptPage';
@@ -59,6 +60,7 @@ const NAV: NavSection[] = [
   { id: 'variety-photos', path: '/variety-photos', lbl: 'Variety Photos', icon: '◫' },
   { id: 'accounts-cfg', path: '/accounts-cfg', lbl: 'Bank/UPI', icon: '◎' },
   { id: 'users', path: '/users', lbl: 'Users', icon: '◔' },
+  { id: 'roles', path: '/roles', lbl: 'Roles & Permissions', icon: '◈' },
   { id: 'system', path: '/system', lbl: 'System', icon: '◆' },
   { id: 'help', path: '/help', lbl: 'Help / Handbook', icon: '?' },
 ];
@@ -211,6 +213,7 @@ export function App() {
               <Route path="/variety-photos" element={<VarietyPhotosPage />} />
               <Route path="/accounts-cfg" element={<CollectionAccountsPage />} />
               <Route path="/users" element={<UsersPage />} />
+              <Route path="/roles" element={<RolesPage />} />
               <Route path="/system" element={<SystemPage />} />
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/compliance" element={<CompliancePage />} />

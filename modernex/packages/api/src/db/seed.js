@@ -34,6 +34,16 @@ export async function seed() {
     'INSERT INTO users (username, password_hash, full_name, role) VALUES (?, ?, ?, ?)'
   ).run(username, hash, fullName, 'admin');
 
+  // Wire the new admin into user_roles (migration may have run before user existed)
+  const adminRole = db.prepare("SELECT id FROM roles WHERE name = 'admin'").get();
+  if (adminRole) {
+    const newUser = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
+    if (newUser) {
+      db.prepare('INSERT OR IGNORE INTO user_roles (user_id, role_id, assigned_by) VALUES (?, ?, ?)')
+        .run(newUser.id, adminRole.id, 'system_seed');
+    }
+  }
+
   logger.info({ username }, 'Default admin user created — change password immediately after first login');
 
   if (password === 'admin123') {

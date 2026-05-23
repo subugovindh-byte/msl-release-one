@@ -17,12 +17,25 @@ export const authRouter = Router();
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCK_DURATION_MS = 15 * 60 * 1000;
 
-function signAccessToken(user) {
+function getUserRoleNames(db, userId) {
+  const rows = db.prepare(`
+    SELECT r.name FROM user_roles ur
+    JOIN roles r ON r.id = ur.role_id
+    WHERE ur.user_id = ?
+  `).all(userId);
+  return rows.map(r => r.name);
+}
+
+function signAccessToken(user, roles = []) {
+  // roles[] is the source of truth; role is kept for backward compat
+  const primaryRole = roles.includes(user.role) ? user.role
+    : (roles[0] ?? user.role);
   return jwt.sign(
     {
       sub: user.id,
       username: user.username,
-      role: user.role,
+      role: primaryRole,
+      roles,
       fullName: user.full_name,
     },
     config.jwt.secret,
@@ -92,7 +105,8 @@ authRouter.post('/login', authLimiter, validate(loginSchema), async (req, res, n
     ).run(user.id);
 
     // Issue tokens
-    const accessToken = signAccessToken(user);
+    const roles = getUserRoleNames(db, user.id);
+    const accessToken = signAccessToken(user, roles);
     const refreshTokenId = crypto.randomUUID();
     const refreshExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
@@ -144,12 +158,13 @@ authRouter.post('/refresh', authLimiter, (req, res, next) => {
       'INSERT INTO refresh_tokens (id, user_id, expires_at, ip_address) VALUES (?, ?, ?, ?)'
     ).run(newRefreshId, tokenRow.user_id, newRefreshExpiresAt, req.ip);
 
+    const roles = getUserRoleNames(db, tokenRow.user_id);
     const accessToken = signAccessToken({
       id: tokenRow.user_id,
       username: tokenRow.username,
       role: tokenRow.role,
       full_name: tokenRow.full_name,
-    });
+    }, roles);
 
     setAuthCookies(res, accessToken, newRefreshId);
     res.json({ accessToken });

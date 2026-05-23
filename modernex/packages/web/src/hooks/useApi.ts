@@ -15,6 +15,8 @@ import type {
   CollectionAccount,
   Location,
   User,
+  Role,
+  Permission,
   ProductTraceResponse,
   CompanyDetails,
 } from '@/types';
@@ -59,6 +61,13 @@ export const queryKeys = {
     all: ['users'] as const,
     list: () => ['users', 'list'] as const,
     detail: (id: number) => ['users', 'detail', id] as const,
+  },
+  roles: {
+    all: ['roles'] as const,
+    list: () => ['roles', 'list'] as const,
+  },
+  permissions: {
+    all: ['permissions'] as const,
   },
   accounts: {
     all: ['accounts'] as const,
@@ -283,6 +292,56 @@ export function useUnlockUser() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: number) => api.post<{ ok: boolean }>(`/users/${id}/unlock`, {}),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.users.all }); },
+  });
+}
+
+// ─── Roles & Permissions ───
+export function useRoles() {
+  return useQuery({
+    queryKey: queryKeys.roles.list(),
+    queryFn: () => api.get<{ roles: Role[] }>('/roles'),
+  });
+}
+
+export function usePermissions() {
+  return useQuery({
+    queryKey: queryKeys.permissions.all,
+    queryFn: () => api.get<{ permissions: Permission[] }>('/permissions'),
+  });
+}
+
+export function useCreateRole() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { name: string; description?: string; permission_ids?: number[] }) =>
+      api.post<{ role: Role }>('/roles', data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.roles.all }); },
+  });
+}
+
+export function useUpdateRole() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: number; name?: string; description?: string; permission_ids?: number[] }) =>
+      api.patch<{ role: Role }>(`/roles/${id}`, data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.roles.all }); },
+  });
+}
+
+export function useDeleteRole() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => api.delete<{ ok: boolean }>(`/roles/${id}`),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.roles.all }); },
+  });
+}
+
+export function useAssignUserRoles() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, role_ids }: { userId: number; role_ids: number[] }) =>
+      api.put<{ ok: boolean; roles: string[] }>(`/users/${userId}/roles`, { role_ids }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.users.all }); },
   });
 }

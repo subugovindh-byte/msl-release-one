@@ -31,6 +31,7 @@ import { reportsRouter } from './routes/reports.js';
 import { backupsRouter } from './routes/backups.js';
 import { invoiceDeliveryRouter } from './routes/invoiceDelivery.js';
 import { usersRouter, selfServiceRouter } from './routes/users.js';
+import { rolesRouter, permissionsRouter } from './routes/roles.js';
 import { whatsappWebhookRouter } from './routes/webhooks.js';
 import { photosRouter, slabPhotoRouter } from './routes/photos.js';
 import { collectionAccountsRouter } from './routes/collectionAccounts.js';
@@ -118,6 +119,8 @@ export function createApp() {
   app.use('/api/backups', backupsRouter);
   app.use('/api/users', usersRouter);           // admin user management (admin-only)
   app.use('/api/users', selfServiceRouter);     // /me/change-password (any auth'd user)
+  app.use('/api/roles', rolesRouter);           // role CRUD (admin-only)
+  app.use('/api/permissions', permissionsRouter); // permission list (admin-only)
   app.use('/api/collection-accounts', collectionAccountsRouter);
   app.use('/api/company', companyRouter);
   app.use('/api/qr', qrRouter);

@@ -38,6 +38,19 @@ const passwordResetSchema = z.object({
   must_change: z.boolean().default(true),
 });
 
+function attachRoles(db, users) {
+  if (!users.length) return users;
+  const ids = users.map(u => u.id);
+  const rows = db.prepare(`
+    SELECT ur.user_id, r.id AS role_id, r.name, r.description, r.is_system
+    FROM user_roles ur JOIN roles r ON r.id = ur.role_id
+    WHERE ur.user_id IN (${ids.map(() => '?').join(',')})
+  `).all(...ids);
+  const byUser = {};
+  for (const r of rows) (byUser[r.user_id] ??= []).push({ id: r.role_id, name: r.name, description: r.description, is_system: r.is_system });
+  return users.map(u => ({ ...u, roles: byUser[u.id] ?? [] }));
+}
+
 // ─── GET /users ───
 usersRouter.get('/', (req, res) => {
   const db = getDb();
@@ -47,7 +60,7 @@ usersRouter.get('/', (req, res) => {
            created_at, created_by, deactivated_at, deactivated_by
     FROM users ORDER BY role, username
   `).all();
-  res.json({ users: rows });
+  res.json({ users: attachRoles(db, rows) });
 });
 
 // ─── GET /users/:id ───
@@ -97,6 +110,13 @@ usersRouter.post('/', validate(userCreateSchema), async (req, res, next) => {
       `SELECT id, username, full_name, email, phone, role, active, must_change_password, created_at
        FROM users WHERE id = ?`
     ).get(result.lastInsertRowid);
+
+    // Insert into user_roles (lookup the role's id)
+    const roleRow = db.prepare('SELECT id FROM roles WHERE name = ?').get(role);
+    if (roleRow) {
+      db.prepare('INSERT OR IGNORE INTO user_roles (user_id, role_id, assigned_by) VALUES (?, ?, ?)')
+        .run(result.lastInsertRowid, roleRow.id, req.user.username);
+    }
 
     audit(req, 'USER_CREATE', 'users', user.id, null, user);
 
@@ -225,6 +245,53 @@ usersRouter.post('/:id/unlock', (req, res, next) => {
 
     audit(req, 'USER_UNLOCK', 'users', req.params.id, null, null);
     res.json({ ok: true });
+  } catch (err) { next(err); }
+});
+
+// ─── GET /users/:id/roles ───
+usersRouter.get('/:id/roles', (req, res, next) => {
+  try {
+    const db = getDb();
+    const user = db.prepare('SELECT id FROM users WHERE id = ?').get(req.params.id);
+    if (!user) throw new NotFoundError('User not found');
+    const roles = db.prepare(`
+      SELECT r.id, r.name, r.description, r.is_system
+      FROM user_roles ur JOIN roles r ON r.id = ur.role_id
+      WHERE ur.user_id = ?
+    `).all(req.params.id);
+    res.json({ roles });
+  } catch (err) { next(err); }
+});
+
+// ─── PUT /users/:id/roles — replace full role set ───
+usersRouter.put('/:id/roles', validate(z.object({ role_ids: z.array(z.number().int().positive()).min(1) })), (req, res, next) => {
+  try {
+    const db = getDb();
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
+    if (!user) throw new NotFoundError('User not found');
+
+    // Validate all role IDs exist
+    for (const rid of req.body.role_ids) {
+      if (!db.prepare('SELECT id FROM roles WHERE id = ?').get(rid)) {
+        throw new AppError(`Role id ${rid} not found`, 400);
+      }
+    }
+
+    // Replace existing assignments
+    db.prepare('DELETE FROM user_roles WHERE user_id = ?').run(user.id);
+    const insert = db.prepare('INSERT OR IGNORE INTO user_roles (user_id, role_id, assigned_by) VALUES (?, ?, ?)');
+    for (const rid of req.body.role_ids) insert.run(user.id, rid, req.user.username);
+
+    // Keep users.role in sync with primary role (admin > accounts > sales > yard > custom)
+    const PRIORITY = ['admin', 'accounts', 'sales', 'yard'];
+    const assignedRoles = db.prepare(`
+      SELECT r.name FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = ?
+    `).all(user.id).map(r => r.name);
+    const primary = PRIORITY.find(p => assignedRoles.includes(p)) ?? assignedRoles[0];
+    if (primary) db.prepare('UPDATE users SET role = ? WHERE id = ?').run(primary, user.id);
+
+    audit(req, 'USER_ROLES_UPDATE', 'users', user.id, null, { role_ids: req.body.role_ids });
+    res.json({ ok: true, roles: assignedRoles });
   } catch (err) { next(err); }
 });
 
