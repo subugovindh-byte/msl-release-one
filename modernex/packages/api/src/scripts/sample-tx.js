@@ -49,6 +49,8 @@ const IDS = {
   invoice  : 'SAMPLE-INV-001',
   rcpt     : 'SAMPLE-PAY-001',
   pdc      : 'SAMPLE-PDC-001',
+  // Consumables / Budgets
+  cp       : 'CP-2026-0001',
   // HR / Payroll
   emp1     : 'SAMPLE-EMP-001',
   emp2     : 'SAMPLE-EMP-002',
@@ -157,9 +159,14 @@ if (PURGE_ALL) {
     clear('asset_depreciation_log');
     clear('fixed_assets');
     clear('bank_statement_lines');
+    clear('bank_statements');
     clear('bank_accounts_reg');
     clear('collection_accounts');
     clear('budgets');
+    clear('budget_targets');
+
+    // ── Consumables ──
+    clear('consumable_purchases');
 
     // ── Audit / session ──
     clear('audit_log');
@@ -191,6 +198,11 @@ if (PURGE) {
       const n = db.prepare(`DELETE FROM ${table} WHERE ${col} LIKE ?`).run(pat).changes;
       if (n) console.log(`   ✓ Removed ${n} row(s) from ${table}`);
     };
+
+    // Consumables / Budgets
+    del('consumable_purchases', 'id', IDS.cp);
+    const btDel = db.prepare(`DELETE FROM budget_targets WHERE created_by = 'sample-tx'`).run().changes;
+    if (btDel) console.log(`   ✓ Removed ${btDel} row(s) from budget_targets`);
 
     // Compliance
     del('tds_challans',     'id',          IDS.tds_ch);
@@ -638,6 +650,48 @@ db.transaction(() => {
   console.log(`   ✓ JV-003      Journal  PF provision  ₹${((PF1R+PF2R)/100).toLocaleString('en-IN')}`);
 
   // ════════════════════════════════════════════════════════════
+  // SECTION I — CONSUMABLE PURCHASES
+  // ════════════════════════════════════════════════════════════
+  console.log('\n  ── Consumables ──');
+
+  const cpItems = [
+    { description: 'Diamond Gangsaw Wire Rope (50m)', qty: 2, unit: 'roll', rate_paise: 800000, amount_paise: 1600000 },
+    { description: 'Diamond Segment Blade 600mm',     qty: 4, unit: 'pcs',  rate_paise: 350000, amount_paise: 1400000 },
+    { description: 'Epoxy Colour (5kg tin)',           qty: 3, unit: 'tin',  rate_paise: 120000, amount_paise:  360000 },
+  ];
+  const cpTotal = cpItems.reduce((s, i) => s + i.amount_paise, 0);
+  db.prepare(`
+    INSERT INTO consumable_purchases
+      (id, date, vendor_name, category, items, total_paise,
+       payment_mode, reference_no, notes, status, created_by)
+    VALUES (?,?,'Diamond Tools India','Blades & Segments',?,?,
+            'NEFT','SBIN0CPSMPL01',
+            'Quarterly consumable restock','paid','sample-tx')
+  `).run(IDS.cp, daysAgo(7), JSON.stringify(cpItems), cpTotal);
+  console.log(`   ✓ Consumables ${IDS.cp}  3 items  Total ₹${(cpTotal/100).toLocaleString('en-IN')}  (paid)`);
+
+  // ════════════════════════════════════════════════════════════
+  // SECTION J — BUDGET TARGETS
+  // ════════════════════════════════════════════════════════════
+  console.log('\n  ── Budget Targets ──');
+
+  const budgetTargets = [
+    { category: 'Revenue',      amount_paise: 50_000_000 },  // ₹5,00,000
+    { category: 'Raw Material', amount_paise: 30_000_000 },  // ₹3,00,000
+    { category: 'Consumables',  amount_paise:  5_000_000 },  // ₹50,000
+    { category: 'Payroll',      amount_paise:  5_300_000 },  // ₹53,000
+    { category: 'Transport',    amount_paise:  2_000_000 },  // ₹20,000
+  ];
+  const btStmt = db.prepare(`
+    INSERT OR IGNORE INTO budget_targets (fy, month, category, amount_paise, notes, created_by)
+    VALUES (?,?,?,?,?,?)
+  `);
+  for (const bt of budgetTargets) {
+    btStmt.run(SAMPLE_FY, SAMPLE_MONTH, bt.category, bt.amount_paise, 'Sample budget', 'sample-tx');
+    console.log(`   ✓ Budget      ${SAMPLE_MONTH}  ${bt.category.padEnd(14)} ₹${(bt.amount_paise/100).toLocaleString('en-IN')}`);
+  }
+
+  // ════════════════════════════════════════════════════════════
   // SECTION G — TDS
   // ════════════════════════════════════════════════════════════
   console.log('\n  ── TDS ──');
@@ -694,6 +748,9 @@ console.log(`
 ║    Invoice  SAMPLE-INV-001  3 slabs CGST+SGST                        ║
 ║    Payment  SAMPLE-PAY-001  ₹50,000 NEFT                             ║
 ║    PDC      SAMPLE-PDC-001  Balance cheque                           ║
+║  Consumables  CP-2026-0001  Blade + Rope + Epoxy ₹33,600 (paid)      ║
+║  Budget Targets (${SAMPLE_MONTH})                                       ║
+║    Revenue ₹5L · Raw Mat ₹3L · Consumables ₹50K · Payroll ₹53K      ║
 ║  HR & Payroll (${SAMPLE_MONTH})                                         ║
 ║    Employees  Arun Kumar (Manager) · Ravi Kumar (Operator)           ║
 ║    Payroll + EPF + ESI + PT challans + Bonus (FY 2025-26)            ║

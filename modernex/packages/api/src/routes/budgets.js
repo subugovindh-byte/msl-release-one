@@ -95,7 +95,7 @@ budgetsRouter.get('/vs-actual', requireRole('admin', 'accounts'), (req, res, nex
     ).get(dateFrom, dateTo)?.v || 0;
 
     const payroll = db.prepare(
-      "SELECT SUM(net_pay_paise) as v FROM payroll_runs WHERE pay_month >= ? AND pay_month <= ?"
+      "SELECT SUM(total_net_paise) as v FROM payroll_runs WHERE month >= ? AND month <= ?"
     ).get(dateFrom.slice(0, 7), dateTo.slice(0, 7))?.v || 0;
 
     const transport = db.prepare(
