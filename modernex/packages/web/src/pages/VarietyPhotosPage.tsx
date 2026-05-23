@@ -19,7 +19,8 @@ export function VarietyPhotosPage() {
   const [regionFilter, setRegionFilter] = useState<string>('all');
   const [uploading, setUploading] = useState<string | null>(null);
 
-  const isAdmin = user?.role === 'admin';
+  const canUpload = user?.role === 'admin' || user?.role === 'sales' || user?.role === 'yard' ||
+    (user?.roles ?? []).some((r: any) => ['admin', 'sales', 'yard'].includes(r.name ?? r));
 
   useEffect(() => {
     loadVarieties();
@@ -37,8 +38,8 @@ export function VarietyPhotosPage() {
   };
 
   const handleUploadPhoto = async (variety: string, file: File) => {
-    if (!isAdmin) {
-      notify('Only admins can upload photos', 'error');
+    if (!canUpload) {
+      notify('You do not have permission to upload photos', 'error');
       return;
     }
 
@@ -96,7 +97,7 @@ export function VarietyPhotosPage() {
         </p>
       </div>
 
-      {!isAdmin && (
+      {!canUpload && (
         <div style={{
           padding: '12px 16px',
           backgroundColor: 'var(--bg3)',
@@ -106,7 +107,7 @@ export function VarietyPhotosPage() {
           fontSize: '13px',
           color: 'var(--t2)'
         }}>
-          <strong>View Only:</strong> Admin role required to upload photos.
+          <strong>View Only:</strong> Admin, Sales, or Yard role required to upload photos.
         </div>
       )}
 
@@ -248,7 +249,7 @@ export function VarietyPhotosPage() {
             </div>
 
             {/* Upload Button */}
-            {isAdmin && (
+            {canUpload && (
               <div>
                 <input
                   type="file"

@@ -38,8 +38,8 @@ varietyDefaultsRouter.get('/', authenticate, (req, res) => {
   res.json({ varieties: rows, map });
 });
 
-// Admin only: override one variety's reference photo (data URI in body)
-varietyDefaultsRouter.patch('/:variety', authenticate, requireRole('admin'), (req, res) => {
+// Admin, sales, yard: override one variety's reference photo (data URI in body)
+varietyDefaultsRouter.patch('/:variety', authenticate, requireRole('admin', 'sales', 'yard'), (req, res) => {
   const { variety } = req.params;
   const { photo_url, region, notes } = req.body || {};
 

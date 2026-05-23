@@ -103,7 +103,7 @@ slabPhotoRouter.get('/varieties/photos', (req, res) => {
 
 // ─── POST /api/slabs/varieties/:variety/photo ───
 slabPhotoRouter.post('/varieties/:variety/photo',
-  requireRole('admin'),
+  requireRole('admin', 'sales', 'yard'),
   multipart({ maxBytes: 6 * 1024 * 1024 }),
   async (req, res, next) => {
     try {
