@@ -8,7 +8,7 @@ on:
 env:
   AZURE_WEBAPP_NAME: modernex-prod
   AZURE_RG: modernex-rg
-  NODE_VERSION: '20.x'
+  NODE_VERSION: '22.x'
 
 defaults:
   run:
