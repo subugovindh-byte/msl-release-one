@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, NavLink, useNavigate } from 'react-router-dom';
+import { useQueryClient, useIsFetching } from '@tanstack/react-query';
 import { useAuthStore, useThemeStore, useToastStore, useCartStore } from '@/store';
 import { LoginPage } from '@/pages/LoginPage';
 import { DashboardPage } from '@/pages/DashboardPage';
@@ -80,6 +81,8 @@ export function App() {
   const cartCount = useCartStore((s) => s.items.reduce((n, i) => n + i.quantity, 0));
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const isFetching = useIsFetching();
   const { data: companyData } = useCompany();
   const company = companyData?.company;
   const COMPANY = company?.name ?? 'MODERNEX STONES LLP';
@@ -148,6 +151,14 @@ export function App() {
         </div>
         <div className="tb-right">
           <span className="chip">{formatDate()}</span>
+          <button
+            className={`refresh-btn${isFetching ? ' spinning' : ''}`}
+            onClick={() => queryClient.invalidateQueries()}
+            aria-label="Refresh data"
+            title="Refresh"
+          >
+            ↻
+          </button>
           <button className="theme-btn" onClick={toggle} aria-label="Toggle theme">
             <span>{theme === 'dark' ? '☀' : '🌙'}</span>
             <span>{theme === 'dark' ? ' Day' : ' Night'}</span>
