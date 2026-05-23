@@ -112,7 +112,10 @@ export function PurchasePage() {
     { headerName: 'Vendor', field: 'vendor_name', minWidth: 160, flex: 1, valueFormatter: (p) => p.value || p.data?.vendor_id || '—' },
     { headerName: 'Variety', field: 'variety', minWidth: 160, flex: 1 },
     { headerName: 'Blocks', field: 'blocks', minWidth: 90, type: 'numericColumn' },
-    { headerName: 'CFT', field: 'cft', minWidth: 90, type: 'numericColumn' },
+    {
+      headerName: 'CFT / CBM', field: 'cft', minWidth: 130,
+      valueFormatter: (p) => p.value ? `${p.value} / ${(p.value * 0.0283168).toFixed(3)}` : '—',
+    },
     {
       headerName: 'Total',
       field: 'total_paise',
@@ -287,6 +290,11 @@ export function PurchasePage() {
               <div>
                 <label className="fl">CFT *</label>
                 <input type="number" value={numericInputValue(form.cft)} onChange={(e) => setForm({ ...form, cft: parseFloat(e.target.value) || 0 })} onFocus={selectOnFocus} required min="0" step="0.01" className="fi" />
+                {form.cft > 0 && (
+                  <div style={{ fontSize: 11, color: 'var(--gold)', marginTop: 4, fontWeight: 600 }}>
+                    ≈ {(form.cft * 0.0283168).toFixed(3)} CBM
+                  </div>
+                )}
               </div>
               <div>
                 <label className="fl">Rate per CFT (₹) *</label>

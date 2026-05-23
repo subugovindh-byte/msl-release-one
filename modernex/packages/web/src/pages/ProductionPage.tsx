@@ -20,6 +20,15 @@ function cftFromM(l: number, w: number, h: number) {
   return +((l * w * h) * 35.3147).toFixed(2);
 }
 
+function cbmFromM(l: number, w: number, h: number) {
+  if (!l || !w || !h) return 0;
+  return +(l * w * h).toFixed(3);
+}
+
+function volLabel(cft: number, cbm: number) {
+  return `${cft} CFT · ${cbm} CBM`;
+}
+
 const LOCATION_LABEL: Record<string, string> = {
   RAW_YARD: 'Raw Yard', GANGSAW_IN: 'Gangsaw In',
   GANGSAW_OUT: 'Gangsaw Out', FINISHED_YARD: 'Finished Yard', SHOWROOM: 'Showroom',
@@ -32,7 +41,7 @@ async function printLabel(p: any) {
     const lmm = d.length_m ? Math.round(d.length_m * 1000) : null;
     const wmm = d.width_m  ? Math.round(d.width_m  * 1000) : null;
     const hmm = d.height_m ? Math.round(d.height_m * 1000) : null;
-    if (lmm && wmm && hmm) dimStr = `${lmm}×${wmm}×${hmm} mm · ${cftFromM(d.length_m,d.width_m,d.height_m)} CFT`;
+    if (lmm && wmm && hmm) dimStr = `${lmm}×${wmm}×${hmm} mm · ${volLabel(cftFromM(d.length_m,d.width_m,d.height_m), cbmFromM(d.length_m,d.width_m,d.height_m))}`;
   } else if (d.size_lw) {
     dimStr = `${d.size_lw}${d.thickness_mm ? ` · ${d.thickness_mm}mm` : ''}${d.sqft ? ` · ${d.sqft} sqft` : ''}${d.sqft_per_tile ? ` · ${d.sqft_per_tile} sqft/tile` : ''}`;
   }
@@ -243,6 +252,7 @@ function ReceiveBlock({ notify }: { notify: any }) {
   }
 
   const cft = cftFromM(+form.length_m / 1000, +form.width_m / 1000, +form.height_m / 1000);
+  const cbm = cbmFromM(+form.length_m / 1000, +form.width_m / 1000, +form.height_m / 1000);
 
   function set(k: string, v: string) { setForm(f => ({ ...f, [k]: v })); }
 
@@ -337,7 +347,7 @@ function ReceiveBlock({ notify }: { notify: any }) {
         </div>
         {cft > 0 && (
           <div style={{ marginTop: 8, fontSize: 13, color: 'var(--gold)', fontWeight: 600 }}>
-            ≈ {cft} CFT
+            ≈ {volLabel(cft, cbm)}
           </div>
         )}
       </div>
@@ -415,7 +425,9 @@ function SplitBlock({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; noti
   }
 
   const cft1 = cftFromM(+form.sub1.length_m / 1000, +form.sub1.width_m / 1000, +form.sub1.height_m / 1000);
+  const cbm1 = cbmFromM(+form.sub1.length_m / 1000, +form.sub1.width_m / 1000, +form.sub1.height_m / 1000);
   const cft2 = cftFromM(+form.sub2.length_m / 1000, +form.sub2.width_m / 1000, +form.sub2.height_m / 1000);
+  const cbm2 = cbmFromM(+form.sub2.length_m / 1000, +form.sub2.width_m / 1000, +form.sub2.height_m / 1000);
 
   if (rawBlocks.length === 0) {
     return (
@@ -437,9 +449,10 @@ function SplitBlock({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; noti
           {rawBlocks.map((b: any) => {
             const dims = b.dimensions || {};
             const cft = cftFromM(dims.length_m, dims.width_m, dims.height_m);
+            const cbm = cbmFromM(dims.length_m, dims.width_m, dims.height_m);
             return (
               <option key={b.id} value={b.id}>
-                {b.id} · {b.variety} {b.lot_id ? `(${b.lot_id})` : ''} {cft > 0 ? `— ${cft} CFT` : ''}
+                {b.id} · {b.variety} {b.lot_id ? `(${b.lot_id})` : ''} {cft > 0 ? `— ${volLabel(cft, cbm)}` : ''}
               </option>
             );
           })}
@@ -449,9 +462,12 @@ function SplitBlock({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; noti
       {selectedBlock && (
         <div style={{ fontSize: 12, color: 'var(--t3)', marginTop: -8 }}>
           Variety: <strong style={{ color: 'var(--t1)' }}>{selectedBlock.variety}</strong>
-          {selectedBlock.dimensions?.length_m && (
-            <> · {cftFromM(selectedBlock.dimensions.length_m, selectedBlock.dimensions.width_m, selectedBlock.dimensions.height_m)} CFT</>
-          )}
+          {selectedBlock.dimensions?.length_m && (() => {
+            const d = selectedBlock.dimensions;
+            const cft = cftFromM(d.length_m, d.width_m, d.height_m);
+            const cbm = cbmFromM(d.length_m, d.width_m, d.height_m);
+            return <> · {volLabel(cft, cbm)}</>;
+          })()}
         </div>
       )}
 
@@ -470,7 +486,7 @@ function SplitBlock({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; noti
               <Inp type="number" step="1" min="0" value={form.sub1.height_m} onChange={e => setSub(1, 'height_m', e.target.value)} placeholder="600" required />
             </Fld>
           </div>
-          {cft1 > 0 && <div style={{ fontSize: 12, color: 'var(--gold)' }}>≈ {cft1} CFT</div>}
+          {cft1 > 0 && <div style={{ fontSize: 12, color: 'var(--gold)' }}>≈ {volLabel(cft1, cbm1)}</div>}
         </div>
         {/* Sub-block 1B */}
         <div style={{ flex: 1, ...card, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -486,7 +502,7 @@ function SplitBlock({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; noti
               <Inp type="number" step="1" min="0" value={form.sub2.height_m} onChange={e => setSub(2, 'height_m', e.target.value)} placeholder="600" required />
             </Fld>
           </div>
-          {cft2 > 0 && <div style={{ fontSize: 12, color: 'var(--gold)' }}>≈ {cft2} CFT</div>}
+          {cft2 > 0 && <div style={{ fontSize: 12, color: 'var(--gold)' }}>≈ {volLabel(cft2, cbm2)}</div>}
         </div>
       </div>
 
@@ -622,9 +638,10 @@ function CutSlabs({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; notify
           {rawBlocks.map((b: any) => {
             const dims = b.dimensions || {};
             const cft = cftFromM(dims.length_m, dims.width_m, dims.height_m);
+            const cbm = cbmFromM(dims.length_m, dims.width_m, dims.height_m);
             return (
               <option key={b.id} value={b.id}>
-                {b.id} · {b.variety} {b.lot_id ? `(${b.lot_id})` : ''} {cft > 0 ? `— ${cft} CFT` : ''}
+                {b.id} · {b.variety} {b.lot_id ? `(${b.lot_id})` : ''} {cft > 0 ? `— ${volLabel(cft, cbm)}` : ''}
               </option>
             );
           })}
@@ -1161,7 +1178,8 @@ function PipelineInventory({ groups, onAction }: { groups: Record<string, any[]>
                         const hmm = d.height_m ? Math.round(d.height_m * 1000) : null;
                         if (lmm && wmm && hmm) {
                           const cft = cftFromM(d.length_m, d.width_m, d.height_m);
-                          dimStr = `${lmm}×${wmm}×${hmm} mm · ${cft} CFT`;
+                          const cbm = cbmFromM(d.length_m, d.width_m, d.height_m);
+                          dimStr = `${lmm}×${wmm}×${hmm} mm · ${volLabel(cft, cbm)}`;
                         }
                       } else if (d.size_lw) {
                         dimStr = `${d.size_lw} · ${d.thickness_mm || '?'}mm`;
