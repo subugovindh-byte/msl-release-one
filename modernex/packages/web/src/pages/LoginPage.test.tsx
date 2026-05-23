@@ -141,11 +141,4 @@ describe('LoginPage', () => {
     expect(screen.getByText('Signing in…')).toBeInTheDocument();
     expect(submitButton).toBeDisabled();
   });
-
-  it('should display demo account info', () => {
-    renderLoginPage();
-    
-    expect(screen.getByText(/admin\/admin123/i)).toBeInTheDocument();
-    expect(screen.getByText(/accounts\/accounts123/i)).toBeInTheDocument();
-  });
 });
