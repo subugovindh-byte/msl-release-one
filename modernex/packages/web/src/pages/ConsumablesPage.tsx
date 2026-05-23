@@ -1,11 +1,11 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import {
   useConsumablePurchases, useCreateConsumablePurchase,
   useUpdateConsumablePurchase, useCancelConsumablePurchase,
   type ConsumablePurchase, type CPItem,
 } from '@/hooks/useApi';
 import { useToastStore } from '@/store';
-import { PageHeader, ConfirmDialog, StatCard } from '@/components/Shared';
+import { PageHeader, ConfirmDialog, StatCard, ReceiptAttach } from '@/components/Shared';
 import { DataGridTable } from '@/components/DataGridTable';
 import { formatINR } from '@/utils/format';
 
@@ -37,8 +37,6 @@ export function ConsumablesPage() {
   const blank = { date: today(), vendor_name: '', vendor_id: '', category: 'Consumables', payment_mode: '', reference_no: '', notes: '', receipt_url: '' };
   const [form, setForm] = useState({ ...blank });
   const [items, setItems] = useState<CPItem[]>([{ ...BLANK_ITEM }]);
-  const receiptRef = useRef<HTMLInputElement>(null);
-
   function openCreate() {
     setEditing(null);
     setForm({ ...blank });
@@ -66,14 +64,6 @@ export function ConsumablesPage() {
   function removeItem(i: number) { setItems(prev => prev.filter((_, idx) => idx !== i)); }
 
   const totalPaise = items.reduce((s, it) => s + (it.amount_paise || 0), 0);
-
-  // ── receipt upload (data URI) ──
-  async function handleReceipt(file: File) {
-    if (file.size > 5 * 1024 * 1024) { notify('File too large (max 5MB)', 'error'); return; }
-    const reader = new FileReader();
-    reader.onload = () => setForm(f => ({ ...f, receipt_url: reader.result as string }));
-    reader.readAsDataURL(file);
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -235,21 +225,12 @@ export function ConsumablesPage() {
 
             {/* Receipt upload */}
             <div style={{ marginBottom: 20 }}>
-              <label className="fl">Receipt / Bill Photo</label>
-              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                <input ref={receiptRef} type="file" accept="image/*,application/pdf" style={{ display: 'none' }}
-                  onChange={e => e.target.files?.[0] && handleReceipt(e.target.files[0])} />
-                <button type="button" className="btn" style={{ background: 'var(--bg3)', border: '1px solid var(--bd)', color: 'var(--t2)' }}
-                  onClick={() => receiptRef.current?.click()}>
-                  📎 {form.receipt_url ? 'Change Receipt' : 'Attach Receipt'}
-                </button>
-                {form.receipt_url && (
-                  <a href={form.receipt_url} target="_blank" rel="noreferrer"
-                    style={{ fontSize: 12, color: 'var(--rust)', textDecoration: 'underline' }}>
-                    View attached
-                  </a>
-                )}
-              </div>
+              <label className="fl" style={{ marginBottom: 8, display: 'block' }}>Receipt / Bill Photo</label>
+              <ReceiptAttach
+                value={form.receipt_url || undefined}
+                onChange={dataUri => setForm(f => ({ ...f, receipt_url: dataUri }))}
+                onClear={() => setForm(f => ({ ...f, receipt_url: '' }))}
+              />
             </div>
 
             {/* Line items */}

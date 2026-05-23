@@ -2,7 +2,7 @@
 // Shared UI Components
 // ══════════════════════════════════════════════════════
 
-import React, { type ReactNode } from 'react';
+import React, { type ReactNode, useRef, useState, useCallback } from 'react';
 
 // ─── Button ───
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -358,6 +358,155 @@ export function PageHeader({ title, subtitle, action }: PageHeaderProps) {
         {subtitle && <p style={{ color: 'var(--t3)', fontSize: 13, margin: 0 }}>{subtitle}</p>}
       </div>
       {action && <div>{action}</div>}
+    </div>
+  );
+}
+
+// ─── Receipt Attach ───────────────────────────────────────────────────────────
+// Dual-mode: capture="environment" (camera on mobile) + regular file picker.
+// Stores as a data URI; emits via onChange. Supports image preview + PDF icon.
+
+interface ReceiptAttachProps {
+  value?: string;
+  onChange: (dataUri: string) => void;
+  onClear: () => void;
+  maxSizeMB?: number;
+}
+
+export function ReceiptAttach({ value, onChange, onClear, maxSizeMB = 5 }: ReceiptAttachProps) {
+  const fileRef   = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+
+  const readFile = useCallback((file: File) => {
+    if (file.size > maxSizeMB * 1024 * 1024) {
+      alert(`File too large — max ${maxSizeMB} MB`);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => onChange(reader.result as string);
+    reader.readAsDataURL(file);
+  }, [maxSizeMB, onChange]);
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) readFile(file);
+  };
+
+  const isImage = value && (value.startsWith('data:image') || /\.(jpe?g|png|webp|gif)$/i.test(value));
+  const isPdf   = value && (value.startsWith('data:application/pdf') || value.endsWith('.pdf'));
+
+  if (value) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+        {isImage && (
+          <img
+            src={value}
+            alt="Receipt"
+            style={{ maxHeight: 110, maxWidth: 180, borderRadius: 6, border: '1px solid var(--bd)', objectFit: 'cover', cursor: 'pointer' }}
+            onClick={() => window.open(value, '_blank')}
+          />
+        )}
+        {isPdf && (
+          <div
+            style={{ width: 90, height: 110, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg3)', border: '1px solid var(--bd)', borderRadius: 6, cursor: 'pointer', gap: 6 }}
+            onClick={() => window.open(value, '_blank')}
+          >
+            <span style={{ fontSize: 28 }}>📄</span>
+            <span style={{ fontSize: 10, color: 'var(--t3)', fontWeight: 600 }}>PDF</span>
+          </div>
+        )}
+        {!isImage && !isPdf && (
+          <div style={{ width: 90, height: 80, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg3)', border: '1px solid var(--bd)', borderRadius: 6, gap: 4 }}>
+            <span style={{ fontSize: 24 }}>📎</span>
+            <span style={{ fontSize: 10, color: 'var(--t3)' }}>Attached</span>
+          </div>
+        )}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, justifyContent: 'center' }}>
+          <a href={value} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: 'var(--rust)', fontWeight: 600, textDecoration: 'none' }}>
+            View Receipt ↗
+          </a>
+          <button
+            type="button"
+            onClick={() => { onClear(); if (fileRef.current) fileRef.current.value = ''; if (cameraRef.current) cameraRef.current.value = ''; }}
+            style={{ fontSize: 11, color: 'var(--t3)', background: 'none', border: '1px solid var(--bd)', borderRadius: 4, padding: '3px 10px', cursor: 'pointer' }}
+          >
+            Remove
+          </button>
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            style={{ fontSize: 11, color: 'var(--t2)', background: 'none', border: '1px solid var(--bd)', borderRadius: 4, padding: '3px 10px', cursor: 'pointer' }}
+          >
+            Replace
+          </button>
+          <input ref={fileRef} type="file" accept="image/*,application/pdf" style={{ display: 'none' }} onChange={e => e.target.files?.[0] && readFile(e.target.files[0])} />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      onDragOver={e => { e.preventDefault(); setDragging(true); }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={onDrop}
+      style={{
+        border: `2px dashed ${dragging ? 'var(--rust)' : 'var(--bd)'}`,
+        borderRadius: 8,
+        padding: '16px 20px',
+        backgroundColor: dragging ? 'rgba(180,60,30,0.04)' : 'var(--bg2)',
+        transition: 'border-color 0.15s, background-color 0.15s',
+      }}
+    >
+      {/* Hidden inputs */}
+      <input
+        ref={cameraRef}
+        type="file"
+        accept="image/*"
+        {...{ capture: 'environment' } as any}
+        style={{ display: 'none' }}
+        onChange={e => e.target.files?.[0] && readFile(e.target.files[0])}
+      />
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*,application/pdf"
+        style={{ display: 'none' }}
+        onChange={e => e.target.files?.[0] && readFile(e.target.files[0])}
+      />
+
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          onClick={() => cameraRef.current?.click()}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 7,
+            padding: '8px 16px', border: '1px solid var(--bd)', borderRadius: 6,
+            backgroundColor: 'var(--bg1)', color: 'var(--t2)',
+            cursor: 'pointer', fontSize: 13, fontWeight: 600,
+          }}
+        >
+          <span style={{ fontSize: 16 }}>📷</span> Take Photo
+        </button>
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 7,
+            padding: '8px 16px', border: '1px solid var(--bd)', borderRadius: 6,
+            backgroundColor: 'var(--bg1)', color: 'var(--t2)',
+            cursor: 'pointer', fontSize: 13, fontWeight: 600,
+          }}
+        >
+          <span style={{ fontSize: 16 }}>📎</span> Choose File
+        </button>
+        <span style={{ fontSize: 11, color: 'var(--t3)' }}>
+          or drag & drop · image / PDF · max {maxSizeMB} MB
+        </span>
+      </div>
     </div>
   );
 }
