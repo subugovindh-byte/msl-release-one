@@ -44,7 +44,6 @@ jobs:
         run: |
           mkdir -p ../deploy/packages/api
           mkdir -p ../deploy/packages/web/dist
-          mkdir -p ../deploy/node_modules/@modernex/shared
 
           # API — source + migrations + seed assets
           cp -r packages/api/src         ../deploy/packages/api/
@@ -52,35 +51,36 @@ jobs:
           cp -r packages/api/seed-assets ../deploy/packages/api/
           cp    packages/api/package.json ../deploy/packages/api/
 
-          # @modernex/shared: embed as real files in node_modules (not a workspace symlink).
-          # Workspace symlinks stored in node_modules.tar.gz by Oryx resolve relative to the
-          # build container's temp dir, not /home/site/wwwroot, causing ERR_MODULE_NOT_FOUND.
-          cp -r packages/shared/src/. ../deploy/node_modules/@modernex/shared/src/
-          cp    packages/shared/package.json ../deploy/node_modules/@modernex/shared/
+          # Pack @modernex/shared as a tarball and use it as a file: dependency.
+          # Background: Oryx extracts node_modules.tar.gz to /node_modules (filesystem root),
+          # not /home/site/wwwroot/node_modules. Workspace symlinks like
+          # /node_modules/@modernex/shared -> ../../packages/shared then resolve to /packages/shared
+          # (which doesn't exist), causing ERR_MODULE_NOT_FOUND. Using file:<tgz> instead of
+          # file:<dir> makes npm install the package as real extracted files with no symlink.
+          npm pack packages/shared 2>&1 | tail -1
+          mv modernex-shared-*.tgz ../deploy/shared-pkg.tgz
 
           # Built frontend (served as static files by the API)
           cp -r packages/web/dist/. ../deploy/packages/web/dist/
 
-          # Root package.json: flat deps from packages/api (no workspaces; @modernex/shared pre-bundled)
+          # Root package.json: API deps with @modernex/shared as a tgz file dep (no workspaces)
           python3 -c "
           import json
           with open('packages/api/package.json') as f:
               api = json.load(f)
-          deps = {k: v for k, v in api['dependencies'].items() if k != '@modernex/shared'}
+          deps = dict(api['dependencies'])
+          deps['@modernex/shared'] = 'file:./shared-pkg.tgz'
           root = {'name':'modernex-prod','version':'2.0.0','type':'module',
                   'scripts':{'start':'node packages/api/src/server.js'},
                   'engines':{'node':'>=22.0.0'},'dependencies':deps}
           print(json.dumps(root, indent=2))
           " > ../deploy/package.json
 
-          # Lock file for npm packages — Oryx installs them natively on Azure (avoids
-          # ABI issues with native modules like better-sqlite3)
+          # Lock file — Oryx builds natively on Azure (avoids ABI issues with better-sqlite3)
           cd ../deploy && npm install --package-lock-only --ignore-scripts 2>&1 | tail -5
 
-          # Zip: source + lock file + pre-bundled @modernex/shared; no other node_modules
+          # Zip: source + shared-pkg.tgz + lock file; NO node_modules (Oryx installs natively)
           zip -ry ../deploy.zip . -x "*.git*" "*.DS_Store*" "*.pid" "*/node_modules/*" "node_modules/*"
-          # Add @modernex/shared back as real files (already excluded above, re-add cleanly)
-          zip -ry ../deploy.zip node_modules/@modernex/
 
       - name: Login to Azure
         uses: azure/login@v2
