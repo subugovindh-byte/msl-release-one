@@ -50,6 +50,7 @@ import { chartOfAccountsRouter } from './routes/chartOfAccounts.js';
 import { bankReconRouter } from './routes/bankRecon.js';
 import { budgetsRouter } from './routes/budgets.js';
 import { msmeRouter } from './routes/msme.js';
+import { adminSampleTxRouter } from './routes/adminSampleTx.js';
 
 export function createApp() {
   const app = express();
@@ -139,6 +140,7 @@ export function createApp() {
   app.use('/api/bank-recon', bankReconRouter);
   app.use('/api/budgets', budgetsRouter);
   app.use('/api/msme', msmeRouter);
+  app.use('/api/admin/sample-tx', adminSampleTxRouter);
 
   // ── STATIC FRONTEND (production) ──
   if (config.isProd()) {

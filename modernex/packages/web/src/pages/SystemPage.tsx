@@ -3,8 +3,9 @@ import { GST_RATE_LABEL } from '@modernex/shared';
 import { useToastStore } from '@/store';
 import { useCompany, useUpdateCompany } from '@/hooks/useApi';
 import { useAuthStore } from '@/store';
+import { api } from '@/utils/api';
 
-type Tab = 'company' | 'backup' | 'auth' | 'compliance' | 'stack';
+type Tab = 'company' | 'backup' | 'auth' | 'compliance' | 'stack' | 'demo';
 
 const ROLES = [
   { icon: '🔴', label: 'Admin', desc: 'Full system access including user management and configuration' },
@@ -71,7 +72,7 @@ export function SystemPage() {
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: '4px', marginBottom: '24px', borderBottom: '2px solid var(--bd)' }}>
-        {(['company', 'backup', 'auth', 'compliance', 'stack'] as Tab[]).map(tab => (
+        {([...(['company', 'backup', 'auth', 'compliance', 'stack'] as Tab[]), ...(isAdmin ? ['demo' as Tab] : [])]).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -227,6 +228,9 @@ export function SystemPage() {
         </div>
       )}
 
+      {/* Demo Tab (admin only) */}
+      {activeTab === 'demo' && isAdmin && <DemoTab />}
+
       {/* Stack Tab */}
       {activeTab === 'stack' && (
         <div style={{ display: 'grid', gap: '16px' }}>
@@ -248,6 +252,99 @@ export function SystemPage() {
           />
         </div>
       )}
+    </div>
+  );
+}
+
+function DemoTab() {
+  const { notify } = useToastStore();
+  const [loading, setLoading] = useState<'seed' | 'purge' | 'purgeall' | null>(null);
+  const [result, setResult] = useState<any>(null);
+
+  async function call(action: 'seed' | 'purge' | 'purgeall') {
+    setLoading(action);
+    setResult(null);
+    try {
+      const url = action === 'seed' ? '/admin/sample-tx' : `/admin/sample-tx/${action}`;
+      const data = await api.post<any>(url, {});
+      setResult(data);
+      notify(`${action} complete`, 'success');
+    } catch (err: any) {
+      const msg = err?.response?.data?.error || err?.message || 'Request failed';
+      notify(msg, 'error');
+      setResult({ error: msg });
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  return (
+    <div style={{ maxWidth: 680 }}>
+      <div style={{ backgroundColor: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8, padding: 24 }}>
+        <h3 style={{ marginTop: 0, marginBottom: 8 }}>Demo / Sample Data</h3>
+        <p style={{ fontSize: 13, color: 'var(--t3)', marginTop: 0, marginBottom: 20 }}>
+          Seed realistic sample transactions or wipe them from the remote database. All operations are admin-only and run server-side.
+        </p>
+
+        <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
+          <ActionBtn
+            label="Seed Sample Data"
+            desc="Insert all SAMPLE-* records across customers, invoices, purchases, payroll, assets, etc."
+            color="var(--rust)"
+            busy={loading === 'seed'}
+            onClick={() => call('seed')}
+          />
+          <ActionBtn
+            label="Purge Sample Records"
+            desc="Delete only rows that match SAMPLE-* IDs — leaves real data untouched."
+            color="var(--gold)"
+            busy={loading === 'purge'}
+            onClick={() => call('purge')}
+          />
+          <ActionBtn
+            label="Purge ALL Data"
+            desc="Wipe every transactional row (keeps users, company, COA). Irreversible."
+            color="#c0392b"
+            busy={loading === 'purgeall'}
+            onClick={() => {
+              if (confirm('This will delete ALL transactional data. Are you sure?')) call('purgeall');
+            }}
+          />
+        </div>
+
+        {result && (
+          <div style={{ backgroundColor: 'var(--bg3)', border: '1px solid var(--bd)', borderRadius: 6, padding: 14 }}>
+            <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 8, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Response
+            </div>
+            <pre style={{ margin: 0, fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: 'var(--t1)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+              {JSON.stringify(result, null, 2)}
+            </pre>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ActionBtn({ label, desc, color, busy, onClick }: {
+  label: string; desc: string; color: string; busy: boolean; onClick: () => void;
+}) {
+  return (
+    <div style={{ flex: '1 1 180px', border: '1px solid var(--bd)', borderRadius: 8, padding: 16, backgroundColor: 'var(--bg1)' }}>
+      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, color: 'var(--t1)' }}>{label}</div>
+      <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 14, lineHeight: 1.6 }}>{desc}</div>
+      <button
+        onClick={onClick}
+        disabled={busy}
+        style={{
+          padding: '7px 16px', backgroundColor: busy ? 'var(--bg3)' : color,
+          color: busy ? 'var(--t3)' : 'white', border: 'none', borderRadius: 4,
+          cursor: busy ? 'default' : 'pointer', fontWeight: 600, fontSize: 12,
+        }}
+      >
+        {busy ? 'Running…' : 'Run'}
+      </button>
     </div>
   );
 }
