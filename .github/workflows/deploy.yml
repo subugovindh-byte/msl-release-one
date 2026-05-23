@@ -51,14 +51,16 @@ jobs:
           cp -r packages/api/seed-assets ../deploy/packages/api/
           cp    packages/api/package.json ../deploy/packages/api/
 
-          # Pack @modernex/shared as a tarball and use it as a file: dependency.
-          # Background: Oryx extracts node_modules.tar.gz to /node_modules (filesystem root),
-          # not /home/site/wwwroot/node_modules. Workspace symlinks like
-          # /node_modules/@modernex/shared -> ../../packages/shared then resolve to /packages/shared
-          # (which doesn't exist), causing ERR_MODULE_NOT_FOUND. Using file:<tgz> instead of
-          # file:<dir> makes npm install the package as real extracted files with no symlink.
-          npm pack packages/shared 2>&1 | tail -1
-          mv modernex-shared-*.tgz ../deploy/shared-pkg.tgz
+          # Build an npm-compatible tarball for @modernex/shared.
+          # Background: Oryx extracts node_modules.tar.gz to /node_modules (filesystem root).
+          # Workspace symlinks (/node_modules/@modernex/shared -> ../../packages/shared) then
+          # resolve to /packages/shared (doesn't exist) causing ERR_MODULE_NOT_FOUND.
+          # file:<tgz> deps are installed as real extracted files (no symlink), bypassing this.
+          # We use tar directly instead of npm pack to avoid workspace-root interference.
+          mkdir -p /tmp/shared-pack/package
+          cp -r packages/shared/src /tmp/shared-pack/package/src
+          cp    packages/shared/package.json /tmp/shared-pack/package/package.json
+          tar czf ../deploy/shared-pkg.tgz -C /tmp/shared-pack package
 
           # Built frontend (served as static files by the API)
           cp -r packages/web/dist/. ../deploy/packages/web/dist/
