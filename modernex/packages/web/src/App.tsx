@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore, useThemeStore, useToastStore, useCartStore } from '@/store';
 import { LoginPage } from '@/pages/LoginPage';
@@ -79,6 +79,7 @@ export function App() {
   const { notify } = useToastStore();
   const cartCount = useCartStore((s) => s.items.reduce((n, i) => n + i.quantity, 0));
   const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = useState(false);
   const { data: companyData } = useCompany();
   const company = companyData?.company;
   const COMPANY = company?.name ?? 'MODERNEX STONES LLP';
@@ -129,10 +130,20 @@ export function App() {
   return (
     <>
       <div className="topbar">
-        <div>
-          <div className="tb-brand">{COMPANY}</div>
-          <div className="tb-sub">
-            GST {GSTIN} · HSN {HSN} · FY 2025-26
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button
+            className="nav-toggle"
+            onClick={() => setMenuOpen(o => !o)}
+            aria-label="Open navigation menu"
+            aria-expanded={menuOpen}
+          >
+            <span></span><span></span><span></span>
+          </button>
+          <div>
+            <div className="tb-brand">{COMPANY}</div>
+            <div className="tb-sub">
+              GST {GSTIN} · HSN {HSN} · FY 2025-26
+            </div>
           </div>
         </div>
         <div className="tb-right">
@@ -144,8 +155,10 @@ export function App() {
         </div>
       </div>
 
+      <div className={`nav-overlay${menuOpen ? ' open' : ''}`} onClick={() => setMenuOpen(false)} />
+
       <div className="body-wrap">
-        <div className="sidebar">
+        <div className={`sidebar${menuOpen ? ' open' : ''}`}>
           <div className="sb-user">
             <div className="sb-av">
               {user.fullName?.[0] || user.username[0]}
@@ -168,6 +181,7 @@ export function App() {
                 className={({ isActive }) =>
                   `sb-nav${isActive ? ' sb-nav-active' : ''}`
                 }
+                onClick={() => setMenuOpen(false)}
               >
                 <span className="sb-icon">{item.icon}</span>
                 <span>{item.lbl}</span>
@@ -191,7 +205,7 @@ export function App() {
             )
           )}
 
-          <button className="sb-logout" onClick={handleLogout}>
+          <button className="sb-logout" onClick={() => { setMenuOpen(false); handleLogout(); }}>
             <span className="sb-icon">◉</span>
             <span>Sign Out</span>
           </button>

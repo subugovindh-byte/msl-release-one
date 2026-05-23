@@ -749,257 +749,202 @@ a { color: var(--rust); text-decoration: none; }
 .cart-acts { padding: 9px 12px; border-top: 1px solid var(--bd); display: flex; gap: 6px; }
 
 /* ═══════════════════════════════════════
-   RESPONSIVE DESIGN - Mobile First
+   RESPONSIVE DESIGN
    ═══════════════════════════════════════ */
 
-/* Tablet Landscape - 1200px */
+/* Nav toggle button — hidden on desktop */
+.nav-toggle {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  width: 36px;
+  height: 36px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+.nav-toggle:hover { background: var(--bg3); }
+.nav-toggle span {
+  display: block;
+  width: 20px;
+  height: 2px;
+  background: var(--t1);
+  border-radius: 2px;
+  transition: opacity 0.18s ease;
+}
+
+/* Overlay backdrop — hidden on desktop */
+.nav-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 199;
+  opacity: 0;
+  transition: opacity 0.22s ease;
+  pointer-events: none;
+}
+.nav-overlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Tablet Landscape */
 @media (max-width: 1200px) {
-  .app-shell { grid-template-columns: 60px 1fr; }
-  .sidebar { width: 60px; }
-  .sb-nav-label { display: none; }
-  .sb-icon { font-size: 18px; }
   .page { padding: 18px; }
   .fg3 { grid-template-columns: 1fr 1fr; }
 }
 
-/* Tablet Portrait - 900px */
+/* Tablet Portrait */
 @media (max-width: 900px) {
   .page { padding: 16px; }
   .page-header { margin-bottom: 16px; }
   .page-header h1 { font-size: 20px; min-width: 150px; }
-  .modernex-grid {
-    --ag-font-size: 11px;
-  }
-  
+  .modernex-grid { --ag-font-size: 11px; }
   .sc-grid { grid-template-columns: repeat(2, 1fr); }
   .fg2, .fg3 { grid-template-columns: 1fr; }
-  
   .dt { font-size: 10px; min-width: 100%; }
   .dt th, .dt td { padding: 6px 8px; }
-  
-  .tb { font-size: 12px; padding: 10px 14px; }
-  .tb h1 { font-size: 18px; }
-  
   .card-head { padding: 8px 11px; }
   .btn { padding: 7px 12px; font-size: 8px; }
 }
 
-/* Mobile Landscape - 768px */
+/* Mobile — slide-in drawer */
 @media (max-width: 768px) {
-  /* Sidebar becomes a fixed bottom navigation bar */
+  /* Show the toggle button and overlay */
+  .nav-toggle { display: flex; }
+  .nav-overlay { display: block; }
+
+  /* Sidebar: hidden off-screen left, slides in when .open */
   .sidebar {
     position: fixed;
-    bottom: 0;
+    top: 0;
     left: 0;
-    right: 0;
-    width: 100%;
-    height: 60px;
-    z-index: 100;
-    border-top: 1px solid var(--bd);
-    border-right: none;
-    /* Horizontal layout for bottom nav */
-    flex-direction: row;
-    overflow-x: auto;
-    overflow-y: hidden;
-    align-items: stretch;
+    bottom: 0;
+    width: 240px;
+    height: 100dvh;
+    z-index: 200;
+    transform: translateX(-100%);
+    transition: transform 0.24s cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow 0.24s ease;
+    /* Restore vertical column layout */
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+    border-right: 1px solid var(--bd);
+  }
+  .sidebar.open {
+    transform: translateX(0);
+    box-shadow: 6px 0 28px rgba(0, 0, 0, 0.28);
   }
 
-  /* Hide user info block and section headers — no room in 60px bar */
-  .sb-user,
-  .sb-sec,
-  .sb-foot { display: none !important; }
-
-  /* Each nav link becomes a vertical tab: icon on top, label below */
+  /* Restore normal sidebar item styles */
+  .sb-user { display: flex !important; }
+  .sb-sec  { display: block !important; }
   .sb-nav {
-    flex: 1;
-    min-width: 60px;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 4px 2px;
-    gap: 2px;
-    border-left: none;
-    border-top: 2px solid transparent;
-    text-align: center;
-    font-size: 7px;
-    letter-spacing: 0.3px;
-    text-transform: uppercase;
-  }
-
-  .sb-nav-active {
-    border-left-color: transparent;
-    border-top-color: var(--rust);
-    background: var(--rustW);
-  }
-
-  .sb-nav .sb-icon {
-    font-size: 16px;
+    flex-direction: row;
     min-width: auto;
-  }
-
-  /* Nav label (the text span) */
-  .sb-nav > span:last-child {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 7px;
-    letter-spacing: 0.3px;
-    text-transform: uppercase;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 56px;
-  }
-
-  /* Sign-out button styled as a bottom tab */
-  .sb-logout {
-    flex: 1;
-    min-width: 60px;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 4px 2px;
-    gap: 2px;
-    border-top: 2px solid transparent;
-    margin-top: 0;
-    width: auto;
-    font-size: 7px;
-  }
-
-  .sb-logout .sb-icon { font-size: 16px; }
-
-  .sb-logout > span:last-child {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 7px;
-    letter-spacing: 0.3px;
-    text-transform: uppercase;
-  }
-
-  /* Push main content up above the fixed bottom nav */
-  .main-scroll { padding-bottom: 60px; }
-  
-  .page { padding: 14px; }
-  .page-header { 
-    margin-bottom: 14px;
+    font-size: 13px;
+    padding: 8px 14px;
     gap: 10px;
+    border-left: 3px solid transparent;
+    border-top: none;
+    text-align: left;
   }
-  .page-header h1 { 
-    font-size: 18px;
-    min-width: 120px;
+  .sb-nav-active {
+    border-left-color: var(--rust);
+    border-top-color: transparent;
   }
-  
+  .sb-nav .sb-icon { font-size: 14px; min-width: 16px; }
+  .sb-nav > span:last-child {
+    font-family: inherit;
+    font-size: 13px;
+    letter-spacing: -0.1px;
+    text-transform: none;
+    white-space: nowrap;
+    overflow: visible;
+    max-width: none;
+    text-overflow: clip;
+  }
+  .sb-logout {
+    flex-direction: row;
+    min-width: auto;
+    padding: 10px 16px;
+    gap: 10px;
+    border-top: none;
+    margin-top: 8px;
+    width: 100%;
+    font-size: 13px;
+  }
+  .sb-logout .sb-icon { font-size: 14px; }
+  .sb-logout > span:last-child {
+    font-family: inherit;
+    font-size: 13px;
+    letter-spacing: -0.1px;
+    text-transform: none;
+  }
+
+  .page { padding: 14px; }
+  .page-header { margin-bottom: 14px; gap: 10px; }
+  .page-header h1 { font-size: 18px; min-width: 120px; }
   .cart { display: none; }
   .modernex-grid {
-    height: min(440px, calc(100dvh - 280px)) !important;
+    height: min(440px, calc(100dvh - 240px)) !important;
     --ag-font-size: 10px;
   }
-  .modernex-grid .ag-header-cell-label {
-    font-size: 7px;
-    letter-spacing: 0.8px;
-  }
-  .modernex-grid .ag-paging-panel {
-    justify-content: center;
-  }
-  
+  .modernex-grid .ag-header-cell-label { font-size: 7px; letter-spacing: 0.8px; }
+  .modernex-grid .ag-paging-panel { justify-content: center; }
   .sc-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .fg2, .fg3 { gap: 10px; }
-  
   .tw { overflow-x: auto; }
   .dt { font-size: 9px; }
   .dt th, .dt td { padding: 5px 6px; }
-  
   .btn { padding: 6px 10px; font-size: 8px; white-space: nowrap; }
   .btn-sm { padding: 4px 8px; font-size: 7px; }
-  .tb { padding: 8px 12px; }
 }
 
-/* Mobile Portrait - 640px */
+/* Mobile Portrait */
 @media (max-width: 640px) {
   .page { padding: 12px; }
-  .app-footer {
-    padding: 10px 12px 74px;
-    align-items: flex-start;
-  }
-  .app-footer__brand,
-  .app-footer__meta {
-    width: 100%;
-  }
-  .page-header { 
+  .app-footer { padding: 10px 12px; align-items: flex-start; }
+  .app-footer__brand, .app-footer__meta { width: 100%; }
+  .page-header {
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
     margin-bottom: 12px;
   }
-  .page-header h1 { 
-    font-size: 16px;
-    min-width: 100%;
-  }
-  .page-header button,
-  .page-header .btn { 
-    width: 100%;
-    justify-content: center;
-  }
-  
-  .tb { font-size: 11px; padding: 6px 10px; }
-  .tb h1 { font-size: 16px; }
-  .tb-sub { font-size: 10px; }
-  
+  .page-header h1 { font-size: 16px; min-width: 100%; }
+  .page-header button, .page-header .btn { width: 100%; justify-content: center; }
   .dt { font-size: 8px; }
-  .dt th, .dt td { padding: 4px 4px; }
-  
+  .dt th, .dt td { padding: 4px; }
   .login-box { padding: 20px 16px; max-width: 100%; }
-  
-  .fg2, .fg3 { gap: 10px; }
   .fi, .fsel { padding: 6px 8px; font-size: 11px; }
-  
   .sc-grid { grid-template-columns: 1fr; gap: 8px; }
   .sc { padding: 10px 9px; }
-  
   .card { margin-bottom: 10px; }
   .card-head { padding: 8px 10px; flex-direction: column; align-items: flex-start; }
   .card-body { padding: 10px; }
-  .modernex-grid {
-    height: min(380px, calc(100dvh - 300px)) !important;
-  }
-  .modernex-grid .ag-floating-filter,
-  .modernex-grid .ag-floating-filter-body input,
-  .modernex-grid .ag-floating-filter-body .ag-input-field-input {
-    font-size: 10px;
-  }
-  .modernex-grid .ag-paging-page-summary-panel,
-  .modernex-grid .ag-paging-row-summary-panel {
-    width: 100%;
-    justify-content: center;
-  }
-  
-  .sb-nav-item { min-width: 60px; padding: 5px 2px; }
-  .sb-nav-label { font-size: 8px; }
-  .sb-icon { font-size: 16px; }
+  .modernex-grid { height: min(380px, calc(100dvh - 260px)) !important; }
 }
 
-/* Small Mobile - 480px */
+/* Small Mobile */
 @media (max-width: 480px) {
   .page { padding: 10px; }
   .page-header h1 { font-size: 15px; }
-  
-  .tb { font-size: 10px; padding: 5px 8px; }
-  .tb h1 { font-size: 15px; }
-  .tb-sub { font-size: 9px; }
-  
   .dt { font-size: 7px; }
   .dt th, .dt td { padding: 3px 2px; }
-  
   .btn { padding: 5px 8px; font-size: 7px; }
-  .btn-sm { padding: 3px 6px; font-size: 6px; }
-  
   .fi, .fsel { padding: 5px 7px; font-size: 10px; }
   .fl { font-size: 7px; }
-  
   .sc { padding: 8px 7px; }
   .sc-val { font-size: 15px; }
   .sc-lbl { font-size: 7px; }
-  
-  .sb-nav-label { display: none; }
-  .sb-icon { font-size: 20px; }
-  .sb-nav-item { min-width: 50px; }
 }
 
 /* ─── Invoice Receipt ─────────────────────────────────── */
