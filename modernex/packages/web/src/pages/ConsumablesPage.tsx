@@ -1,0 +1,335 @@
+import { useState, useRef } from 'react';
+import {
+  useConsumablePurchases, useCreateConsumablePurchase,
+  useUpdateConsumablePurchase, useCancelConsumablePurchase,
+  type ConsumablePurchase, type CPItem,
+} from '@/hooks/useApi';
+import { useToastStore } from '@/store';
+import { PageHeader, ConfirmDialog, StatCard } from '@/components/Shared';
+import { DataGridTable } from '@/components/DataGridTable';
+import { formatINR } from '@/utils/format';
+
+const CATEGORIES = ['Consumables', 'Machinery Parts', 'Tools & Equipment', 'Safety & PPE', 'Office & Admin', 'Other'];
+const UNITS = ['Nos', 'Pcs', 'Set', 'Kg', 'Ltr', 'Mtr', 'Roll', 'Box', 'Pair'];
+const PAYMENT_MODES = ['Cash', 'Cheque', 'NEFT', 'RTGS', 'UPI'];
+const STATUS_COLORS: Record<string, string> = { pending: 'var(--gold)', paid: 'var(--sage)', cancelled: 'var(--red)' };
+
+const BLANK_ITEM: CPItem = { description: '', qty: 1, unit: 'Nos', rate_paise: 0, amount_paise: 0 };
+
+function today() { return new Date().toISOString().slice(0, 10); }
+
+export function ConsumablesPage() {
+  const { notify } = useToastStore();
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  const { data, isLoading } = useConsumablePurchases(filters);
+  const create  = useCreateConsumablePurchase();
+  const update  = useUpdateConsumablePurchase();
+  const cancel  = useCancelConsumablePurchase();
+
+  const purchases: ConsumablePurchase[] = (data as any)?.purchases ?? [];
+
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<ConsumablePurchase | null>(null);
+  const [toCancel, setToCancel] = useState<ConsumablePurchase | null>(null);
+  const [markPaid, setMarkPaid] = useState<ConsumablePurchase | null>(null);
+
+  // ── form state ──
+  const blank = { date: today(), vendor_name: '', vendor_id: '', category: 'Consumables', payment_mode: '', reference_no: '', notes: '', receipt_url: '' };
+  const [form, setForm] = useState({ ...blank });
+  const [items, setItems] = useState<CPItem[]>([{ ...BLANK_ITEM }]);
+  const receiptRef = useRef<HTMLInputElement>(null);
+
+  function openCreate() {
+    setEditing(null);
+    setForm({ ...blank });
+    setItems([{ ...BLANK_ITEM }]);
+    setShowForm(true);
+  }
+
+  function openEdit(p: ConsumablePurchase) {
+    setEditing(p);
+    setForm({ date: p.date, vendor_name: p.vendor_name, vendor_id: p.vendor_id ?? '', category: p.category, payment_mode: p.payment_mode ?? '', reference_no: p.reference_no ?? '', notes: p.notes ?? '', receipt_url: p.receipt_url ?? '' });
+    setItems(p.items.length ? p.items : [{ ...BLANK_ITEM }]);
+    setShowForm(true);
+  }
+
+  function setItem(i: number, k: keyof CPItem, v: string | number) {
+    setItems(prev => prev.map((it, idx) => {
+      if (idx !== i) return it;
+      const updated = { ...it, [k]: v };
+      updated.amount_paise = Math.round(updated.qty * updated.rate_paise);
+      return updated;
+    }));
+  }
+
+  function addItem() { setItems(prev => [...prev, { ...BLANK_ITEM }]); }
+  function removeItem(i: number) { setItems(prev => prev.filter((_, idx) => idx !== i)); }
+
+  const totalPaise = items.reduce((s, it) => s + (it.amount_paise || 0), 0);
+
+  // ── receipt upload (data URI) ──
+  async function handleReceipt(file: File) {
+    if (file.size > 5 * 1024 * 1024) { notify('File too large (max 5MB)', 'error'); return; }
+    const reader = new FileReader();
+    reader.onload = () => setForm(f => ({ ...f, receipt_url: reader.result as string }));
+    reader.readAsDataURL(file);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.vendor_name) { notify('Vendor name required', 'error'); return; }
+    if (items.every(it => !it.description)) { notify('Add at least one item', 'error'); return; }
+    const validItems = items.filter(it => it.description.trim());
+    try {
+      const payload = { ...form, items: validItems, total_paise: totalPaise } as any;
+      if (editing) {
+        await update.mutateAsync({ id: editing.id, ...payload });
+        notify('Purchase updated', 'success');
+      } else {
+        await create.mutateAsync(payload);
+        notify('Purchase recorded', 'success');
+      }
+      setShowForm(false);
+    } catch (err: any) { notify(err.message || 'Failed', 'error'); }
+  }
+
+  async function handleMarkPaid() {
+    if (!markPaid) return;
+    try {
+      await update.mutateAsync({ id: markPaid.id, status: 'paid' });
+      notify(`${markPaid.id} marked as paid`, 'success');
+      setMarkPaid(null);
+    } catch (err: any) { notify(err.message || 'Failed', 'error'); }
+  }
+
+  // ── summary stats ──
+  const totalSpend = purchases.filter(p => p.status !== 'cancelled').reduce((s, p) => s + p.total_paise, 0);
+  const pendingSpend = purchases.filter(p => p.status === 'pending').reduce((s, p) => s + p.total_paise, 0);
+  const paidCount = purchases.filter(p => p.status === 'paid').length;
+
+  // ── AG Grid columns ──
+  const colDefs: any[] = [
+    { headerName: 'ID', field: 'id', minWidth: 140, pinned: 'left' },
+    { headerName: 'Date', field: 'date', minWidth: 110, valueFormatter: (p: any) => p.value ? new Date(p.value).toLocaleDateString('en-IN') : '—' },
+    { headerName: 'Vendor', field: 'vendor_name', minWidth: 160, flex: 1 },
+    { headerName: 'Category', field: 'category', minWidth: 150 },
+    {
+      headerName: 'Items', minWidth: 80,
+      valueGetter: (p: any) => (p.data.items?.length ?? 0),
+    },
+    {
+      headerName: 'Total', field: 'total_paise', minWidth: 120, type: 'numericColumn',
+      valueFormatter: (p: any) => formatINR(p.value),
+    },
+    {
+      headerName: 'Status', field: 'status', minWidth: 100,
+      cellRenderer: (p: any) => {
+        const color = STATUS_COLORS[p.value] ?? 'var(--t3)';
+        return `<span style="color:${color};font-weight:700;text-transform:capitalize">${p.value}</span>`;
+      },
+    },
+    { headerName: 'Mode', field: 'payment_mode', minWidth: 90 },
+    { headerName: 'Created By', field: 'created_by', minWidth: 110 },
+    {
+      headerName: 'Receipt', field: 'receipt_url', minWidth: 80,
+      cellRenderer: (p: any) => p.value
+        ? `<a href="${p.value}" target="_blank" style="color:var(--rust);text-decoration:underline;font-size:11px">View</a>`
+        : '<span style="color:var(--t3);font-size:11px">—</span>',
+    },
+    {
+      headerName: 'Actions', minWidth: 180, sortable: false, filter: false,
+      cellRenderer: (p: any) => {
+        const d = p.data as ConsumablePurchase;
+        if (d.status === 'cancelled') return '<span style="color:var(--t3);font-size:11px">Cancelled</span>';
+        return `
+          <div style="display:flex;gap:6px;align-items:center;height:100%">
+            <button class="btn-edit" data-id="${d.id}" style="padding:3px 10px;font-size:11px;font-weight:600;border:none;border-radius:4px;cursor:pointer;background:var(--blue);color:#fff">Edit</button>
+            ${d.status === 'pending' ? `<button class="btn-pay" data-id="${d.id}" style="padding:3px 10px;font-size:11px;font-weight:600;border:none;border-radius:4px;cursor:pointer;background:var(--sage);color:#fff">Mark Paid</button>` : ''}
+            <button class="btn-cancel" data-id="${d.id}" style="padding:3px 10px;font-size:11px;font-weight:600;border:none;border-radius:4px;cursor:pointer;background:var(--red);color:#fff">Cancel</button>
+          </div>`;
+      },
+      onCellClicked: (p: any) => {
+        const btn = (p.event?.target as HTMLElement)?.closest('button');
+        if (!btn) return;
+        const id = btn.getAttribute('data-id');
+        const row = purchases.find(x => x.id === id);
+        if (!row) return;
+        if (btn.classList.contains('btn-edit')) openEdit(row);
+        if (btn.classList.contains('btn-pay')) setMarkPaid(row);
+        if (btn.classList.contains('btn-cancel')) setToCancel(row);
+      },
+    },
+  ];
+
+  return (
+    <div className="page">
+      <PageHeader
+        title="Operational Purchases"
+        subtitle="Consumables, machinery parts, tools and other operational expenses"
+        action={<button className="btn btn-p" onClick={openCreate}>+ New Purchase</button>}
+      />
+
+      {/* ── Stats ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px,1fr))', gap: 14, marginBottom: 24 }}>
+        <StatCard label="Total Spend" value={formatINR(totalSpend)} sub={`${purchases.filter(p => p.status !== 'cancelled').length} purchases`} />
+        <StatCard label="Pending Payment" value={formatINR(pendingSpend)} sub="unpaid" valueColor="var(--gold)" />
+        <StatCard label="Paid" value={String(paidCount)} sub="completed" valueColor="var(--sage)" />
+      </div>
+
+      {/* ── Filters ── */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+        <select className="fi" style={{ width: 'auto' }} value={filters.status ?? 'all'} onChange={e => setFilters(f => ({ ...f, status: e.target.value }))}>
+          <option value="all">All Status</option>
+          <option value="pending">Pending</option>
+          <option value="paid">Paid</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+        <select className="fi" style={{ width: 'auto' }} value={filters.category ?? 'all'} onChange={e => setFilters(f => ({ ...f, category: e.target.value }))}>
+          <option value="all">All Categories</option>
+          {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+        </select>
+        <input className="fi" type="date" style={{ width: 'auto' }} value={filters.from ?? ''} onChange={e => setFilters(f => ({ ...f, from: e.target.value }))} placeholder="From" />
+        <input className="fi" type="date" style={{ width: 'auto' }} value={filters.to ?? ''} onChange={e => setFilters(f => ({ ...f, to: e.target.value }))} placeholder="To" />
+        <input className="fi" style={{ width: 200 }} value={filters.search ?? ''} onChange={e => setFilters(f => ({ ...f, search: e.target.value }))} placeholder="Search vendor / ID…" />
+      </div>
+
+      {/* ── Create / Edit Form ── */}
+      {showForm && (
+        <div style={{ background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 10, padding: 24, marginBottom: 24 }}>
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 18 }}>
+            {editing ? `Edit — ${editing.id}` : 'New Operational Purchase'}
+          </div>
+          <form onSubmit={handleSubmit}>
+            {/* Header fields */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px,1fr))', gap: 14, marginBottom: 20 }}>
+              <div>
+                <label className="fl">Date *</label>
+                <input className="fi" type="date" required value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
+              </div>
+              <div>
+                <label className="fl">Vendor / Supplier *</label>
+                <input className="fi" type="text" required value={form.vendor_name} onChange={e => setForm(f => ({ ...f, vendor_name: e.target.value }))} placeholder="Supplier name" />
+              </div>
+              <div>
+                <label className="fl">Category *</label>
+                <select className="fi" required value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
+                  {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="fl">Payment Mode</label>
+                <select className="fi" value={form.payment_mode} onChange={e => setForm(f => ({ ...f, payment_mode: e.target.value }))}>
+                  <option value="">— select —</option>
+                  {PAYMENT_MODES.map(m => <option key={m}>{m}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="fl">Reference / Bill No.</label>
+                <input className="fi" type="text" value={form.reference_no} onChange={e => setForm(f => ({ ...f, reference_no: e.target.value }))} placeholder="Invoice / receipt number" />
+              </div>
+              <div>
+                <label className="fl">Notes</label>
+                <input className="fi" type="text" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Any remarks…" />
+              </div>
+            </div>
+
+            {/* Receipt upload */}
+            <div style={{ marginBottom: 20 }}>
+              <label className="fl">Receipt / Bill Photo</label>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                <input ref={receiptRef} type="file" accept="image/*,application/pdf" style={{ display: 'none' }}
+                  onChange={e => e.target.files?.[0] && handleReceipt(e.target.files[0])} />
+                <button type="button" className="btn" style={{ background: 'var(--bg3)', border: '1px solid var(--bd)', color: 'var(--t2)' }}
+                  onClick={() => receiptRef.current?.click()}>
+                  📎 {form.receipt_url ? 'Change Receipt' : 'Attach Receipt'}
+                </button>
+                {form.receipt_url && (
+                  <a href={form.receipt_url} target="_blank" rel="noreferrer"
+                    style={{ fontSize: 12, color: 'var(--rust)', textDecoration: 'underline' }}>
+                    View attached
+                  </a>
+                )}
+              </div>
+            </div>
+
+            {/* Line items */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>
+                Line Items
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {/* Header row */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px 80px 110px 110px 32px', gap: 6, fontSize: 10, color: 'var(--t3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', padding: '0 4px' }}>
+                  <span>Description</span><span>Qty</span><span>Unit</span><span>Rate (₹)</span><span>Amount (₹)</span><span></span>
+                </div>
+                {items.map((it, i) => (
+                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 70px 80px 110px 110px 32px', gap: 6, alignItems: 'center' }}>
+                    <input className="fi" type="text" value={it.description} onChange={e => setItem(i, 'description', e.target.value)} placeholder="Item description" />
+                    <input className="fi" type="number" min="0" step="0.001" value={it.qty || ''} onChange={e => setItem(i, 'qty', parseFloat(e.target.value) || 0)} />
+                    <select className="fi" value={it.unit} onChange={e => setItem(i, 'unit', e.target.value)}>
+                      {UNITS.map(u => <option key={u}>{u}</option>)}
+                    </select>
+                    <input className="fi" type="number" min="0" step="0.01" value={it.rate_paise ? it.rate_paise / 100 : ''} onChange={e => setItem(i, 'rate_paise', Math.round((parseFloat(e.target.value) || 0) * 100))} placeholder="0.00" />
+                    <div style={{ padding: '0 8px', fontSize: 13, fontWeight: 600, color: 'var(--t1)' }}>
+                      {formatINR(it.amount_paise)}
+                    </div>
+                    <button type="button" onClick={() => removeItem(i)} disabled={items.length === 1}
+                      style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--red)', fontSize: 16, fontWeight: 700, padding: 0 }}>×</button>
+                  </div>
+                ))}
+              </div>
+              <button type="button" onClick={addItem}
+                style={{ marginTop: 10, padding: '5px 14px', border: '1px dashed var(--bd)', borderRadius: 5, background: 'none', color: 'var(--rust)', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+                + Add Item
+              </button>
+            </div>
+
+            {/* Total */}
+            <div style={{ background: 'var(--bg3)', borderRadius: 6, padding: '10px 16px', marginBottom: 18, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12 }}>
+              <span style={{ color: 'var(--t3)', fontSize: 13 }}>Total:</span>
+              <span style={{ fontWeight: 700, fontSize: 16, color: 'var(--rust)' }}>{formatINR(totalPaise)}</span>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button type="submit" className="btn btn-p" disabled={create.isPending || update.isPending}>
+                {(create.isPending || update.isPending) ? 'Saving…' : editing ? 'Save Changes' : 'Record Purchase'}
+              </button>
+              <button type="button" className="btn" style={{ background: 'var(--bg3)', border: '1px solid var(--bd)', color: 'var(--t2)' }}
+                onClick={() => setShowForm(false)}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* ── Grid ── */}
+      {isLoading ? (
+        <p style={{ color: 'var(--t3)' }}>Loading…</p>
+      ) : (
+        <DataGridTable rowData={purchases} columnDefs={colDefs} getRowId={(p: any) => p.data.id} emptyMessage="No purchases recorded yet." height={500} />
+      )}
+
+      {/* ── Confirm dialogs ── */}
+      <ConfirmDialog
+        open={!!toCancel}
+        title={`Cancel purchase ${toCancel?.id}?`}
+        message="This will mark it as cancelled. The record is kept for audit."
+        confirmLabel="Yes, Cancel"
+        danger
+        loading={cancel.isPending}
+        onConfirm={async () => { if (toCancel) { await cancel.mutateAsync(toCancel.id); notify(`${toCancel.id} cancelled`, 'success'); setToCancel(null); } }}
+        onCancel={() => setToCancel(null)}
+      />
+      <ConfirmDialog
+        open={!!markPaid}
+        title={`Mark ${markPaid?.id} as paid?`}
+        message={`Total: ${formatINR(markPaid?.total_paise ?? 0)}`}
+        confirmLabel="Mark Paid"
+        loading={update.isPending}
+        onConfirm={handleMarkPaid}
+        onCancel={() => setMarkPaid(null)}
+      />
+    </div>
+  );
+}

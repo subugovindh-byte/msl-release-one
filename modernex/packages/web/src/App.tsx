@@ -28,6 +28,7 @@ import { ChartOfAccountsPage } from '@/pages/ChartOfAccountsPage';
 import { MsmeReportPage } from '@/pages/MsmeReportPage';
 import { HelpPage } from '@/pages/HelpPage';
 import { ProfilePage } from '@/pages/ProfilePage';
+import { ConsumablesPage } from '@/pages/ConsumablesPage';
 import { ToastContainer } from '@/components/ToastContainer';
 import { useCompany } from '@/hooks/useApi';
 
@@ -47,6 +48,7 @@ const NAV: NavSection[] = [
   { id: 'production', path: '/production', lbl: 'Production', icon: '◈' },
   { sec: 'Finance' },
   { id: 'purchase', path: '/purchase', lbl: 'Purchase', icon: '▼' },
+  { id: 'consumables', path: '/consumables', lbl: 'Consumables & Parts', icon: '⚙' },
   { id: 'accounts', path: '/accounts', lbl: 'Accounts', icon: '₹' },
   { id: 'coa', path: '/coa', lbl: 'Chart of Accounts', icon: '⊞' },
   { id: 'reports', path: '/reports', lbl: 'Reports', icon: '◢' },
@@ -257,6 +259,7 @@ export function App() {
               <Route path="/msme" element={<MsmeReportPage />} />
               <Route path="/help" element={<HelpPage />} />
               <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/consumables" element={<ConsumablesPage />} />
               <Route path="/invoice/:id" element={<InvoiceReceiptPage />} />
               <Route path="/purchase/:id" element={<PurchaseOrderReceiptPage />} />
               <Route path="*" element={<Navigate to="/pos" />} />

@@ -85,6 +85,10 @@ export const queryKeys = {
   company: {
     detail: () => ['company'] as const,
   },
+  consumables: {
+    all: ['consumables'] as const,
+    list: (filters?: Record<string, string>) => ['consumables', 'list', filters] as const,
+  },
 };
 
 // ─── Products ───
@@ -914,4 +918,63 @@ export function useGSTR2BRecon(period?: string) {
 export function useImportGSTR2B() {
   const qc = useQueryClient();
   return useMutation({ mutationFn: (d: any) => api.post<any>('/reports/gstr2b-import', d), onSuccess: () => qc.invalidateQueries({ queryKey: ['reports', 'gstr2b'] }) });
+}
+
+// ─── Consumable / Operational Purchases ───
+export interface CPItem {
+  description: string;
+  qty: number;
+  unit: string;
+  rate_paise: number;
+  amount_paise: number;
+}
+
+export interface ConsumablePurchase {
+  id: string;
+  date: string;
+  vendor_id?: string;
+  vendor_name: string;
+  category: string;
+  items: CPItem[];
+  total_paise: number;
+  payment_mode?: string;
+  reference_no?: string;
+  notes?: string;
+  status: 'pending' | 'paid' | 'cancelled';
+  created_at: string;
+  created_by: string;
+  receipt_url?: string;
+}
+
+export function useConsumablePurchases(filters?: Record<string, string>) {
+  return useQuery({
+    queryKey: queryKeys.consumables.list(filters),
+    queryFn: () => api.get<{ purchases: ConsumablePurchase[] }>('/consumable-purchases', { params: filters }),
+  });
+}
+
+export function useCreateConsumablePurchase() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Omit<ConsumablePurchase, 'id' | 'status' | 'created_at' | 'created_by'>) =>
+      api.post<{ purchase: ConsumablePurchase }>('/consumable-purchases', data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.consumables.all }),
+  });
+}
+
+export function useUpdateConsumablePurchase() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: Partial<ConsumablePurchase> & { id: string }) =>
+      api.patch<{ purchase: ConsumablePurchase }>(`/consumable-purchases/${id}`, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.consumables.all }),
+  });
+}
+
+export function useCancelConsumablePurchase() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete<{ ok: boolean }>(`/consumable-purchases/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.consumables.all }),
+  });
 }
