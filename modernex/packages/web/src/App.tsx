@@ -42,36 +42,61 @@ interface NavSection {
   icon?: string;
 }
 
+interface NavGroup {
+  sec: string;
+  items: NavSection[];
+}
+
+function buildGroups(nav: NavSection[]): NavGroup[] {
+  const groups: NavGroup[] = [];
+  for (const item of nav) {
+    if (item.sec) groups.push({ sec: item.sec, items: [] });
+    else groups[groups.length - 1]?.items.push(item);
+  }
+  return groups;
+}
+
 const NAV: NavSection[] = [
-  { sec: 'Operations' },
-  { id: 'dashboard', path: '/dashboard', lbl: 'Dashboard', icon: '◈' },
-  { id: 'pos', path: '/pos', lbl: 'POS', icon: '◉' },
-  { id: 'inventory', path: '/inventory', lbl: 'Inventory', icon: '▦' },
-  { id: 'production', path: '/production', lbl: 'Production', icon: '◈' },
+  { sec: 'Daily Ops' },
+  { id: 'dashboard',   path: '/dashboard',   lbl: 'Dashboard',           icon: '◈' },
+  { id: 'pos',         path: '/pos',          lbl: 'POS',                 icon: '◉' },
+  { id: 'inventory',   path: '/inventory',    lbl: 'Inventory',           icon: '▦' },
+
+  { sec: 'Production' },
+  { id: 'production',  path: '/production',   lbl: 'Production',          icon: '⚙' },
+  { id: 'consumables', path: '/consumables',  lbl: 'Consumables & Parts', icon: '◫' },
+
+  { sec: 'Purchase' },
+  { id: 'purchase',    path: '/purchase',     lbl: 'Purchase Orders',     icon: '▼' },
+
   { sec: 'Finance' },
-  { id: 'purchase', path: '/purchase', lbl: 'Purchase', icon: '▼' },
-  { id: 'consumables', path: '/consumables', lbl: 'Consumables & Parts', icon: '⚙' },
-  { id: 'accounts', path: '/accounts', lbl: 'Accounts', icon: '₹' },
-  { id: 'coa', path: '/coa', lbl: 'Chart of Accounts', icon: '⊞' },
-  { id: 'reports', path: '/reports', lbl: 'Reports', icon: '◢' },
-  { id: 'bank-recon', path: '/bank-recon', lbl: 'Bank Reconciliation', icon: '⇌' },
-  { id: 'budget', path: '/budget', lbl: 'Budget vs Actual', icon: '◫' },
-  { id: 'compliance', path: '/compliance', lbl: 'Compliance', icon: '◳' },
-  { sec: 'HR & Payroll' },
-  { id: 'payroll', path: '/payroll', lbl: 'Payroll', icon: '◑' },
-  { id: 'tds', path: '/tds', lbl: 'TDS', icon: '◧' },
-  { id: 'pdc', path: '/pdc', lbl: 'PDC', icon: '◫' },
-  { id: 'fixed-assets', path: '/fixed-assets', lbl: 'Fixed Assets', icon: '◰' },
-  { id: 'msme', path: '/msme', lbl: 'MSME', icon: '◭' },
-  { sec: 'Setup' },
-  { id: 'masters', path: '/masters', lbl: 'Masters', icon: '◐' },
-  { id: 'variety-photos', path: '/variety-photos', lbl: 'Variety Photos', icon: '◫' },
-  { id: 'accounts-cfg', path: '/accounts-cfg', lbl: 'Bank/UPI', icon: '◎' },
-  { id: 'users', path: '/users', lbl: 'Users', icon: '◔' },
-  { id: 'roles', path: '/roles', lbl: 'Roles & Permissions', icon: '◈' },
-  { id: 'system', path: '/system', lbl: 'System', icon: '◆' },
-  { id: 'help', path: '/help', lbl: 'Help / Handbook', icon: '?' },
+  { id: 'accounts',    path: '/accounts',     lbl: 'Accounts',            icon: '₹' },
+  { id: 'coa',         path: '/coa',          lbl: 'Chart of Accounts',   icon: '⊞' },
+  { id: 'bank-recon',  path: '/bank-recon',   lbl: 'Bank Reconciliation', icon: '⇌' },
+  { id: 'budget',      path: '/budget',       lbl: 'Budget vs Actual',    icon: '◰' },
+  { id: 'reports',     path: '/reports',      lbl: 'Reports',             icon: '◢' },
+
+  { sec: 'Statutory' },
+  { id: 'compliance',  path: '/compliance',   lbl: 'Compliance',          icon: '◳' },
+  { id: 'tds',         path: '/tds',          lbl: 'TDS',                 icon: '◧' },
+  { id: 'pdc',         path: '/pdc',          lbl: 'PDC',                 icon: '◎' },
+  { id: 'msme',        path: '/msme',         lbl: 'MSME',                icon: '◭' },
+
+  { sec: 'HR' },
+  { id: 'payroll',      path: '/payroll',      lbl: 'Payroll',            icon: '◑' },
+  { id: 'fixed-assets', path: '/fixed-assets', lbl: 'Fixed Assets',      icon: '◐' },
+
+  { sec: 'System' },
+  { id: 'masters',       path: '/masters',       lbl: 'Masters',              icon: '◆' },
+  { id: 'variety-photos',path: '/variety-photos',lbl: 'Variety Photos',       icon: '◫' },
+  { id: 'accounts-cfg',  path: '/accounts-cfg',  lbl: 'Bank / UPI Accounts',  icon: '⊞' },
+  { id: 'users',         path: '/users',          lbl: 'Users',                icon: '◔' },
+  { id: 'roles',         path: '/roles',          lbl: 'Roles & Permissions',  icon: '◈' },
+  { id: 'system',        path: '/system',         lbl: 'System',               icon: '◆' },
+  { id: 'help',          path: '/help',           lbl: 'Help / Handbook',      icon: '?' },
 ];
+
+const NAV_GROUPS = buildGroups(NAV);
 
 function formatDate(): string {
   return new Date().toLocaleDateString('en-IN', {
@@ -88,6 +113,16 @@ export function App() {
   const cartCount = useCartStore((s) => s.items.reduce((n, i) => n + i.quantity, 0));
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState<Set<string>>(
+    () => new Set(NAV_GROUPS.map(g => g.sec))
+  );
+
+  const toggleGroup = (sec: string) =>
+    setCollapsed(prev => {
+      const next = new Set(prev);
+      next.has(sec) ? next.delete(sec) : next.add(sec);
+      return next;
+    });
   const queryClient = useQueryClient();
   const isFetching = useIsFetching();
   const { data: companyData } = useCompany();
@@ -193,41 +228,44 @@ export function App() {
             </div>
           </NavLink>
 
-          {NAV.map((item, i) =>
-            item.sec ? (
-              <div key={`sec-${i}`} className="sb-sec">
-                {item.sec}
+          {NAV_GROUPS.map(({ sec, items }) => {
+            const isCollapsed = collapsed.has(sec);
+            return (
+              <div key={sec}>
+                <button
+                  className={`sb-sec${isCollapsed ? ' sb-sec--collapsed' : ''}`}
+                  onClick={() => toggleGroup(sec)}
+                >
+                  {sec}
+                  <span className="sb-sec-chevron" />
+                </button>
+                <div className={`sb-group-items${isCollapsed ? ' sb-group-items--closed' : ''}`}>
+                  {items.map(item => (
+                    <NavLink
+                      key={item.id}
+                      to={item.path!}
+                      className={({ isActive }) => `sb-nav${isActive ? ' sb-nav-active' : ''}`}
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <span className="sb-icon">{item.icon}</span>
+                      <span>{item.lbl}</span>
+                      {item.id === 'pos' && cartCount > 0 && (
+                        <span style={{
+                          marginLeft: 'auto', minWidth: 16, height: 16,
+                          background: 'var(--t1)', color: 'var(--bg1)',
+                          borderRadius: 8, fontSize: 9, fontWeight: 700,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          padding: '0 4px', fontFamily: "'IBM Plex Mono', monospace",
+                        }}>
+                          {cartCount}
+                        </span>
+                      )}
+                    </NavLink>
+                  ))}
+                </div>
               </div>
-            ) : (
-              <NavLink
-                key={item.id}
-                to={item.path!}
-                className={({ isActive }) =>
-                  `sb-nav${isActive ? ' sb-nav-active' : ''}`
-                }
-                onClick={() => setMenuOpen(false)}
-              >
-                <span className="sb-icon">{item.icon}</span>
-                <span>{item.lbl}</span>
-                {item.id === 'pos' && cartCount > 0 && (
-                  <span style={{
-                    marginLeft: 'auto',
-                    minWidth: 16, height: 16,
-                    background: 'var(--t1)',
-                    color: 'var(--bg1)',
-                    borderRadius: 8,
-                    fontSize: 9,
-                    fontWeight: 700,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    padding: '0 4px',
-                    fontFamily: "'IBM Plex Mono', monospace",
-                  }}>
-                    {cartCount}
-                  </span>
-                )}
-              </NavLink>
-            )
-          )}
+            );
+          })}
 
           <button className="sb-logout" onClick={() => { setMenuOpen(false); handleLogout(); }}>
             <span className="sb-icon">◉</span>
