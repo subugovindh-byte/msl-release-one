@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import QRCode from 'qrcode';
 import { useParams, useNavigate } from 'react-router-dom';
 import { CGST_RATE_LABEL, SGST_RATE_LABEL, GST_RATE_LABEL, PAYMENT_MODES } from '@modernex/shared'; // CGST/SGST used in totals
 import { usePurchaseOrder, useCompany, useCreatePayment, useGRNList, useCreateGRN, useUpdatePOTransport, useVendors, useUpdatePOStatus } from '@/hooks/useApi';
@@ -64,6 +65,12 @@ export function PurchaseOrderReceiptPage() {
   const [showPayForm, setShowPayForm] = useState(false);
   const [payForm, setPayForm] = useState({ ...BLANK_FORM });
   const [payAmountMode, setPayAmountMode] = useState<'full' | 'custom'>('full');
+  const [qrDataUrl, setQrDataUrl] = useState<string>('');
+  useEffect(() => {
+    if (!decodedId) return;
+    QRCode.toDataURL(decodedId, { width: 80, margin: 1, color: { dark: '#1a1612', light: '#ffffff' } })
+      .then(setQrDataUrl).catch(() => {});
+  }, [decodedId]);
   const [showGRNForm, setShowGRNForm] = useState(false);
   const [grnForm, setGrnForm] = useState({ ...BLANK_GRN });
   const [showTransportForm, setShowTransportForm] = useState(false);
@@ -317,27 +324,35 @@ export function PurchaseOrderReceiptPage() {
               <div>{ADDRESS}</div>
             </div>
           </div>
-          <div style={{ textAlign: 'right', flexShrink: 0 }}>
-            <div style={{
-              display: 'inline-block', fontSize: 9, fontWeight: 700, letterSpacing: 2,
-              textTransform: 'uppercase', color: '#ffffff', background: '#1a1612',
-              padding: '4px 10px', borderRadius: 2, marginBottom: 10
-            }}>Purchase Order</div>
-            <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 16, fontWeight: 700, color: '#1a1612', letterSpacing: '-0.5px' }}>
-              {po.id}
+          <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+            <div>
+              <div style={{
+                display: 'inline-block', fontSize: 9, fontWeight: 700, letterSpacing: 2,
+                textTransform: 'uppercase', color: '#ffffff', background: '#1a1612',
+                padding: '4px 10px', borderRadius: 2, marginBottom: 10
+              }}>Purchase Order</div>
+              <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 16, fontWeight: 700, color: '#1a1612', letterSpacing: '-0.5px' }}>
+                {po.id}
+              </div>
+              <div style={{ fontSize: 10, color: 'rgba(26,22,18,.55)', marginTop: 4 }}>
+                {po.date ? formatDate(po.date, 'long') : '—'}
+              </div>
+              <div style={{ marginTop: 8 }}>
+                <span style={{
+                  display: 'inline-block', fontSize: 9, fontWeight: 700, letterSpacing: 1,
+                  textTransform: 'uppercase', color: statusMeta?.color,
+                  border: `1px solid ${statusMeta?.color ?? 'var(--t3)'}`, padding: '2px 8px', borderRadius: 2
+                }}>
+                  {statusMeta?.label}
+                </span>
+              </div>
             </div>
-            <div style={{ fontSize: 10, color: 'rgba(26,22,18,.55)', marginTop: 4 }}>
-              {po.date ? formatDate(po.date, 'long') : '—'}
-            </div>
-            <div style={{ marginTop: 8 }}>
-              <span style={{
-                display: 'inline-block', fontSize: 9, fontWeight: 700, letterSpacing: 1,
-                textTransform: 'uppercase', color: statusMeta?.color,
-                border: `1px solid ${statusMeta?.color ?? 'var(--t3)'}`, padding: '2px 8px', borderRadius: 2
-              }}>
-                {statusMeta?.label}
-              </span>
-            </div>
+            {qrDataUrl && (
+              <div style={{ textAlign: 'center' }}>
+                <img src={qrDataUrl} alt="PO QR" style={{ width: 72, height: 72, display: 'block', border: '1px solid rgba(26,22,18,.12)', borderRadius: 4 }} />
+                <div style={{ fontSize: 7, color: 'rgba(26,22,18,.45)', marginTop: 3, letterSpacing: 0.5 }}>Scan to open</div>
+              </div>
+            )}
           </div>
         </div>
 
