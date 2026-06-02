@@ -173,62 +173,23 @@ export function PurchaseOrderReceiptPage() {
           </span>
 
           {/* Status actions based on current status */}
-          {po.status === 'new' && (
-            <>
-              <button
-                onClick={() => {
-                  if (window.confirm(`Mark PO ${po.id} as Received? Do this only after recording a GRN with QC pass.`))
-                    updateStatus.mutate({ id: po.id, status: 'received' }, {
-                      onSuccess: () => notify('PO marked as Received', 'success'),
-                      onError: (e: any) => notify(e.message || 'Failed', 'error'),
-                    });
-                }}
-                disabled={updateStatus.isPending}
-                style={{ padding: '6px 14px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
-              >✓ Mark Received</button>
-              <button
-                onClick={() => {
-                  if (window.confirm(`Cancel PO ${po.id}? This cannot be undone.`))
-                    updateStatus.mutate({ id: po.id, status: 'cancelled' }, {
-                      onSuccess: () => notify('PO cancelled', 'success'),
-                      onError: (e: any) => notify(e.message || 'Failed', 'error'),
-                    });
-                }}
-                disabled={updateStatus.isPending}
-                style={{ padding: '6px 14px', background: 'transparent', color: 'var(--red)', border: '1px solid var(--red)', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
-              >✕ Cancel PO</button>
-            </>
-          )}
-          {po.status === 'received' && (
-            <>
-              <button
-                onClick={() => {
-                  if (window.confirm(`Approve PO ${po.id}? This confirms blocks are received and QC-passed — they will become available for production.`))
-                    updateStatus.mutate({ id: po.id, status: 'approved' }, {
-                      onSuccess: () => notify('PO approved — blocks ready for production', 'success'),
-                      onError: (e: any) => notify(e.message || 'Failed', 'error'),
-                    });
-                }}
-                disabled={updateStatus.isPending}
-                style={{ padding: '6px 14px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
-              >✓ Approve PO</button>
-              <button
-                onClick={() => {
-                  if (window.confirm(`Cancel PO ${po.id}?`))
-                    updateStatus.mutate({ id: po.id, status: 'cancelled' }, {
-                      onSuccess: () => notify('PO cancelled', 'success'),
-                      onError: (e: any) => notify(e.message || 'Failed', 'error'),
-                    });
-                }}
-                disabled={updateStatus.isPending}
-                style={{ padding: '6px 14px', background: 'transparent', color: 'var(--red)', border: '1px solid var(--red)', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
-              >✕ Cancel PO</button>
-            </>
-          )}
-          {po.status === 'approved' && (
+          {(po.status === 'new' || po.status === 'received') && (
             <button
               onClick={() => {
-                if (window.confirm(`Cancel approved PO ${po.id}? This will block further production from these blocks.`))
+                if (window.confirm(`Approve PO ${po.id}? Blocks will become available for production.`))
+                  updateStatus.mutate({ id: po.id, status: 'approved' }, {
+                    onSuccess: () => notify('PO approved — blocks ready for production', 'success'),
+                    onError: (e: any) => notify(e.message || 'Failed', 'error'),
+                  });
+              }}
+              disabled={updateStatus.isPending}
+              style={{ padding: '6px 14px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+            >✓ Approve PO</button>
+          )}
+          {po.status !== 'cancelled' && (
+            <button
+              onClick={() => {
+                if (window.confirm(`Cancel PO ${po.id}? This cannot be undone.`))
                   updateStatus.mutate({ id: po.id, status: 'cancelled' }, {
                     onSuccess: () => notify('PO cancelled', 'success'),
                     onError: (e: any) => notify(e.message || 'Failed', 'error'),

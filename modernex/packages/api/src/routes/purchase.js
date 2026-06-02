@@ -203,8 +203,10 @@ purchaseRouter.delete('/:id',
 // ─── PATCH /purchase/:id/status ───
 // Enforced flow: new → received (GRN) → approved → [production ready]
 // Cancellation is allowed from any non-approved/non-received state.
+// Flow A (simple): new → approved → cancelled
+// Flow B (with GRN): new → received → approved → cancelled
 const ALLOWED_TRANSITIONS = {
-  new:      ['received', 'cancelled'],
+  new:      ['received', 'approved', 'cancelled'],
   received: ['approved', 'cancelled'],
   approved: ['cancelled'],
   cancelled: [],
@@ -226,20 +228,20 @@ purchaseRouter.patch('/:id/status',
       if (!allowed.includes(status)) {
         throw new AppError(
           `Cannot move PO from '${existing.status}' to '${status}'. ` +
-          `Flow: new → received (via GRN) → approved → cancelled.`,
+          `Allowed: ${allowed.join(', ') || 'none'}.`,
           400
         );
       }
 
-      // To mark 'approved', a QC-passed GRN must exist
-      if (status === 'approved') {
+      // If approving from 'received', a QC-passed GRN must exist
+      // Direct new → approved (no GRN) is allowed for admin fast-track
+      if (status === 'approved' && existing.status === 'received') {
         const qcPass = db.prepare(
           `SELECT id FROM purchase_order_receipts WHERE po_id = ? AND qc_pass = 1 LIMIT 1`
         ).get(req.params.id);
         if (!qcPass) {
           throw new AppError(
-            `Cannot approve PO ${req.params.id} — no QC-passed goods receipt (GRN) found. ` +
-            `Record a GRN with QC pass first.`,
+            `Cannot approve PO ${req.params.id} from 'received' — no QC-passed GRN found.`,
             400
           );
         }

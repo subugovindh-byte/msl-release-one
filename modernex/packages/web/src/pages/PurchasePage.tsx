@@ -161,20 +161,12 @@ export function PurchasePage() {
             <span style={{ padding: '2px 8px', background: sc.bg, color: sc.color, borderRadius: 10, fontSize: 11, fontWeight: 700, textTransform: 'capitalize', whiteSpace: 'nowrap' }}>
               {status}
             </span>
-            {canManage && status === 'new' && (
-              <button onClick={() => updateStatus.mutate({ id, status: 'received' }, {
-                onSuccess: () => notify(`PO ${id} marked as Received`, 'success'),
-                onError: (e: any) => notify(e.message || 'Failed', 'error'),
-              })} style={{ padding: '2px 8px', fontSize: 10, fontWeight: 700, background: '#eff6ff', color: '#2563eb', border: '1px solid #2563eb', borderRadius: 3, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                Receive
-              </button>
-            )}
-            {canManage && status === 'received' && (
+            {canManage && (status === 'new' || status === 'received') && (
               <button onClick={() => updateStatus.mutate({ id, status: 'approved' }, {
                 onSuccess: () => notify(`PO ${id} approved`, 'success'),
                 onError: (e: any) => notify(e.message || 'Failed', 'error'),
               })} style={{ padding: '2px 8px', fontSize: 10, fontWeight: 700, background: '#f0fdf4', color: '#16a34a', border: '1px solid #16a34a', borderRadius: 3, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                Approve
+                ✓ Approve
               </button>
             )}
             {canManage && status !== 'cancelled' && (
