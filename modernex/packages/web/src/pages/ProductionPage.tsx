@@ -6,6 +6,7 @@ import {
   useProducts, useCreateProduct, useCreateProductionJob,
   useProductionJobs, useMoveProduct, usePurchaseOrders,
   useDeleteProduct, useUpdateProduct, useRecordDamage,
+  useDeleteProductionJob,
 } from '@/hooks/useApi';
 import { useToastStore, useAuthStore } from '@/store';
 
@@ -1134,9 +1135,10 @@ function RouteToSale({ finishedSlabs, notify, preselectId }: { finishedSlabs: an
 // ─────────────────────────────────────────────────────────────────────────────
 // TAB 6 — JOB HISTORY
 // ─────────────────────────────────────────────────────────────────────────────
-function JobHistory({ jobs, isLoading }: { jobs: any[]; isLoading: boolean }) {
+function JobHistory({ jobs, isLoading, onDeleteJob }: { jobs: any[]; isLoading: boolean; onDeleteJob?: (id: string) => void }) {
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState('all');
+  const [confirmDeleteJobId, setConfirmDeleteJobId] = useState<string | null>(null);
 
   const filtered = jobs.filter(j => {
     const matchStage = stageFilter === 'all' || j.stage === stageFilter;
@@ -1207,18 +1209,20 @@ function JobHistory({ jobs, isLoading }: { jobs: any[]; isLoading: boolean }) {
                 <th style={thStyle}>Cost</th>
                 <th style={{ ...thStyle, textAlign: 'center' }}>Damaged</th>
                 <th style={{ ...thStyle, textAlign: 'center' }}>Wastage</th>
+                {onDeleteJob && <th style={{ ...thStyle, textAlign: 'center' }}>Del</th>}
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={10} style={{ ...tdStyle, textAlign: 'center', color: 'var(--t3)' }}>No jobs found</td></tr>
+                <tr><td colSpan={onDeleteJob ? 11 : 10} style={{ ...tdStyle, textAlign: 'center', color: 'var(--t3)' }}>No jobs found</td></tr>
               ) : (
                 filtered.map((j: any) => {
                   const cost = (j.labour_paise || 0) + (j.power_paise || 0) + (j.consumables_paise || 0);
                   const inputsSummary = (j.inputs || []).map((i: any) => `${i.product_id} (${i.qty_consumed})`).join(', ');
                   const outputsSummary = (j.outputs || []).map((o: any) => `${o.product_id} (${o.qty_produced})`).join(', ');
+                  const isConfirming = confirmDeleteJobId === j.id;
                   return (
-                    <tr key={j.id} style={{ background: 'var(--bg1)' }}>
+                    <tr key={j.id} style={{ background: isConfirming ? 'rgba(220,50,50,0.06)' : 'var(--bg1)' }}>
                       <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--t1)', fontFamily: 'monospace', fontSize: 11 }}>{j.id}</td>
                       <td style={tdStyle}>{j.date}</td>
                       <td style={tdStyle}>{j.lot_id}</td>
@@ -1233,6 +1237,21 @@ function JobHistory({ jobs, isLoading }: { jobs: any[]; isLoading: boolean }) {
                       <td style={{ ...tdStyle, textAlign: 'center', fontWeight: 700, color: j.wastage_count > 0 ? 'var(--amber)' : 'var(--t3)' }}>
                         {j.wastage_count > 0 ? j.wastage_count : '—'}
                       </td>
+                      {onDeleteJob && (
+                        <td style={{ ...tdStyle, textAlign: 'center' }}>
+                          {isConfirming ? (
+                            <div style={{ display: 'flex', gap: 4 }}>
+                              <button onClick={() => { onDeleteJob(j.id); setConfirmDeleteJobId(null); }}
+                                style={{ background: 'var(--red)', color: '#fff', border: 'none', borderRadius: 3, padding: '2px 7px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>Yes</button>
+                              <button onClick={() => setConfirmDeleteJobId(null)}
+                                style={{ background: 'transparent', color: 'var(--t3)', border: '1px solid var(--bd)', borderRadius: 3, padding: '2px 6px', fontSize: 10, cursor: 'pointer' }}>No</button>
+                            </div>
+                          ) : (
+                            <button onClick={() => setConfirmDeleteJobId(j.id)} title="Delete this job (restores input stock)"
+                              style={{ background: 'transparent', border: '1px solid var(--red)', color: 'var(--red)', borderRadius: 3, padding: '2px 7px', fontSize: 10, cursor: 'pointer', opacity: 0.7 }}>✕</button>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   );
                 })
@@ -1610,7 +1629,10 @@ export function ProductionPage() {
   const [preselectId, setPreselectId] = useState<string | undefined>();
   const workflowRef = React.useRef<HTMLDivElement>(null);
   const { notify } = useToastStore();
+  const { user: currentUser } = useAuthStore();
+  const canEdit = currentUser?.role === 'admin' || currentUser?.role === 'yard';
   const deleteProduct = useDeleteProduct();
+  const deleteJob = useDeleteProductionJob();
 
   function handleAction(nextTab: string, productId: string) {
     setPreselectId(productId);
@@ -1704,7 +1726,12 @@ export function ProductionPage() {
             <RouteToSale finishedSlabs={finishedSlabs} notify={notify} preselectId={preselectId} />
           </div>
           <div style={{ display: tab === 'history' ? 'block' : 'none' }}>
-            <JobHistory jobs={jobs} isLoading={jobsLoading} />
+            <JobHistory jobs={jobs} isLoading={jobsLoading} onDeleteJob={canEdit ? (id) => {
+              deleteJob.mutate(id, {
+                onSuccess: () => notify(`Job ${id} deleted — input stock restored`, 'success'),
+                onError: (err: any) => notify(err.message || 'Delete failed', 'error'),
+              });
+            } : undefined} />
           </div>
         </div>
       </div>

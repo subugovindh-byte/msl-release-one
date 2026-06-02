@@ -361,6 +361,61 @@ productionRouter.post('/:id/complete',
   }
 );
 
+// ─── DELETE /production/:id — undo or remove a job (admin only) ───
+// Restores input-product stock, soft-deletes output products, removes job records.
+// Used to clean up test/erroneous jobs. Only allowed if no output product has
+// been invoiced (sold products can't be unwound).
+productionRouter.delete('/:id',
+  requireRole('admin'),
+  (req, res, next) => {
+    try {
+      const db = getDb();
+      const job = db.prepare('SELECT * FROM production_jobs WHERE id = ?').get(req.params.id);
+      if (!job) throw new NotFoundError('Job not found');
+
+      const inputs  = db.prepare('SELECT * FROM production_job_inputs  WHERE job_id = ?').all(req.params.id);
+      const outputs = db.prepare('SELECT * FROM production_job_outputs WHERE job_id = ?').all(req.params.id);
+
+      // Block if any output product was sold
+      for (const o of outputs) {
+        const sold = db.prepare('SELECT invoice_id FROM invoice_items WHERE product_id = ? LIMIT 1').get(o.product_id);
+        if (sold) {
+          throw new AppError(
+            `Cannot delete job ${req.params.id} — output product ${o.product_id} was sold on invoice ${sold.invoice_id}.`,
+            409
+          );
+        }
+      }
+
+      db.transaction(() => {
+        // Restore stock of input products (they were consumed by this job)
+        for (const i of inputs) {
+          db.prepare(
+            'UPDATE products SET stock = stock + ?, updated_at = datetime(\'now\'), updated_by = ? WHERE id = ?'
+          ).run(i.qty_consumed, req.user.username, i.product_id);
+          // Re-activate if it was soft-deleted solely because of this job
+          db.prepare(
+            'UPDATE products SET active = 1 WHERE id = ? AND active = 0'
+          ).run(i.product_id);
+        }
+        // Soft-delete output products
+        for (const o of outputs) {
+          db.prepare(
+            'UPDATE products SET active = 0, stock = 0, updated_at = datetime(\'now\'), updated_by = ? WHERE id = ?'
+          ).run(req.user.username, o.product_id);
+        }
+        // Remove job records
+        db.prepare('DELETE FROM production_job_inputs  WHERE job_id = ?').run(req.params.id);
+        db.prepare('DELETE FROM production_job_outputs WHERE job_id = ?').run(req.params.id);
+        db.prepare('DELETE FROM production_jobs        WHERE id = ?').run(req.params.id);
+      })();
+
+      audit(req, 'JOB_DELETE', 'production_jobs', req.params.id, job, null);
+      res.json({ ok: true });
+    } catch (err) { next(err); }
+  }
+);
+
 // ─── GET /production/stats/summary ───
 productionRouter.get('/stats/summary', (req, res) => {
   const db = getDb();

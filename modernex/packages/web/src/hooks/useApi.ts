@@ -488,6 +488,18 @@ export function useUpdateProductionJob(options?: UseMutationOptions<ProductionJo
   });
 }
 
+export function useDeleteProductionJob(options?: UseMutationOptions<{ ok: boolean }, Error, string>) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete<{ ok: boolean }>(`/production/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.production.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.products.all });
+    },
+    ...options,
+  });
+}
+
 // ─── Create Vendor ───
 export function useCreateVendor(options?: UseMutationOptions<{ vendor: Vendor }, Error, Partial<Vendor>>) {
   const queryClient = useQueryClient();
