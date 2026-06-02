@@ -196,7 +196,7 @@ purchaseRouter.delete('/:id',
 // ─── PATCH /purchase/:id/status ───
 // Enforced flow: new → received (GRN) → approved → [production ready]
 // Cancellation is allowed from any non-approved/non-received state.
-const ALLOWED_TRANSITIONS: Record<string, string[]> = {
+const ALLOWED_TRANSITIONS = {
   new:      ['received', 'cancelled'],
   received: ['approved', 'cancelled'],
   approved: ['cancelled'],
