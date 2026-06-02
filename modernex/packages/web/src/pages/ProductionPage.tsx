@@ -1443,16 +1443,28 @@ export function ProductionPage() {
       {/* Pipeline inventory */}
       <PipelineInventory groups={pipelineGroups} onAction={handleAction} onDelete={handleDelete} />
 
-      {/* Workflow tabs */}
+      {/* Workflow tabs — all components stay mounted; CSS display preserves form state */}
       <div ref={workflowRef} style={card}>
-        <TabBar active={tab} onChange={t => { setTab(t); setPreselectId(undefined); }} />
+        <TabBar active={tab} onChange={t => setTab(t)} />
         <div>
-          {tab === 'receive'  && <ReceiveBlock notify={notify} />}
-          {tab === 'split'    && <SplitBlock rawBlocks={rawBlocks} notify={notify} preselectId={preselectId} />}
-          {tab === 'cut'      && <CutSlabs rawBlocks={rawBlocks} notify={notify} preselectId={preselectId} />}
-          {tab === 'polish'   && <PolishGrade gangsawSlabs={gangsawSlabs} notify={notify} preselectId={preselectId} />}
-          {tab === 'route'    && <RouteToSale finishedSlabs={finishedSlabs} notify={notify} preselectId={preselectId} />}
-          {tab === 'history'  && <JobHistory jobs={jobs} isLoading={jobsLoading} />}
+          <div style={{ display: tab === 'receive' ? 'block' : 'none' }}>
+            <ReceiveBlock notify={notify} />
+          </div>
+          <div style={{ display: tab === 'split' ? 'block' : 'none' }}>
+            <SplitBlock rawBlocks={rawBlocks} notify={notify} preselectId={preselectId} />
+          </div>
+          <div style={{ display: tab === 'cut' ? 'block' : 'none' }}>
+            <CutSlabs rawBlocks={rawBlocks} notify={notify} preselectId={preselectId} />
+          </div>
+          <div style={{ display: tab === 'polish' ? 'block' : 'none' }}>
+            <PolishGrade gangsawSlabs={gangsawSlabs} notify={notify} preselectId={preselectId} />
+          </div>
+          <div style={{ display: tab === 'route' ? 'block' : 'none' }}>
+            <RouteToSale finishedSlabs={finishedSlabs} notify={notify} preselectId={preselectId} />
+          </div>
+          <div style={{ display: tab === 'history' ? 'block' : 'none' }}>
+            <JobHistory jobs={jobs} isLoading={jobsLoading} />
+          </div>
         </div>
       </div>
     </div>
