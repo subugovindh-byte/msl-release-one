@@ -382,13 +382,16 @@ productsRouter.post('/bulk-rate',
 );
 
 // ─── DELETE /products/:id — soft delete ───
+// Hard block: sold on invoice (can never delete a sold product).
+// Soft block: consumed in an active job — blocked unless ?force=true (admin override).
 productsRouter.delete('/:id', requireRole('admin'), (req, res, next) => {
   try {
     const db = getDb();
     const existing = loadProduct(db, req.params.id);
     if (!existing) throw new NotFoundError('Product not found');
+    const force = req.query.force === 'true';
 
-    // Block deletion if sold on an invoice
+    // Hard block: product has been invoiced/sold
     const soldItem = db.prepare(
       `SELECT invoice_id FROM invoice_items WHERE product_id = ? LIMIT 1`
     ).get(req.params.id);
@@ -399,30 +402,17 @@ productsRouter.delete('/:id', requireRole('admin'), (req, res, next) => {
       );
     }
 
-    // Block deletion if the product has been consumed in a production job
-    const jobInput = db.prepare(
-      `SELECT job_id FROM production_job_inputs WHERE product_id = ? LIMIT 1`
-    ).get(req.params.id);
-    if (jobInput) {
-      throw new AppError(
-        `Cannot delete ${req.params.id} — it has been consumed in production job ${jobInput.job_id}. ` +
-        `Delete or cancel that job first.`,
-        409
-      );
-    }
-
-    // Block deletion if the product was produced by a job that has other surviving outputs
-    // (i.e. deleting one output while siblings remain would unbalance job cost apportionment)
-    if (existing.source_job_id) {
-      const siblingCount = db.prepare(
-        `SELECT COUNT(*) AS cnt FROM production_job_outputs jo
-         JOIN products p ON p.id = jo.product_id
-         WHERE jo.job_id = ? AND p.active = 1 AND p.id != ?`
-      ).get(existing.source_job_id, req.params.id);
-      if (siblingCount && siblingCount.cnt > 0) {
+    // Soft block: product is an input to a job that still exists (not cleared)
+    if (!force) {
+      const jobInput = db.prepare(
+        `SELECT ji.job_id FROM production_job_inputs ji
+         JOIN production_jobs j ON j.id = ji.job_id
+         WHERE ji.product_id = ? LIMIT 1`
+      ).get(req.params.id);
+      if (jobInput) {
         throw new AppError(
-          `${req.params.id} was produced by job ${existing.source_job_id} which has other active outputs. ` +
-          `Remove all sibling products from that job before deleting this one.`,
+          `Cannot delete ${req.params.id} — consumed in job ${jobInput.job_id}. ` +
+          `Clear that job first, or use force-delete if this is test data.`,
           409
         );
       }
@@ -431,7 +421,7 @@ productsRouter.delete('/:id', requireRole('admin'), (req, res, next) => {
     db.prepare(
       `UPDATE products SET active = 0, updated_at = datetime('now'), updated_by = ? WHERE id = ?`
     ).run(req.user.username, req.params.id);
-    audit(req, 'PRODUCT_SOFT_DELETE', 'products', req.params.id, existing, null);
+    audit(req, 'PRODUCT_SOFT_DELETE', 'products', req.params.id, existing, { force });
     res.json({ ok: true });
   } catch (err) { next(err); }
 });

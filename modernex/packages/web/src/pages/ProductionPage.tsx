@@ -1618,10 +1618,18 @@ export function ProductionPage() {
     setTimeout(() => workflowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
   }
 
-  function handleDelete(id: string) {
-    deleteProduct.mutate(id, {
+  function handleDelete(id: string, force = false) {
+    deleteProduct.mutate({ id, force }, {
       onSuccess: () => notify(`${id} removed from inventory`, 'success'),
-      onError: (err: any) => notify(err.message || 'Cannot delete — product is linked to a production job', 'error'),
+      onError: (err: any) => {
+        if (!force && err.message?.includes('consumed in job')) {
+          if (window.confirm(`${id} was consumed in a production job.\n\nForce-delete anyway (admin override)?`)) {
+            handleDelete(id, true);
+          }
+        } else {
+          notify(err.message || 'Cannot delete', 'error');
+        }
+      },
     });
   }
 

@@ -172,11 +172,12 @@ export function useUpdateProduct(options?: UseMutationOptions<Product, Error, { 
   });
 }
 
-export function useDeleteProduct(options?: UseMutationOptions<void, Error, string>) {
+export function useDeleteProduct(options?: UseMutationOptions<void, Error, { id: string; force?: boolean }>) {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
-    mutationFn: (id: string) => api.delete<void>(`/products/${id}`),
+    mutationFn: ({ id, force }: { id: string; force?: boolean }) =>
+      api.delete<void>(`/products/${id}${force ? '?force=true' : ''}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.products.all });
     },
@@ -537,7 +538,7 @@ export function useCreatePurchaseOrder(options?: UseMutationOptions<{ po: Purcha
 export function useUpdatePurchaseOrder(options?: UseMutationOptions<{ po: any }, Error, { id: string; data: any }>) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }) => api.patch<{ po: any }>(`/purchase/${id}`, data),
+    mutationFn: ({ id, data }) => api.patch<{ po: any }>(`/purchase/${encodeURIComponent(id)}`, data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.purchase.all }); },
     ...options,
   });
@@ -546,7 +547,7 @@ export function useUpdatePurchaseOrder(options?: UseMutationOptions<{ po: any },
 export function useDeletePurchaseOrder(options?: UseMutationOptions<{ ok: boolean }, Error, string>) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.delete<{ ok: boolean }>(`/purchase/${id}`),
+    mutationFn: (id: string) => api.delete<{ ok: boolean }>(`/purchase/${encodeURIComponent(id)}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.purchase.all }); },
     ...options,
   });

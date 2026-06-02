@@ -26,11 +26,22 @@ export function InventoryPage() {
   const [qrLabel, setQrLabel] = useState<{ product: any; dataUrl: string } | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
-  function executeDelete() {
+  function executeDelete(force = false) {
     if (!confirmDeleteId) return;
-    deleteProduct.mutate(confirmDeleteId, {
+    deleteProduct.mutate({ id: confirmDeleteId, force }, {
       onSuccess: () => { setConfirmDeleteId(null); notify(`${confirmDeleteId} removed from inventory`, 'success'); },
-      onError: (err: any) => { setConfirmDeleteId(null); notify(err.message || 'Delete failed', 'error'); },
+      onError: (err: any) => {
+        if (!force && err.message?.includes('consumed in job')) {
+          if (window.confirm(`${confirmDeleteId} was consumed in a production job.\n\nForce-delete anyway (admin override)?`)) {
+            executeDelete(true);
+          } else {
+            setConfirmDeleteId(null);
+          }
+        } else {
+          setConfirmDeleteId(null);
+          notify(err.message || 'Delete failed', 'error');
+        }
+      },
     });
   }
 
