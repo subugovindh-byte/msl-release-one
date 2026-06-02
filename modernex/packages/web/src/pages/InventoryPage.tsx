@@ -319,7 +319,6 @@ export function InventoryPage() {
         </button>
       ),
     },
-    {
     ...(canEdit ? [{
       headerName: 'Delete',
       field: 'delete_action',
@@ -335,7 +334,7 @@ export function InventoryPage() {
           style={{ fontSize: 11, color: 'var(--red)', background: 'none', border: '1px solid var(--red)', borderRadius: 3, cursor: 'pointer', padding: '1px 7px', opacity: 0.75 }}
         >✕ Del</button>
       ),
-    }] as any : []),
+    }] : []),
   ], [isMobile, isTablet, canEdit]);
 
   return (
