@@ -941,7 +941,7 @@ reportsRouter.get('/stock-valuation', requireRole('admin', 'accounts', 'yard'), 
   try {
     const products = db.prepare(`
       SELECT p.id, p.kind, p.variety, p.grade, p.stock, p.uom,
-             p.rate_paise, p.cost_paise, p.lot_id, p.location
+             p.rate_paise, p.unit_cost_paise, p.lot_id, p.current_location_id AS location
       FROM products p
       WHERE p.active = 1 AND p.stock > 0
       ORDER BY p.kind, p.variety, p.lot_id
@@ -950,7 +950,7 @@ reportsRouter.get('/stock-valuation', requireRole('admin', 'accounts', 'yard'), 
     const byVariety = {};
     let totalValue = 0;
     for (const p of products) {
-      const costPaise = p.cost_paise || p.rate_paise || 0;
+      const costPaise = p.unit_cost_paise || p.rate_paise || 0;
       const value = costPaise * (p.stock || 1);
       totalValue += value;
       if (!byVariety[p.variety]) byVariety[p.variety] = { count: 0, stock: 0, value_paise: 0 };
@@ -962,8 +962,8 @@ reportsRouter.get('/stock-valuation', requireRole('admin', 'accounts', 'yard'), 
     res.json({
       products: products.map(p => ({
         ...p,
-        cost_paise: p.cost_paise || p.rate_paise || 0,
-        value_paise: (p.cost_paise || p.rate_paise || 0) * (p.stock || 1),
+        cost_paise: p.unit_cost_paise || p.rate_paise || 0,
+        value_paise: (p.unit_cost_paise || p.rate_paise || 0) * (p.stock || 1),
       })),
       by_variety: Object.entries(byVariety).map(([variety, v]) => ({ variety, ...v })),
       total_value_paise: totalValue,

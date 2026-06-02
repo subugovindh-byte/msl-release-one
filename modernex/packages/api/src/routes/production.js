@@ -404,7 +404,9 @@ productionRouter.delete('/:id',
             'UPDATE products SET active = 0, stock = 0, updated_at = datetime(\'now\'), updated_by = ? WHERE id = ?'
           ).run(req.user.username, o.product_id);
         }
-        // Remove job records
+        // Detach inventory_moves FK before deleting job (inventory_moves.job_id references production_jobs)
+        db.prepare('UPDATE inventory_moves SET job_id = NULL WHERE job_id = ?').run(req.params.id);
+        // Remove job records (CASCADE handles job_inputs + job_outputs, but explicit is safer)
         db.prepare('DELETE FROM production_job_inputs  WHERE job_id = ?').run(req.params.id);
         db.prepare('DELETE FROM production_job_outputs WHERE job_id = ?').run(req.params.id);
         db.prepare('DELETE FROM production_jobs        WHERE id = ?').run(req.params.id);
