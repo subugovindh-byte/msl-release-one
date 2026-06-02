@@ -63,6 +63,7 @@ export function PurchaseOrderReceiptPage() {
 
   const [showPayForm, setShowPayForm] = useState(false);
   const [payForm, setPayForm] = useState({ ...BLANK_FORM });
+  const [payAmountMode, setPayAmountMode] = useState<'full' | 'custom'>('full');
   const [showGRNForm, setShowGRNForm] = useState(false);
   const [grnForm, setGrnForm] = useState({ ...BLANK_GRN });
   const [showTransportForm, setShowTransportForm] = useState(false);
@@ -113,15 +114,19 @@ export function PurchaseOrderReceiptPage() {
 
   function handleRecordPayment(e: React.FormEvent) {
     e.preventDefault();
+    const amount = payAmountMode === 'full' ? balance : Math.round(payForm.amount_paise * 100);
+    if (!amount || amount <= 0) { notify('Enter a valid amount', 'error'); return; }
     createPayment.mutate({
       type: 'payment',
       po_id: po.id,
       party: po.vendor_name ?? po.vendor_id,
-      amount_paise: Math.round(payForm.amount_paise * 100),
+      amount_paise: amount,
       mode: payForm.mode,
       utr: payForm.utr || undefined,
       date: payForm.date || undefined,
       notes: payForm.notes || undefined,
+    }, {
+      onSuccess: () => { setShowPayForm(false); setPayForm({ ...BLANK_FORM }); setPayAmountMode('full'); },
     });
   }
 
@@ -227,17 +232,40 @@ export function PurchaseOrderReceiptPage() {
       {/* Record Payment form */}
       {showPayForm && (
         <div className="no-print" style={{ background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8, padding: '16px 20px', marginBottom: 16 }}>
-          <h3 style={{ margin: '0 0 14px', fontSize: 14 }}>Record Payment — {po.id}</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 }}>
+            <h3 style={{ margin: 0, fontSize: 14 }}>Record Payment — {po.id}</h3>
+            <span style={{ fontSize: 12, color: 'var(--t3)' }}>
+              Total {formatINR(total)} · Paid {formatINR(paidPaise)} · <strong style={{ color: 'var(--red)' }}>Due {formatINR(balance)}</strong>
+            </span>
+          </div>
           <form onSubmit={handleRecordPayment}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
-              <div>
-                <label className="fl">Amount (₹) *</label>
+            <div style={{ marginBottom: 14 }}>
+              <label className="fl">Amount (₹) *</label>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                <button type="button"
+                  onClick={() => setPayAmountMode('full')}
+                  style={{ padding: '6px 16px', borderRadius: 4, border: '1px solid var(--bd)', cursor: 'pointer', fontWeight: 600, fontSize: 12,
+                    background: payAmountMode === 'full' ? 'var(--rust)' : 'transparent',
+                    color: payAmountMode === 'full' ? 'white' : 'var(--t2)' }}>
+                  Full Balance — {formatINR(balance)}
+                </button>
+                <button type="button"
+                  onClick={() => setPayAmountMode('custom')}
+                  style={{ padding: '6px 16px', borderRadius: 4, border: '1px solid var(--bd)', cursor: 'pointer', fontWeight: 600, fontSize: 12,
+                    background: payAmountMode === 'custom' ? 'var(--rust)' : 'transparent',
+                    color: payAmountMode === 'custom' ? 'white' : 'var(--t2)' }}>
+                  Custom Amount
+                </button>
+              </div>
+              {payAmountMode === 'custom' && (
                 <input type="number" min="0.01" step="0.01" required className="fi"
-                  placeholder={`Max ${(balance / 100).toFixed(2)}`}
+                  placeholder={`Enter amount (max ${(balance / 100).toFixed(2)})`}
                   value={payForm.amount_paise || ''}
                   onChange={e => setPayForm(f => ({ ...f, amount_paise: parseFloat(e.target.value) || 0 }))}
                   onFocus={selectOnFocus} />
-              </div>
+              )}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
               <div>
                 <label className="fl">Mode *</label>
                 <select required className="fsel" value={payForm.mode}
@@ -261,10 +289,16 @@ export function PurchaseOrderReceiptPage() {
                   onChange={e => setPayForm(f => ({ ...f, notes: e.target.value }))} />
               </div>
             </div>
-            <button type="submit" disabled={createPayment.isPending}
-              style={{ padding: '8px 20px', background: 'var(--rust)', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
-              {createPayment.isPending ? 'Saving…' : 'Save Payment'}
-            </button>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button type="submit" disabled={createPayment.isPending}
+                style={{ padding: '8px 20px', background: 'var(--rust)', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+                {createPayment.isPending ? 'Saving…' : `Record ${payAmountMode === 'full' ? formatINR(balance) : 'Payment'}`}
+              </button>
+              <button type="button" onClick={() => setShowPayForm(false)}
+                style={{ padding: '8px 16px', background: 'transparent', color: 'var(--t2)', border: '1px solid var(--bd)', borderRadius: 4, cursor: 'pointer', fontSize: 13 }}>
+                Cancel
+              </button>
+            </div>
           </form>
         </div>
       )}

@@ -1,7 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import bcrypt from 'bcrypt';
 import { getDb, closeDb } from './connection.js';
 import { seedVarietyDefaults } from './seedVarietyDefaults.js';
 import { logger } from '../utils/logger.js';
@@ -63,22 +62,6 @@ export function runMigrations() {
     seedVarietyDefaults(db, logger);
   } catch (err) {
     logger.warn({ err: err.message }, 'Variety photo seeding failed (non-fatal)');
-  }
-
-  // Bootstrap admin user if no users exist (fresh DB on new deployment)
-  try {
-    const userCount = db.prepare('SELECT COUNT(*) AS cnt FROM users').get();
-    if (userCount && userCount.cnt === 0) {
-      const adminPass = process.env.ADMIN_PASS || 'Admin@123';
-      const hash = bcrypt.hashSync(adminPass, 12);
-      db.prepare(`
-        INSERT INTO users (username, password_hash, full_name, role, must_change_password, active)
-        VALUES ('admin', ?, 'Administrator', 'admin', 1, 1)
-      `).run(hash);
-      logger.info('Bootstrap: admin user created (change password on first login)');
-    }
-  } catch (err) {
-    logger.warn({ err: err.message }, 'Admin bootstrap failed (non-fatal)');
   }
 
   return ran;
