@@ -408,15 +408,19 @@ function ReceiveBlock({ notify }: { notify: any }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TAB 2 — SPLIT BLOCK
+// TAB 2 — SPLIT / DRESS BLOCK
+// Mode A: Split — 1 block → 2 sub-blocks
+// Mode B: Dress/Trim — 1 block → 1 trimmed block (half-block dressing)
 // ─────────────────────────────────────────────────────────────────────────────
 function SplitBlock({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; notify: any; preselectId?: string }) {
   const createJob = useCreateProductionJob();
+  const [mode, setMode] = useState<'split' | 'dress'>('split');
 
+  const emptyDims = { length_m: '', width_m: '', height_m: '' };
   const [form, setForm] = useState({
     block_id: '',
-    sub1: { length_m: '', width_m: '', height_m: '' },
-    sub2: { length_m: '', width_m: '', height_m: '' },
+    sub1: { ...emptyDims },
+    sub2: { ...emptyDims },
     labour_paise: '',
     damage_count: '',
     wastage_count: '',
@@ -426,71 +430,135 @@ function SplitBlock({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; noti
   useEffect(() => { if (preselectId) setForm(f => ({ ...f, block_id: preselectId })); }, [preselectId]);
 
   function set(k: string, v: any) { setForm(f => ({ ...f, [k]: v })); }
-  function setSub(n: 1|2, k: string, v: string) {
+  function setSub(n: 1 | 2, k: string, v: string) {
     const key = n === 1 ? 'sub1' : 'sub2';
-    setForm(f => ({ ...f, [key]: { ...f[key], [k]: v } }));
+    setForm(f => ({ ...f, [key]: { ...(f as any)[key], [k]: v } }));
   }
 
   const selectedBlock = rawBlocks.find(b => b.id === form.block_id);
+  const parentDims = selectedBlock?.dimensions || {};
+  const parentCft = cftFromM(parentDims.length_m, parentDims.width_m, parentDims.height_m);
+
+  // Convert mm-input fields to metres for calculations
+  const toM = (v: string) => +v / 1000;
+  const cft1 = cftFromM(toM(form.sub1.length_m), toM(form.sub1.width_m), toM(form.sub1.height_m));
+  const cbm1 = cbmFromM(toM(form.sub1.length_m), toM(form.sub1.width_m), toM(form.sub1.height_m));
+  const cft2 = cftFromM(toM(form.sub2.length_m), toM(form.sub2.width_m), toM(form.sub2.height_m));
+  const cbm2 = cbmFromM(toM(form.sub2.length_m), toM(form.sub2.width_m), toM(form.sub2.height_m));
+
+  const outputCft = mode === 'split' ? cft1 + cft2 : cft1;
+  const volOver = parentCft > 0 && outputCft > parentCft * 1.03; // >3% over is a likely entry error
+  const volWarn = parentCft > 0 && outputCft > parentCft * 0.98 && !volOver; // within 2% of parent (kerf loss OK)
+
+  function resetForm() {
+    setForm({ block_id: '', sub1: { ...emptyDims }, sub2: { ...emptyDims }, labour_paise: '', damage_count: '', wastage_count: '', notes: '' });
+  }
 
   async function submit(e: any) {
     e.preventDefault();
-    if (!form.block_id) { notify('Select a block to split', 'error'); return; }
+    if (!form.block_id) { notify('Select a block', 'error'); return; }
     const { sub1, sub2 } = form;
-    if (!sub1.length_m || !sub1.width_m || !sub1.height_m || !sub2.length_m || !sub2.width_m || !sub2.height_m) {
-      notify('Enter dimensions for both sub-blocks', 'error'); return;
-    }
+    const need2 = mode === 'split';
+    const missingA = !sub1.length_m || !sub1.width_m || !sub1.height_m;
+    const missingB = need2 && (!sub2.length_m || !sub2.width_m || !sub2.height_m);
+    if (missingA || missingB) { notify('Enter all dimensions', 'error'); return; }
+    if (volOver) { notify('Output volume exceeds source block — check dimensions for typos', 'error'); return; }
+
+    const lot_id = selectedBlock?.lot_id || form.block_id;
+    const variety = selectedBlock?.variety || '';
+    const shared = {
+      lot_id, stage: 'split' as const,
+      inputs: [{ product_id: form.block_id, qty_consumed: 1 }],
+      labour_paise: form.labour_paise ? Math.round(+form.labour_paise * 100) : 0,
+      power_paise: 0, consumables_paise: 0,
+      damage_count: form.damage_count ? +form.damage_count : 0,
+      wastage_count: form.wastage_count ? +form.wastage_count : 0,
+      notes: form.notes || null,
+    };
+    const mkBlock = (dims: typeof emptyDims) => ({
+      kind: 'block' as const, variety, grade: null, rate_paise: 0, qty: 1,
+      dimensions: { length_m: toM(dims.length_m), width_m: toM(dims.width_m), height_m: toM(dims.height_m) },
+    });
+
     try {
-      const lot_id = selectedBlock?.lot_id || form.block_id;
-      const variety = selectedBlock?.variety || '';
-      await createJob.mutateAsync({
-        lot_id,
-        stage: 'split',
-        inputs: [{ product_id: form.block_id, qty_consumed: 1 }],
-        outputs: [
-          { kind: 'block', variety, grade: null, rate_paise: 0, qty: 1, dimensions: { length_m: +sub1.length_m / 1000, width_m: +sub1.width_m / 1000, height_m: +sub1.height_m / 1000 } },
-          { kind: 'block', variety, grade: null, rate_paise: 0, qty: 1, dimensions: { length_m: +sub2.length_m / 1000, width_m: +sub2.width_m / 1000, height_m: +sub2.height_m / 1000 } },
-        ],
-        labour_paise: form.labour_paise ? Math.round(+form.labour_paise * 100) : 0,
-        power_paise: 0,
-        consumables_paise: 0,
-        damage_count: form.damage_count ? +form.damage_count : 0,
-        wastage_count: form.wastage_count ? +form.wastage_count : 0,
-        notes: form.notes || null,
-      });
-      notify('Split job created — 2 sub-blocks registered at Raw Yard', 'success');
-      setForm({ block_id: '', sub1: { length_m: '', width_m: '', height_m: '' }, sub2: { length_m: '', width_m: '', height_m: '' }, labour_paise: '', damage_count: '', wastage_count: '', notes: '' });
+      if (mode === 'split') {
+        await createJob.mutateAsync({ ...shared, outputs: [mkBlock(sub1), mkBlock(sub2)] });
+        notify('Split job done — 2 sub-blocks at Raw Yard', 'success');
+      } else {
+        await createJob.mutateAsync({ ...shared, outputs: [mkBlock(sub1)] });
+        notify('Dress/Trim job done — trimmed block at Raw Yard', 'success');
+      }
+      resetForm();
     } catch (err: any) {
-      notify(err.message || 'Failed to create split job', 'error');
+      notify(err.message || 'Failed to create job', 'error');
     }
   }
 
-  const cft1 = cftFromM(+form.sub1.length_m / 1000, +form.sub1.width_m / 1000, +form.sub1.height_m / 1000);
-  const cbm1 = cbmFromM(+form.sub1.length_m / 1000, +form.sub1.width_m / 1000, +form.sub1.height_m / 1000);
-  const cft2 = cftFromM(+form.sub2.length_m / 1000, +form.sub2.width_m / 1000, +form.sub2.height_m / 1000);
-  const cbm2 = cbmFromM(+form.sub2.length_m / 1000, +form.sub2.width_m / 1000, +form.sub2.height_m / 1000);
-
-  if (rawBlocks.length === 0) {
+  function DimCard({ label, n, dims }: { label: string; n: 1 | 2; dims: typeof emptyDims }) {
+    const cft = cftFromM(toM(dims.length_m), toM(dims.width_m), toM(dims.height_m));
+    const cbm = cbmFromM(toM(dims.length_m), toM(dims.width_m), toM(dims.height_m));
+    const oversize = parentCft > 0 && cft > parentCft * 1.03;
     return (
-      <div style={{ ...card, color: 'var(--t3)', fontSize: 13 }}>
-        No blocks available at Raw Yard. Register a block in step 1 first.
+      <div style={{ flex: 1, ...card, display: 'flex', flexDirection: 'column', gap: 10, borderColor: oversize ? 'var(--red)' : 'var(--bd)' }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: oversize ? 'var(--red)' : 'var(--rust)' }}>{label}</div>
+        <div style={row3}>
+          <Fld label="Length (mm)">
+            <Inp type="number" step="1" min="0" value={dims.length_m} onChange={e => setSub(n, 'length_m', e.target.value)}
+              placeholder={parentDims.length_m ? String(Math.round(parentDims.length_m * 1000)) : '2440'} required />
+          </Fld>
+          <Fld label="Width (mm)">
+            <Inp type="number" step="1" min="0" value={dims.width_m} onChange={e => setSub(n, 'width_m', e.target.value)}
+              placeholder={parentDims.width_m ? String(Math.round(parentDims.width_m * 1000)) : '1220'} required />
+          </Fld>
+          <Fld label="Height (mm)">
+            <Inp type="number" step="1" min="0" value={dims.height_m} onChange={e => setSub(n, 'height_m', e.target.value)}
+              placeholder={parentDims.height_m ? String(Math.round(parentDims.height_m * 1000)) : '600'} required />
+          </Fld>
+        </div>
+        {cft > 0 && (
+          <div style={{ fontSize: 12, color: oversize ? 'var(--red)' : 'var(--gold)', fontWeight: oversize ? 700 : 400 }}>
+            ≈ {volLabel(cft, cbm)}{oversize ? '  ⚠ exceeds parent' : ''}
+          </div>
+        )}
       </div>
     );
   }
 
+  if (rawBlocks.length === 0) {
+    return <div style={{ ...card, color: 'var(--t3)', fontSize: 13 }}>No blocks at Raw Yard. Register one in step 1 first.</div>;
+  }
+
   return (
-    <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 600 }}>
+    <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 640 }}>
+
+      {/* Mode toggle */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        {(['split', 'dress'] as const).map(m => (
+          <button key={m} type="button" onClick={() => setMode(m)} style={{
+            padding: '6px 18px', borderRadius: 5, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+            background: mode === m ? 'var(--rust)' : 'var(--bg2)',
+            color: mode === m ? '#fff' : 'var(--t2)',
+            border: `1px solid ${mode === m ? 'var(--rust)' : 'var(--bd)'}`,
+          }}>
+            {m === 'split' ? '✂ Split into 2 sub-blocks' : '🔲 Dress / Trim (single block)'}
+          </button>
+        ))}
+      </div>
+
       <p style={{ margin: 0, fontSize: 13, color: 'var(--t3)' }}>
-        Split a gangsaw block into two sub-blocks (1A and 1B). Sub-blocks stay at Raw Yard for further cutting.
+        {mode === 'split'
+          ? 'Split a block into two sub-blocks (1A and 1B). Both stay at Raw Yard.'
+          : 'Gangsaw-dress a half-block or rough block into a clean rectangular shape. The original block is consumed and one trimmed block is produced.'}
       </p>
 
+      {/* Block selector */}
       <Fld label="Select Block">
         <Sel value={form.block_id} onChange={e => set('block_id', e.target.value)} required>
           <option value="">— select block —</option>
           {rawBlocks.map((b: any) => {
-            const dims = b.dimensions || {};
-            const cft = cftFromM(dims.length_m, dims.width_m, dims.height_m);
-            const cbm = cbmFromM(dims.length_m, dims.width_m, dims.height_m);
+            const d = b.dimensions || {};
+            const cft = cftFromM(d.length_m, d.width_m, d.height_m);
+            const cbm = cbmFromM(d.length_m, d.width_m, d.height_m);
             return (
               <option key={b.id} value={b.id}>
                 {b.id} · {b.variety} {b.lot_id ? `(${b.lot_id})` : ''} {cft > 0 ? `— ${volLabel(cft, cbm)}` : ''}
@@ -501,58 +569,41 @@ function SplitBlock({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; noti
       </Fld>
 
       {selectedBlock && (
-        <div style={{ fontSize: 12, color: 'var(--t3)', marginTop: -8 }}>
-          Variety: <strong style={{ color: 'var(--t1)' }}>{selectedBlock.variety}</strong>
-          {selectedBlock.dimensions?.length_m && (() => {
-            const d = selectedBlock.dimensions;
-            const cft = cftFromM(d.length_m, d.width_m, d.height_m);
-            const cbm = cbmFromM(d.length_m, d.width_m, d.height_m);
-            return <> · {volLabel(cft, cbm)}</>;
-          })()}
+        <div style={{ fontSize: 12, color: 'var(--t3)', marginTop: -8, display: 'flex', gap: 8, alignItems: 'center' }}>
+          <span>Source: <strong style={{ color: 'var(--t1)' }}>{selectedBlock.variety}</strong></span>
+          {parentCft > 0 && <span style={{ color: 'var(--gold)', fontWeight: 600 }}>
+            {(() => { const d = parentDims; return `${Math.round(d.length_m*1000)}×${Math.round(d.width_m*1000)}×${Math.round(d.height_m*1000)} mm · ${volLabel(parentCft, cbmFromM(d.length_m,d.width_m,d.height_m))}`; })()}
+          </span>}
         </div>
       )}
 
+      {/* Output dimension cards */}
       <div style={{ display: 'flex', gap: 12 }}>
-        {/* Sub-block 1A */}
-        <div style={{ flex: 1, ...card, display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--rust)' }}>Sub-block 1A</div>
-          <div style={row3}>
-            <Fld label="Length (mm)">
-              <Inp type="number" step="1" min="0" value={form.sub1.length_m} onChange={e => setSub(1, 'length_m', e.target.value)} placeholder="2440" required />
-            </Fld>
-            <Fld label="Width (mm)">
-              <Inp type="number" step="1" min="0" value={form.sub1.width_m} onChange={e => setSub(1, 'width_m', e.target.value)} placeholder="1220" required />
-            </Fld>
-            <Fld label="Height (mm)">
-              <Inp type="number" step="1" min="0" value={form.sub1.height_m} onChange={e => setSub(1, 'height_m', e.target.value)} placeholder="600" required />
-            </Fld>
-          </div>
-          {cft1 > 0 && <div style={{ fontSize: 12, color: 'var(--gold)' }}>≈ {volLabel(cft1, cbm1)}</div>}
-        </div>
-        {/* Sub-block 1B */}
-        <div style={{ flex: 1, ...card, display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--rust)' }}>Sub-block 1B</div>
-          <div style={row3}>
-            <Fld label="Length (mm)">
-              <Inp type="number" step="1" min="0" value={form.sub2.length_m} onChange={e => setSub(2, 'length_m', e.target.value)} placeholder="2440" required />
-            </Fld>
-            <Fld label="Width (mm)">
-              <Inp type="number" step="1" min="0" value={form.sub2.width_m} onChange={e => setSub(2, 'width_m', e.target.value)} placeholder="1220" required />
-            </Fld>
-            <Fld label="Height (mm)">
-              <Inp type="number" step="1" min="0" value={form.sub2.height_m} onChange={e => setSub(2, 'height_m', e.target.value)} placeholder="600" required />
-            </Fld>
-          </div>
-          {cft2 > 0 && <div style={{ fontSize: 12, color: 'var(--gold)' }}>≈ {volLabel(cft2, cbm2)}</div>}
-        </div>
+        <DimCard label={mode === 'split' ? 'Sub-block 1A' : 'Trimmed block (output)'} n={1} dims={form.sub1} />
+        {mode === 'split' && <DimCard label="Sub-block 1B" n={2} dims={form.sub2} />}
       </div>
+
+      {/* Volume balance warning */}
+      {parentCft > 0 && outputCft > 0 && (
+        <div style={{
+          padding: '8px 12px', borderRadius: 6, fontSize: 12, fontWeight: 600,
+          background: volOver ? 'rgba(220,50,50,0.1)' : volWarn ? 'rgba(0,180,100,0.08)' : 'var(--bg2)',
+          border: `1px solid ${volOver ? 'var(--red)' : volWarn ? 'var(--sage)' : 'var(--bd)'}`,
+          color: volOver ? 'var(--red)' : volWarn ? 'var(--sage)' : 'var(--t3)',
+        }}>
+          {volOver
+            ? `Output ${outputCft.toFixed(1)} CFT > source ${parentCft.toFixed(1)} CFT — check for typos in dimensions`
+            : `Output ${outputCft.toFixed(1)} CFT vs source ${parentCft.toFixed(1)} CFT (${((outputCft/parentCft)*100).toFixed(1)}% yield — kerf loss ${(parentCft - outputCft).toFixed(1)} CFT)`
+          }
+        </div>
+      )}
 
       <div style={row2}>
         <Fld label="Labour Cost (₹)" hint="optional">
           <Inp type="number" min="0" value={form.labour_paise} onChange={e => set('labour_paise', e.target.value)} placeholder="0" />
         </Fld>
         <Fld label="Notes" hint="optional">
-          <Inp value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Any remark..." />
+          <Inp value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="e.g. cut from quarry half-block" />
         </Fld>
       </div>
 
@@ -564,15 +615,15 @@ function SplitBlock({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; noti
           <Fld label="Damaged pieces" hint="blocks cracked / broken">
             <Inp type="number" min="0" step="1" value={form.damage_count} onChange={e => set('damage_count', e.target.value)} placeholder="0" />
           </Fld>
-          <Fld label="Wastage pieces" hint="trim / offcut / unusable yield">
+          <Fld label="Wastage (CFT)" hint="trim / kerf material removed">
             <Inp type="number" min="0" step="1" value={form.wastage_count} onChange={e => set('wastage_count', e.target.value)} placeholder="0" />
           </Fld>
         </div>
       </div>
 
       <div>
-        <button type="submit" style={btnPrimary} disabled={createJob.isPending}>
-          {createJob.isPending ? 'Creating…' : 'Create Split Job'}
+        <button type="submit" style={{ ...btnPrimary, opacity: volOver ? 0.5 : 1 }} disabled={createJob.isPending || volOver}>
+          {createJob.isPending ? 'Creating…' : mode === 'split' ? 'Create Split Job' : 'Create Dress / Trim Job'}
         </button>
       </div>
     </form>
