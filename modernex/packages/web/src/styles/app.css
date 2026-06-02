@@ -173,7 +173,7 @@ a { color: var(--rust); text-decoration: none; }
 .sb-name { font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600; color: var(--t1); letter-spacing: -0.2px; }
 .sb-role {
   font-family: 'IBM Plex Mono', monospace; font-size: 8px;
-  letter-spacing: 1px; text-transform: uppercase; color: var(--t3); margin-top: 1px;
+  letter-spacing: 1px; text-transform: uppercase; color: var(--t2); margin-top: 1px;
 }
 .sb-sec {
   padding: 13px 12px 4px; font-family: 'IBM Plex Mono', monospace;
@@ -199,14 +199,14 @@ a { color: var(--rust); text-decoration: none; }
 .sb-group-items--closed { max-height: 0; }
 .sb-nav {
   display: flex; align-items: center; padding: 8px 14px; gap: 10px;
-  border-left: 3px solid transparent; cursor: pointer; color: var(--t2);
+  border-left: 3px solid transparent; cursor: pointer; color: var(--t1);
   font-family: 'Inter', sans-serif; font-size: 13px; letter-spacing: -0.1px;
   text-transform: none; transition: background var(--dur), color var(--dur), border-color var(--dur); font-weight: 500;
   line-height: 1; border-radius: 0 6px 6px 0; margin: 1px 6px 1px 0;
 }
 .sb-nav .sb-icon {
   font-size: 14px;
-  opacity: 0.7;
+  opacity: 0.85;
   transition: all 0.2s ease;
   min-width: 16px;
   text-align: center;
@@ -515,8 +515,8 @@ a { color: var(--rust); text-decoration: none; }
    ═══════════════════════════════════════ */
 .ph-title { font-family: 'Inter', sans-serif; font-size: 20px; font-weight: 700; color: var(--t1); letter-spacing: -0.5px; }
 .ph-sub {
-  font-family: 'IBM Plex Mono', monospace; font-size: 8px; letter-spacing: 1.5px;
-  text-transform: uppercase; color: var(--t3); margin-top: 3px; margin-bottom: 14px;
+  font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 1.2px;
+  text-transform: uppercase; color: var(--t2); margin-top: 4px; margin-bottom: 14px; font-weight: 500;
 }
 
 .sc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; margin-bottom: 14px; }
@@ -529,16 +529,16 @@ a { color: var(--rust); text-decoration: none; }
 .sc.g::before { background: var(--gold); }
 .sc.s::before { background: var(--sage); }
 .sc.b::before { background: var(--blue); }
-.sc-lbl { font-family: 'IBM Plex Mono', monospace; font-size: 7.5px; letter-spacing: 2px; text-transform: uppercase; color: var(--t3); margin-bottom: 6px; }
+.sc-lbl { font-family: 'IBM Plex Mono', monospace; font-size: 8px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--t2); margin-bottom: 6px; font-weight: 600; }
 .sc-val { font-family: 'Inter', sans-serif; font-size: 20px; font-weight: 700; color: var(--t1); line-height: 1; letter-spacing: -0.3px; }
-.sc-sub { font-family: 'IBM Plex Mono', monospace; font-size: 7.5px; color: var(--t3); margin-top: 4px; }
+.sc-sub { font-family: 'IBM Plex Mono', monospace; font-size: 8px; color: var(--t3); margin-top: 4px; }
 
 .card { background: var(--bg2); border: 1px solid var(--bd); border-radius: var(--radius); margin-bottom: 12px; }
 .card-head {
   padding: 10px 13px; border-bottom: 1px solid var(--bd);
   display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;
 }
-.card-title { font-family: 'Inter', sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--t1); }
+.card-title { font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: var(--t1); }
 .card-body { padding: 13px; }
 
 .btn {
@@ -556,7 +556,7 @@ a { color: var(--rust); text-decoration: none; }
 .btn-sm { padding: 5px 10px; font-size: 8px; }
 
 .fg { margin-bottom: 11px; }
-.fl { font-family: 'IBM Plex Mono', monospace; font-size: 7.5px; letter-spacing: 2px; text-transform: uppercase; color: var(--t3); display: block; margin-bottom: 4px; }
+.fl { font-family: 'IBM Plex Mono', monospace; font-size: 8.5px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--t2); display: block; margin-bottom: 4px; font-weight: 500; }
 .fi, .fsel {
   width: 100%; background: var(--bg1); border: 1px solid var(--bd); border-radius: 5px;
   padding: 7px 10px; color: var(--t1); font-size: 12.5px; outline: none;
@@ -596,8 +596,8 @@ a { color: var(--rust); text-decoration: none; }
 
 .itabs { display: flex; border-bottom: 1px solid var(--bd); margin-bottom: 14px; overflow-x: auto; }
 .itab {
-  padding: 8px 14px; font-family: 'IBM Plex Mono', monospace; font-size: 8.5px;
-  letter-spacing: 1.5px; text-transform: uppercase; cursor: pointer; color: var(--t3);
+  padding: 8px 14px; font-family: 'IBM Plex Mono', monospace; font-size: 9px;
+  letter-spacing: 1.2px; text-transform: uppercase; cursor: pointer; color: var(--t2); font-weight: 500;
   border-bottom: 2px solid transparent; flex-shrink: 0;
 }
 .itab.on { color: var(--rust); border-bottom-color: var(--rust); background: var(--rustW); }

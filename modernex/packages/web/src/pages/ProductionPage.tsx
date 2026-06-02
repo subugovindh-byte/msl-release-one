@@ -381,6 +381,8 @@ function SplitBlock({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; noti
     sub1: { length_m: '', width_m: '', height_m: '' },
     sub2: { length_m: '', width_m: '', height_m: '' },
     labour_paise: '',
+    damage_count: '',
+    wastage_count: '',
     notes: '',
   });
 
@@ -415,10 +417,12 @@ function SplitBlock({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; noti
         labour_paise: form.labour_paise ? Math.round(+form.labour_paise * 100) : 0,
         power_paise: 0,
         consumables_paise: 0,
+        damage_count: form.damage_count ? +form.damage_count : 0,
+        wastage_count: form.wastage_count ? +form.wastage_count : 0,
         notes: form.notes || null,
       });
       notify('Split job created — 2 sub-blocks registered at Raw Yard', 'success');
-      setForm({ block_id: '', sub1: { length_m: '', width_m: '', height_m: '' }, sub2: { length_m: '', width_m: '', height_m: '' }, labour_paise: '', notes: '' });
+      setForm({ block_id: '', sub1: { length_m: '', width_m: '', height_m: '' }, sub2: { length_m: '', width_m: '', height_m: '' }, labour_paise: '', damage_count: '', wastage_count: '', notes: '' });
     } catch (err: any) {
       notify(err.message || 'Failed to create split job', 'error');
     }
@@ -515,6 +519,20 @@ function SplitBlock({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; noti
         </Fld>
       </div>
 
+      <div style={{ borderTop: '1px solid var(--bd)', paddingTop: 12 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--red)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          Damages &amp; Wastage
+        </div>
+        <div style={row2}>
+          <Fld label="Damaged pieces" hint="blocks cracked / broken">
+            <Inp type="number" min="0" step="1" value={form.damage_count} onChange={e => set('damage_count', e.target.value)} placeholder="0" />
+          </Fld>
+          <Fld label="Wastage pieces" hint="trim / offcut / unusable yield">
+            <Inp type="number" min="0" step="1" value={form.wastage_count} onChange={e => set('wastage_count', e.target.value)} placeholder="0" />
+          </Fld>
+        </div>
+      </div>
+
       <div>
         <button type="submit" style={btnPrimary} disabled={createJob.isPending}>
           {createJob.isPending ? 'Creating…' : 'Create Split Job'}
@@ -545,6 +563,8 @@ function CutSlabs({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; notify
     rate_rs: '',
     labour_paise: '',
     power_paise: '',
+    damage_count: '',
+    wastage_count: '',
     notes: '',
   });
 
@@ -594,10 +614,12 @@ function CutSlabs({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; notify
         labour_paise: form.labour_paise ? Math.round(+form.labour_paise * 100) : 0,
         power_paise:  form.power_paise  ? Math.round(+form.power_paise  * 100) : 0,
         consumables_paise: 0,
+        damage_count: form.damage_count ? +form.damage_count : 0,
+        wastage_count: form.wastage_count ? +form.wastage_count : 0,
         notes: form.notes || null,
       });
       notify(`Cut job done — ${form.count} ${outputKind}s at Gangsaw Out`, 'success');
-      setForm(f => ({ ...f, block_id: '', count: '', notes: '' }));
+      setForm(f => ({ ...f, block_id: '', count: '', damage_count: '', wastage_count: '', notes: '' }));
     } catch (err: any) {
       notify(err.message || 'Failed to create cut job', 'error');
     }
@@ -716,6 +738,20 @@ function CutSlabs({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; notify
         </Fld>
       </div>
 
+      <div style={{ borderTop: '1px solid var(--bd)', paddingTop: 12 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--red)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          Damages &amp; Wastage
+        </div>
+        <div style={row2}>
+          <Fld label="Damaged pieces" hint="slabs/tiles cracked or broken (unplanned)">
+            <Inp type="number" min="0" step="1" value={form.damage_count} onChange={e => set('damage_count', e.target.value)} placeholder="0" />
+          </Fld>
+          <Fld label="Wastage pieces" hint="trim / offcuts / saw-kerf losses (planned)">
+            <Inp type="number" min="0" step="1" value={form.wastage_count} onChange={e => set('wastage_count', e.target.value)} placeholder="0" />
+          </Fld>
+        </div>
+      </div>
+
       <Fld label="Notes" hint="optional">
         <Inp value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="e.g. gangsaw machine #2" />
       </Fld>
@@ -741,6 +777,8 @@ function PolishGrade({ gangsawSlabs, notify, preselectId }: { gangsawSlabs: any[
     grade: 'A',
     rate_rs: '',
     labour_paise: '',
+    damage_count: '',
+    wastage_count: '',
     notes: '',
   });
 
@@ -784,10 +822,12 @@ function PolishGrade({ gangsawSlabs, notify, preselectId }: { gangsawSlabs: any[
         labour_paise: form.labour_paise ? Math.round(+form.labour_paise * +form.out_qty * 100) : 0,
         power_paise: 0,
         consumables_paise: 0,
+        damage_count: form.damage_count ? +form.damage_count : 0,
+        wastage_count: form.wastage_count ? +form.wastage_count : 0,
         notes: form.notes || null,
       });
       notify(`Polish job done — ${form.out_qty} ${isTile ? 'tile' : 'slab'}(s) at Finished Yard`, 'success');
-      setForm(f => ({ ...f, slab_id: '', out_qty: '', notes: '' }));
+      setForm(f => ({ ...f, slab_id: '', out_qty: '', damage_count: '', wastage_count: '', notes: '' }));
     } catch (err: any) {
       notify(err.message || 'Failed to create polish job', 'error');
     }
@@ -855,6 +895,20 @@ function PolishGrade({ gangsawSlabs, notify, preselectId }: { gangsawSlabs: any[
         <Fld label="Notes" hint="optional">
           <Inp value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Any remark..." />
         </Fld>
+      </div>
+
+      <div style={{ borderTop: '1px solid var(--bd)', paddingTop: 12 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--red)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          Damages &amp; Wastage
+        </div>
+        <div style={row2}>
+          <Fld label="Damaged pieces" hint="slabs cracked/rejected during polishing">
+            <Inp type="number" min="0" step="1" value={form.damage_count} onChange={e => set('damage_count', e.target.value)} placeholder="0" />
+          </Fld>
+          <Fld label="Wastage pieces" hint="edge chips / below-grade discard">
+            <Inp type="number" min="0" step="1" value={form.wastage_count} onChange={e => set('wastage_count', e.target.value)} placeholder="0" />
+          </Fld>
+        </div>
       </div>
 
       <div>
@@ -1047,11 +1101,13 @@ function JobHistory({ jobs, isLoading }: { jobs: any[]; isLoading: boolean }) {
                 <th style={thStyle}>Inputs</th>
                 <th style={thStyle}>Outputs</th>
                 <th style={thStyle}>Cost</th>
+                <th style={{ ...thStyle, textAlign: 'center' }}>Damaged</th>
+                <th style={{ ...thStyle, textAlign: 'center' }}>Wastage</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={8} style={{ ...tdStyle, textAlign: 'center', color: 'var(--t3)' }}>No jobs found</td></tr>
+                <tr><td colSpan={10} style={{ ...tdStyle, textAlign: 'center', color: 'var(--t3)' }}>No jobs found</td></tr>
               ) : (
                 filtered.map((j: any) => {
                   const cost = (j.labour_paise || 0) + (j.power_paise || 0) + (j.consumables_paise || 0);
@@ -1067,6 +1123,12 @@ function JobHistory({ jobs, isLoading }: { jobs: any[]; isLoading: boolean }) {
                       <td style={{ ...tdStyle, fontSize: 11, color: 'var(--t3)', maxWidth: 180 }}>{inputsSummary}</td>
                       <td style={{ ...tdStyle, fontSize: 11, color: 'var(--t3)', maxWidth: 180 }}>{outputsSummary}</td>
                       <td style={tdStyle}>{cost > 0 ? `₹${(cost / 100).toLocaleString('en-IN')}` : '—'}</td>
+                      <td style={{ ...tdStyle, textAlign: 'center', fontWeight: 700, color: j.damage_count > 0 ? 'var(--red)' : 'var(--t3)' }}>
+                        {j.damage_count > 0 ? j.damage_count : '—'}
+                      </td>
+                      <td style={{ ...tdStyle, textAlign: 'center', fontWeight: 700, color: j.wastage_count > 0 ? 'var(--amber)' : 'var(--t3)' }}>
+                        {j.wastage_count > 0 ? j.wastage_count : '—'}
+                      </td>
                     </tr>
                   );
                 })
@@ -1280,6 +1342,9 @@ export function ProductionPage() {
     SHOWROOM:      showroomSlabs,
   }), [rawBlocks, gangsawSlabs, finishedSlabs, showroomSlabs]);
 
+  const totalDamage  = jobs.reduce((s: number, j: any) => s + (j.damage_count  || 0), 0);
+  const totalWastage = jobs.reduce((s: number, j: any) => s + (j.wastage_count || 0), 0);
+
   return (
     <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 24 }}>
       {/* Header */}
@@ -1295,6 +1360,8 @@ export function ProductionPage() {
         <StatCard label="Finished Yard"       count={finishedSlabs.reduce((s, p) => s + (p.stock || 0), 0)} sub={`${finishedSlabs.length} batches`} color="var(--sage)" />
         <StatCard label="In Showroom"         count={showroomSlabs.reduce((s, p) => s + (p.stock || 0), 0)} sub={`${showroomSlabs.length} batches`} color="var(--gold)" />
         <StatCard label="Total Jobs"          count={jobs.length} color="var(--blue)" />
+        <StatCard label="Damaged (all jobs)"  count={totalDamage}  sub="unplanned broken pieces" color="var(--red)" />
+        <StatCard label="Wastage (all jobs)"  count={totalWastage} sub="trim / offcut losses"     color="var(--amber)" />
       </div>
 
       {/* Pipeline inventory */}

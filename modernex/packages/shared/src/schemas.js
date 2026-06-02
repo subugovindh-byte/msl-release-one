@@ -249,6 +249,8 @@ export const jobCreateSchema = z.object({
   power_paise: z.number().int().nonnegative().default(0),
   consumables_paise: z.number().int().nonnegative().default(0),
   yield_pct: z.number().min(0).max(100).optional(),
+  damage_count: z.number().int().nonnegative().default(0),
+  wastage_count: z.number().int().nonnegative().default(0),
   notes: z.string().max(500).optional(),
 });
 

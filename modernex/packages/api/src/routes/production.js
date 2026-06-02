@@ -37,6 +37,8 @@ const jobUpdateSchema = z.object({
   power_paise: z.number().int().nonnegative().optional(),
   consumables_paise: z.number().int().nonnegative().optional(),
   yield_pct: z.number().min(0).max(100).nullable().optional(),
+  damage_count: z.number().int().nonnegative().optional(),
+  wastage_count: z.number().int().nonnegative().optional(),
   notes: z.string().max(500).nullable().optional(),
 }).refine((value) => Object.keys(value).length > 0, {
   message: 'At least one field is required',
@@ -112,7 +114,7 @@ productionRouter.patch('/:id',
       const existing = db.prepare('SELECT * FROM production_jobs WHERE id = ?').get(req.params.id);
       if (!existing) throw new NotFoundError('Job not found');
 
-      const fields = ['lot_id', 'stage', 'status', 'labour_paise', 'power_paise', 'consumables_paise', 'yield_pct', 'notes'];
+      const fields = ['lot_id', 'stage', 'status', 'labour_paise', 'power_paise', 'consumables_paise', 'yield_pct', 'damage_count', 'wastage_count', 'notes'];
       const updates = [];
       const params = [];
 
@@ -208,14 +210,17 @@ productionRouter.post('/',
         db.prepare(`
           INSERT INTO production_jobs (
             id, lot_id, stage, status, date,
-            labour_paise, power_paise, consumables_paise, yield_pct, notes,
+            labour_paise, power_paise, consumables_paise, yield_pct,
+            damage_count, wastage_count, notes,
             created_by
-          ) VALUES (?, ?, ?, ?, date('now'), ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, date('now'), ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           jobId, b.lot_id, b.stage,
           (b.outputs && b.outputs.length > 0) ? 'Complete' : 'In Progress',
           b.labour_paise || 0, b.power_paise || 0, b.consumables_paise || 0,
-          b.yield_pct ?? null, b.notes || null, req.user.username
+          b.yield_pct ?? null,
+          b.damage_count || 0, b.wastage_count || 0,
+          b.notes || null, req.user.username
         );
 
         // ─── 5. Record inputs + decrement stock ───
@@ -346,7 +351,9 @@ productionRouter.get('/stats/summary', (req, res) => {
       SUM(CASE WHEN status = 'Complete' THEN 1 ELSE 0 END) AS completed,
       SUM(CASE WHEN status = 'In Progress' THEN 1 ELSE 0 END) AS in_progress,
       AVG(yield_pct) AS avg_yield_pct,
-      SUM(labour_paise + power_paise + consumables_paise) AS total_conversion_cost
+      SUM(labour_paise + power_paise + consumables_paise) AS total_conversion_cost,
+      SUM(damage_count)  AS total_damage_count,
+      SUM(wastage_count) AS total_wastage_count
     FROM production_jobs
     WHERE date >= date('now', '-30 days')
   `).get();
