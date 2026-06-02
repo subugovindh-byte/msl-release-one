@@ -4,7 +4,7 @@ import QRCode from 'qrcode';
 import { VARIETIES, GRADES, STANDARD_SPECS } from '@modernex/shared';
 import {
   useProducts, useCreateProduct, useCreateProductionJob,
-  useProductionJobs, useMoveProduct, usePurchaseOrders,
+  useProductionJobs, useMoveProduct, usePurchaseOrders, useDeleteProduct,
 } from '@/hooks/useApi';
 import { useToastStore } from '@/store';
 
@@ -1152,10 +1152,11 @@ const STAGE_META: Record<string, { label: string; color: string; step: string }>
   SHOWROOM:      { label: 'Showroom',     color: 'var(--gold)',  step: '⑤' },
 };
 
-function PipelineInventory({ groups, onAction }: { groups: Record<string, any[]>; onAction?: (tab: string, productId: string) => void }) {
+function PipelineInventory({ groups, onAction, onDelete }: { groups: Record<string, any[]>; onAction?: (tab: string, productId: string) => void; onDelete?: (id: string) => void }) {
   const [open, setOpen] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(Object.keys(STAGE_META).map(k => [k, true]))
   );
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   const thStyle: React.CSSProperties = {
     textAlign: 'left', padding: '6px 10px', fontSize: 11, fontWeight: 700,
@@ -1228,6 +1229,7 @@ function PipelineInventory({ groups, onAction }: { groups: Record<string, any[]>
                       <th style={{ ...thStyle, textAlign: 'right' }}>Rate</th>
                       <th style={{ ...thStyle, textAlign: 'center' }}>Label</th>
                       {onAction && (stageActions[stageKey] || []).length > 0 && <th style={{ ...thStyle, textAlign: 'center' }}>Action</th>}
+                      {onDelete && <th style={{ ...thStyle, textAlign: 'center' }}>Delete</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -1287,6 +1289,35 @@ function PipelineInventory({ groups, onAction }: { groups: Record<string, any[]>
                               </div>
                             </td>
                           )}
+                          {onDelete && (
+                            <td style={{ ...tdStyle, textAlign: 'center' }}>
+                              {confirmDelete === p.id ? (
+                                <div style={{ display: 'flex', gap: 4, alignItems: 'center', justifyContent: 'center' }}>
+                                  <span style={{ fontSize: 10, color: 'var(--red)', fontWeight: 700 }}>Remove?</span>
+                                  <button
+                                    onClick={() => { onDelete(p.id); setConfirmDelete(null); }}
+                                    style={{ background: 'var(--red)', color: '#fff', border: 'none', borderRadius: 4, padding: '2px 8px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                                  >Yes</button>
+                                  <button
+                                    onClick={() => setConfirmDelete(null)}
+                                    style={{ background: 'var(--bg2)', color: 'var(--t2)', border: '1px solid var(--bd)', borderRadius: 4, padding: '2px 8px', fontSize: 11, cursor: 'pointer' }}
+                                  >No</button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => setConfirmDelete(p.id)}
+                                  title={p.source_job_id ? `Produced by ${p.source_job_id} — delete with care` : 'Remove product'}
+                                  style={{
+                                    background: 'transparent',
+                                    border: `1px solid ${p.source_job_id ? 'var(--amber)' : 'var(--red)'}`,
+                                    color: p.source_job_id ? 'var(--amber)' : 'var(--red)',
+                                    borderRadius: 4, padding: '2px 8px', fontSize: 11, cursor: 'pointer',
+                                    opacity: 0.7,
+                                  }}
+                                >✕</button>
+                              )}
+                            </td>
+                          )}
                         </tr>
                       );
                     })}
@@ -1309,11 +1340,19 @@ export function ProductionPage() {
   const [preselectId, setPreselectId] = useState<string | undefined>();
   const workflowRef = React.useRef<HTMLDivElement>(null);
   const { notify } = useToastStore();
+  const deleteProduct = useDeleteProduct();
 
   function handleAction(nextTab: string, productId: string) {
     setPreselectId(productId);
     setTab(nextTab as Tab);
     setTimeout(() => workflowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  }
+
+  function handleDelete(id: string) {
+    deleteProduct.mutate(id, {
+      onSuccess: () => notify(`${id} removed from inventory`, 'success'),
+      onError: (err: any) => notify(err.message || 'Cannot delete — product is linked to a production job', 'error'),
+    });
   }
 
   const { data: rawBlocksData }   = useProducts({ kind: 'block', location: 'RAW_YARD',      minStock: 1 });
@@ -1365,7 +1404,7 @@ export function ProductionPage() {
       </div>
 
       {/* Pipeline inventory */}
-      <PipelineInventory groups={pipelineGroups} onAction={handleAction} />
+      <PipelineInventory groups={pipelineGroups} onAction={handleAction} onDelete={handleDelete} />
 
       {/* Workflow tabs */}
       <div ref={workflowRef} style={card}>
