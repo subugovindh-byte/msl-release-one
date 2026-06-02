@@ -180,7 +180,7 @@ purchaseRouter.patch('/:id',
   }
 );
 
-// ─── DELETE /purchase/:id — only allowed while status = 'new' ───
+// ─── DELETE /purchase/:id — allowed for 'new' and 'cancelled' POs with no payments/GRN ───
 purchaseRouter.delete('/:id',
   requireRole('admin', 'accounts'),
   (req, res, next) => {
@@ -188,11 +188,25 @@ purchaseRouter.delete('/:id',
       const db = getDb();
       const existing = db.prepare('SELECT * FROM purchase_orders WHERE id = ?').get(req.params.id);
       if (!existing) throw new NotFoundError('PO not found');
-      if (existing.status !== 'new') {
-        throw new AppError(`Cannot delete PO ${req.params.id} — status is '${existing.status}'. Cancel it instead.`, 409);
+
+      // Only new or cancelled POs can be deleted
+      if (!['new', 'cancelled'].includes(existing.status)) {
+        throw new AppError(
+          `Cannot delete PO ${req.params.id} — status is '${existing.status}'. Cancel it first, then delete.`,
+          409
+        );
       }
+      // Block if payments have been made
       const hasPayments = db.prepare('SELECT 1 FROM payments WHERE po_id = ? LIMIT 1').get(req.params.id);
-      if (hasPayments) throw new AppError(`Cannot delete PO ${req.params.id} — payments have been recorded against it.`, 409);
+      if (hasPayments) {
+        throw new AppError(`Cannot delete PO ${req.params.id} — payments have been recorded against it.`, 409);
+      }
+      // Block if blocks have already been received (GRN exists)
+      const hasGRN = db.prepare('SELECT 1 FROM purchase_order_receipts WHERE po_id = ? LIMIT 1').get(req.params.id);
+      if (hasGRN) {
+        throw new AppError(`Cannot delete PO ${req.params.id} — a goods receipt (GRN) has been recorded. Remove the GRN first.`, 409);
+      }
+
       db.prepare('DELETE FROM purchase_orders WHERE id = ?').run(req.params.id);
       audit(req, 'PO_DELETE', 'purchase_orders', req.params.id, existing, null);
       res.json({ ok: true });

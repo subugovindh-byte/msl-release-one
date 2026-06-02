@@ -241,8 +241,9 @@ export function PurchasePage() {
       sortable: false,
       filter: false,
       cellRenderer: (p: any) => {
-        if (p.data?.status !== 'new') {
-          return <span style={{ fontSize: 10, color: 'var(--t3)', padding: '0 4px' }} title="Can only delete 'new' POs">locked</span>;
+        const status = p.data?.status;
+        if (status !== 'new' && status !== 'cancelled') {
+          return <span style={{ fontSize: 10, color: 'var(--t3)', padding: '0 4px' }} title="Cancel the PO first, then delete">locked</span>;
         }
         return (
           <button
