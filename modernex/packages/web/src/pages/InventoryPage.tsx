@@ -402,7 +402,7 @@ export function InventoryPage() {
             Remove <span style={{ fontFamily: 'monospace' }}>{confirmDeleteId}</span> from inventory?
             This cannot be undone.
           </span>
-          <button onClick={executeDelete} disabled={deleteProduct.isPending}
+          <button onClick={() => executeDelete()} disabled={deleteProduct.isPending}
             style={{ background: 'var(--red)', color: '#fff', border: 'none', borderRadius: 4, padding: '5px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
             {deleteProduct.isPending ? 'Removing…' : 'Yes, delete'}
           </button>
