@@ -254,12 +254,37 @@ function ReceiveBlock({ notify }: { notify: any }) {
   const cft = cftFromM(+form.length_m / 1000, +form.width_m / 1000, +form.height_m / 1000);
   const cbm = cbmFromM(+form.length_m / 1000, +form.width_m / 1000, +form.height_m / 1000);
 
+  // Live duplicate detection: same lot_id already has an active block
+  const lotDupes = useMemo(() =>
+    allProds.filter((p: any) =>
+      p.kind === 'block' && p.active !== 0 &&
+      form.lot_id && p.lot_id === form.lot_id && p.variety === form.variety
+    ),
+    [allProds, form.lot_id, form.variety]
+  );
+
+  // Check exact dimension match against existing active blocks in this lot
+  const exactDupe = useMemo(() => {
+    if (!form.length_m || !form.width_m || !form.height_m) return null;
+    const lm = +form.length_m / 1000, wm = +form.width_m / 1000, hm = +form.height_m / 1000;
+    return lotDupes.find((p: any) => {
+      const d = p.dimensions || {};
+      return d.length_m && Math.abs(d.length_m - lm) < 0.001 &&
+             Math.abs(d.width_m  - wm) < 0.001 &&
+             Math.abs(d.height_m - hm) < 0.001;
+    }) || null;
+  }, [lotDupes, form.length_m, form.width_m, form.height_m]);
+
   function set(k: string, v: string) { setForm(f => ({ ...f, [k]: v })); }
 
   async function submit(e: any) {
     e.preventDefault();
     if (!form.variety || !form.lot_id || !form.length_m || !form.width_m || !form.height_m) {
       notify('Fill variety, lot ID and all dimensions', 'error'); return;
+    }
+    if (exactDupe) {
+      notify(`Duplicate block: ${exactDupe.id} already registered with this lot, variety and dimensions.`, 'error');
+      return;
     }
     try {
       const product = await createProduct.mutateAsync({
@@ -352,6 +377,18 @@ function ReceiveBlock({ notify }: { notify: any }) {
         )}
       </div>
 
+      {/* Duplicate warnings */}
+      {exactDupe && (
+        <div style={{ background: 'rgba(220,50,50,0.1)', border: '1px solid var(--red)', borderRadius: 6, padding: '8px 12px', fontSize: 12, color: 'var(--red)', fontWeight: 600 }}>
+          Duplicate block detected: <span style={{ fontFamily: 'monospace' }}>{exactDupe.id}</span> already has this exact lot, variety and dimensions. Change the lot ID if this is a different physical block.
+        </div>
+      )}
+      {!exactDupe && lotDupes.length > 0 && (
+        <div style={{ background: 'rgba(230,160,0,0.1)', border: '1px solid var(--amber)', borderRadius: 6, padding: '8px 12px', fontSize: 12, color: 'var(--amber)' }}>
+          Lot <strong>{form.lot_id}</strong> already has {lotDupes.length} block{lotDupes.length > 1 ? 's' : ''} registered ({lotDupes.map((p: any) => p.id).join(', ')}). Confirm dimensions are different.
+        </div>
+      )}
+
       <div style={row2}>
         <Fld label="Rate per CFT (₹)" hint="optional">
           <Inp type="number" min="0" value={form.rate_paise} onChange={e => set('rate_paise', e.target.value)} placeholder="500" />
@@ -362,7 +399,7 @@ function ReceiveBlock({ notify }: { notify: any }) {
       </div>
 
       <div>
-        <button type="submit" style={btnPrimary} disabled={createProduct.isPending}>
+        <button type="submit" style={{ ...btnPrimary, opacity: exactDupe ? 0.5 : 1 }} disabled={createProduct.isPending || !!exactDupe}>
           {createProduct.isPending ? 'Registering…' : 'Register Block at Raw Yard'}
         </button>
       </div>

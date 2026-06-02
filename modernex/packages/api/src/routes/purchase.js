@@ -96,8 +96,24 @@ purchaseRouter.post('/',
       const gst = Math.round(taxable * GST_RATE);
       const total = taxable + gst;
 
-      const id = nextPOId();
       const date = new Date().toISOString().slice(0, 10);
+
+      // Prevent exact duplicate PO (same vendor, variety, date, blocks, cft, rate)
+      const dupe = db.prepare(`
+        SELECT id FROM purchase_orders
+        WHERE vendor_id = ? AND variety = ? AND date = ?
+          AND blocks = ? AND cft = ? AND rate_per_cft_paise = ?
+          AND status != 'cancelled'
+        LIMIT 1
+      `).get(p.vendor_id, p.variety, date, p.blocks, p.cft, p.rate_per_cft_paise);
+      if (dupe) {
+        throw new AppError(
+          `Duplicate PO: ${dupe.id} already raised for this vendor, variety, quantity and rate today. Cancel it first if you need to re-raise.`,
+          409
+        );
+      }
+
+      const id = nextPOId();
 
       db.prepare(`
         INSERT INTO purchase_orders (

@@ -59,6 +59,16 @@ invoicesRouter.post('/',
       const customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(customer_id);
       if (!customer) throw new NotFoundError('Customer not found');
 
+      // Reject duplicate product_id in line items — same slab can't be billed twice
+      const productIds = items.map(it => it.product_id || it.slab_id).filter(Boolean);
+      const dupeId = productIds.find((id, idx) => productIds.indexOf(id) !== idx);
+      if (dupeId) {
+        throw new AppError(
+          `Product ${dupeId} appears more than once in the invoice. Consolidate into a single line item.`,
+          400
+        );
+      }
+
       const enriched = items.map(it => {
         const productId = it.product_id || it.slab_id;  // legacy
         const product = productId ? loadProduct(db, productId) : null;

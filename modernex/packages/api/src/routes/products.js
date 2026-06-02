@@ -137,6 +137,28 @@ productsRouter.post('/',
       const uom = b.uom || kindDef?.uom || 'pc';
       const hsn = b.hsn || kindDef?.hsn || '2516';
 
+      // Duplicate block guard: same lot + variety + dimensions already registered
+      if (b.kind === 'block' && b.lot_id && b.dimensions) {
+        const dims = b.dimensions;
+        const dupeBlock = db.prepare(`
+          SELECT p.id FROM products p
+          JOIN product_blocks pb ON pb.product_id = p.id
+          WHERE p.kind = 'block' AND p.lot_id = ? AND p.variety = ?
+            AND p.active = 1 AND p.source_job_id IS NULL
+            AND ABS(pb.length_m - ?) < 0.001
+            AND ABS(pb.width_m  - ?) < 0.001
+            AND ABS(pb.height_m - ?) < 0.001
+          LIMIT 1
+        `).get(b.lot_id, b.variety, dims.length_m, dims.width_m, dims.height_m);
+        if (dupeBlock) {
+          throw new AppError(
+            `Duplicate block: ${dupeBlock.id} is already registered with lot ${b.lot_id}, variety "${b.variety}" and the same dimensions. ` +
+            `If this is a different physical block from the same lot, change the lot ID (e.g. ${b.lot_id}-B).`,
+            409
+          );
+        }
+      }
+
       const tx = db.transaction(() => {
         db.prepare(`
           INSERT INTO products (id, kind, variety, hsn, uom, grade, lot_id, current_location_id,

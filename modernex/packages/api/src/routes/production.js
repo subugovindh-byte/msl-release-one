@@ -172,6 +172,25 @@ productionRouter.post('/',
       const db = getDb();
       const b = req.body;
 
+      // ─── 0. Duplicate job guard ───
+      // Prevent the same form being submitted twice: check if any input product
+      // already appears in a job for the same stage created today.
+      for (const i of b.inputs) {
+        const existingJob = db.prepare(`
+          SELECT ji.job_id FROM production_job_inputs ji
+          JOIN production_jobs j ON j.id = ji.job_id
+          WHERE ji.product_id = ? AND j.stage = ? AND j.date = date('now')
+          LIMIT 1
+        `).get(i.product_id, b.stage);
+        if (existingJob) {
+          throw new AppError(
+            `Duplicate job: product ${i.product_id} was already used as input in job ${existingJob.job_id} ` +
+            `(stage '${b.stage}' today). If this is intentional, complete or cancel that job first.`,
+            409
+          );
+        }
+      }
+
       // ─── 1. Load all inputs and verify stock ───
       const inputs = b.inputs.map(i => {
         const p = loadProduct(db, i.product_id);

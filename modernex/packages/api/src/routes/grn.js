@@ -3,7 +3,7 @@ import { getDb } from '../db/connection.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { grnSchema, transportUpdateSchema } from '@modernex/shared';
-import { NotFoundError } from '../middleware/error.js';
+import { NotFoundError, AppError } from '../middleware/error.js';
 import { audit } from '../services/audit.js';
 import { nextGRNId } from '../services/idGenerator.js';
 
@@ -39,6 +39,20 @@ grnRouter.post('/',
       const g = req.body;
       const po = db.prepare('SELECT * FROM purchase_orders WHERE id = ?').get(g.po_id);
       if (!po) throw new NotFoundError('Purchase order not found');
+      if (po.status === 'cancelled') throw new AppError('Cannot create GRN for a cancelled PO', 400);
+
+      // Only one QC-passed receipt per PO
+      if (g.qc_pass) {
+        const existingPass = db.prepare(
+          `SELECT id FROM purchase_order_receipts WHERE po_id = ? AND qc_pass = 1 LIMIT 1`
+        ).get(g.po_id);
+        if (existingPass) {
+          throw new AppError(
+            `GRN ${existingPass.id} already recorded a QC-pass for PO ${g.po_id}. Only one accepted receipt is allowed per purchase order.`,
+            409
+          );
+        }
+      }
 
       const id = nextGRNId();
       const date = g.date || new Date().toISOString().slice(0, 10);
