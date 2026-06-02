@@ -688,7 +688,7 @@ export function POSPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <button
                 style={{ padding: '10px', background: 'var(--t1)', color: 'var(--bg1)', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
-                onClick={() => window.open(`/invoice/${encodeURIComponent(invoiceData.id)}`, '_blank')}
+                onClick={() => window.open(`/invoice/${invoiceData.id.replace(/\//g, '~')}`, '_blank')}
               >
                 ⎙ View & Print Receipt
               </button>

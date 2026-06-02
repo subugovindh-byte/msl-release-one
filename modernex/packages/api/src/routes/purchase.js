@@ -11,6 +11,13 @@ export const purchaseRouter = Router();
 
 purchaseRouter.use(authenticate);
 
+// FY-format IDs contain / (e.g. PO/26-27/1). Frontend substitutes / with ~ to
+// avoid Azure IIS normalising %2F → / before Express sees it. Decode here.
+purchaseRouter.param('id', (req, _res, next, id) => {
+  req.params.id = id.replace(/~/g, '/');
+  next();
+});
+
 const PAID_SUBQUERY = `COALESCE((
   SELECT SUM(amount_paise) FROM payments
   WHERE po_id = po.id AND type = 'payment'

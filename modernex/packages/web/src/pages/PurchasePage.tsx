@@ -201,7 +201,7 @@ export function PurchasePage() {
       filter: false,
       cellRenderer: (p: any) => (
         <button
-          onClick={() => navigate(`/purchase/${encodeURIComponent(p.data?.id)}`)}
+          onClick={() => navigate(`/purchase/${(p.data?.id || '').replace(/\//g, '~')}`)}
           style={{ padding: '3px 10px', fontSize: 11, border: '1px solid var(--bd)', borderRadius: 3, cursor: 'pointer', background: 'var(--bg2)', color: 'var(--t1)', fontWeight: 600 }}
         >
           View

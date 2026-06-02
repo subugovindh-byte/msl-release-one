@@ -2,6 +2,12 @@
 // React Query Hooks for Data Fetching
 // ══════════════════════════════════════════════════════
 
+// FY-format IDs (e.g. PO/26-27/1, SI/25-26/0001) contain slashes that Azure's
+// IIS proxy normalises %2F → / before Express sees them, breaking /:id routes.
+// We substitute / with ~ (RFC 3986 unreserved, never touched by proxies) in path
+// segments. The backend decodes ~ → / via router.param('id', ...).
+const pid = (id: string) => id.replace(/\//g, '~');
+
 import { useQuery, useMutation, useQueryClient, type UseQueryOptions, type UseMutationOptions } from '@tanstack/react-query';
 import { api } from '@/utils/api';
 import type {
@@ -234,7 +240,7 @@ export function useInvoices(filters?: Record<string, string | number | boolean |
 export function useInvoice(id: string, options?: Omit<UseQueryOptions<Invoice>, 'queryKey' | 'queryFn'>) {
   return useQuery({
     queryKey: queryKeys.invoices.detail(id),
-    queryFn: () => api.get<{ invoice: Invoice }>(`/invoices/${encodeURIComponent(id)}`).then((res) => res.invoice),
+    queryFn: () => api.get<{ invoice: Invoice }>(`/invoices/${pid(id)}`).then((res) => res.invoice),
     ...options,
   });
 }
@@ -517,7 +523,7 @@ export function usePurchaseOrders(filters?: Record<string, string | number | boo
 export function usePurchaseOrder(id: string, options?: Partial<UseQueryOptions<any, Error>>) {
   return useQuery({
     queryKey: queryKeys.purchase.detail(id),
-    queryFn: () => api.get<{ po: any }>(`/purchase/${encodeURIComponent(id)}`),
+    queryFn: () => api.get<{ po: any }>(`/purchase/${pid(id)}`),
     enabled: !!id,
     ...options,
   });
@@ -538,7 +544,7 @@ export function useCreatePurchaseOrder(options?: UseMutationOptions<{ po: Purcha
 export function useUpdatePurchaseOrder(options?: UseMutationOptions<{ po: any }, Error, { id: string; data: any }>) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }) => api.patch<{ po: any }>(`/purchase/${encodeURIComponent(id)}`, data),
+    mutationFn: ({ id, data }) => api.patch<{ po: any }>(`/purchase/${pid(id)}`, data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.purchase.all }); },
     ...options,
   });
@@ -547,7 +553,7 @@ export function useUpdatePurchaseOrder(options?: UseMutationOptions<{ po: any },
 export function useDeletePurchaseOrder(options?: UseMutationOptions<{ ok: boolean }, Error, string>) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.delete<{ ok: boolean }>(`/purchase/${encodeURIComponent(id)}`),
+    mutationFn: (id: string) => api.delete<{ ok: boolean }>(`/purchase/${pid(id)}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.purchase.all }); },
     ...options,
   });
@@ -690,7 +696,7 @@ export function useCreateGRN() {
 export function useUpdatePOTransport(id: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: any) => api.patch<{ po: any }>(`/purchase/${id}/transport`, data),
+    mutationFn: (data: any) => api.patch<{ po: any }>(`/purchase/${pid(id)}/transport`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.purchase.detail(id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.purchase.all });

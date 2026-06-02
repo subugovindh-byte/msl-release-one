@@ -45,7 +45,7 @@ const BLANK_TRANSPORT = { transport_vendor_id: '', transport_bill_no: '', transp
 export function PurchaseOrderReceiptPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const decodedId = id ? decodeURIComponent(id) : '';
+  const decodedId = id ? id.replace(/~/g, '/') : '';
 
   const { data: poData, isLoading, error } = usePurchaseOrder(decodedId);
   const { data: companyData } = useCompany();

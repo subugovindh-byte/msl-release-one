@@ -113,7 +113,7 @@ export function AccountsPage() {
       floatingFilter: false,
       cellRenderer: (p: any) => (
         <a
-          href={`/invoice/${encodeURIComponent(p.data?.id || '')}`}
+          href={`/invoice/${(p.data?.id || '').replace(/\//g, '~')}`}
           target="_blank"
           rel="noopener noreferrer"
           style={{ fontSize: 11, color: 'var(--t2)', textDecoration: 'none', fontFamily: "'IBM Plex Mono', monospace" }}
@@ -167,7 +167,7 @@ export function AccountsPage() {
         if (!p.data?.invoice_id) return <span style={{ fontSize: 11, color: 'var(--t3)' }}>—</span>;
         return (
           <a
-            href={`/invoice/${encodeURIComponent(p.data.invoice_id)}`}
+            href={`/invoice/${(p.data.invoice_id || '').replace(/\//g, '~')}`}
             target="_blank"
             rel="noopener noreferrer"
             style={{ fontSize: 11, color: 'var(--t2)', textDecoration: 'none', fontFamily: "'IBM Plex Mono', monospace" }}

@@ -14,6 +14,12 @@ import { uomForProduct, hsnForProduct, loadProduct } from '../services/products.
 export const invoicesRouter = Router();
 invoicesRouter.use(authenticate);
 
+// FY-format IDs (SI/25-26/0001) use ~ as / substitute in URLs (Azure IIS fix)
+invoicesRouter.param('id', (req, _res, next, id) => {
+  req.params.id = id.replace(/~/g, '/');
+  next();
+});
+
 // ─── GET /invoices ───
 invoicesRouter.get('/', (req, res) => {
   const { customer_id, from, to, paid, limit = 200 } = req.query;

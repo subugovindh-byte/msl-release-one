@@ -45,7 +45,7 @@ function amountInWords(paise: number): string {
 export function InvoiceReceiptPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const decodedId = id ? decodeURIComponent(id) : '';
+  const decodedId = id ? id.replace(/~/g, '/') : '';
   const { data: invoice, isLoading, error } = useInvoice(decodedId, { enabled: !!decodedId });
   const { data: accountsData } = useCollectionAccounts();
   const { data: companyData } = useCompany();
