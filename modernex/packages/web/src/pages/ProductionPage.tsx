@@ -5,9 +5,9 @@ import { VARIETIES, GRADES, STANDARD_SPECS } from '@modernex/shared';
 import {
   useProducts, useCreateProduct, useCreateProductionJob,
   useProductionJobs, useMoveProduct, usePurchaseOrders,
-  useDeleteProduct, useUpdateProduct,
+  useDeleteProduct, useUpdateProduct, useRecordDamage,
 } from '@/hooks/useApi';
-import { useToastStore } from '@/store';
+import { useToastStore, useAuthStore } from '@/store';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 function sqftFromSize(sizeStr: string) {
@@ -1248,8 +1248,13 @@ function PipelineInventory({ groups, onAction, onDelete }: { groups: Record<stri
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Record<string, any>>({});
+  const [damageId, setDamageId] = useState<string | null>(null);
+  const [damageForm, setDamageForm] = useState({ qty: '1', reason: 'damage' as 'damage' | 'wastage', notes: '' });
   const updateProduct = useUpdateProduct();
+  const recordDamage = useRecordDamage();
   const { notify } = useToastStore();
+  const { user } = useAuthStore();
+  const canEdit = user?.role === 'admin' || user?.role === 'yard';
 
   function startEdit(p: any) {
     const d = p.dimensions || {};
@@ -1363,9 +1368,10 @@ function PipelineInventory({ groups, onAction, onDelete }: { groups: Record<stri
                       <th style={{ ...thStyle, textAlign: 'right' }}>Stock</th>
                       <th style={{ ...thStyle, textAlign: 'right' }}>Rate</th>
                       <th style={{ ...thStyle, textAlign: 'center' }}>Label</th>
-                      <th style={{ ...thStyle, textAlign: 'center' }}>Edit</th>
+                      <th style={{ ...thStyle, textAlign: 'center' }}>Damage</th>
+                      {canEdit && <th style={{ ...thStyle, textAlign: 'center' }}>Edit</th>}
                       {onAction && (stageActions[stageKey] || []).length > 0 && <th style={{ ...thStyle, textAlign: 'center' }}>Action</th>}
-                      {onDelete && <th style={{ ...thStyle, textAlign: 'center' }}>Delete</th>}
+                      {onDelete && canEdit && <th style={{ ...thStyle, textAlign: 'center' }}>Delete</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -1387,7 +1393,11 @@ function PipelineInventory({ groups, onAction, onDelete }: { groups: Record<stri
                         if (d.sqft_per_tile) dimStr += ` · ${d.sqft_per_tile} sqft/tile`;
                       }
                       const isEditing = editingId === p.id;
-                      const colCount = 10 + (onAction && (stageActions[stageKey]||[]).length > 0 ? 1 : 0) + (onDelete ? 1 : 0);
+                      const isDamaging = damageId === p.id;
+                      const colCount = 11
+                        + (onAction && (stageActions[stageKey]||[]).length > 0 ? 1 : 0)
+                        + (onDelete && canEdit ? 1 : 0)
+                        + (canEdit ? 1 : 0);
                       return (
                         <React.Fragment key={p.id}>
                         <tr style={{ background: isEditing ? 'var(--rustW)' : 'var(--bg1)', outline: isEditing ? '1px solid var(--rust)' : 'none' }}>
@@ -1415,6 +1425,31 @@ function PipelineInventory({ groups, onAction, onDelete }: { groups: Record<stri
                               fontSize: 11, cursor: 'pointer',
                             }}>🏷</button>
                           </td>
+                          {/* Damage / Wastage write-off */}
+                          <td style={{ ...tdStyle, textAlign: 'center' }}>
+                            {isDamaging ? (
+                              <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', minWidth: 220 }}>
+                                <input type="number" min="1" max={p.stock} value={damageForm.qty} style={{ ...inputStyle, width: 44, padding: '2px 5px', fontSize: 11 }}
+                                  onChange={e => setDamageForm(f => ({ ...f, qty: e.target.value }))} />
+                                <select value={damageForm.reason} style={{ ...selectStyle, padding: '2px 5px', fontSize: 11 }}
+                                  onChange={e => setDamageForm(f => ({ ...f, reason: e.target.value as any }))}>
+                                  <option value="damage">Damage</option>
+                                  <option value="wastage">Wastage</option>
+                                </select>
+                                <button onClick={() => {
+                                  recordDamage.mutate({ id: p.id, qty: +damageForm.qty, reason: damageForm.reason, notes: damageForm.notes || undefined }, {
+                                    onSuccess: (r) => { setDamageId(null); notify(`${damageForm.reason} of ${damageForm.qty} recorded — stock now ${r.new_stock}`, 'success'); },
+                                    onError: (err: any) => notify(err.message || 'Failed', 'error'),
+                                  });
+                                }} style={{ background: 'var(--red)', color: '#fff', border: 'none', borderRadius: 3, padding: '2px 7px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>✓</button>
+                                <button onClick={() => setDamageId(null)} style={{ background: 'transparent', color: 'var(--t3)', border: '1px solid var(--bd)', borderRadius: 3, padding: '2px 5px', fontSize: 10, cursor: 'pointer' }}>✕</button>
+                              </div>
+                            ) : (
+                              <button onClick={() => { setDamageId(p.id); setDamageForm({ qty: '1', reason: 'damage', notes: '' }); }}
+                                title="Record damage or wastage" style={{ background: 'transparent', border: '1px solid var(--amber)', color: 'var(--amber)', borderRadius: 4, padding: '2px 7px', fontSize: 10, cursor: 'pointer', opacity: 0.8 }}>⚠</button>
+                            )}
+                          </td>
+                          {canEdit && (
                           <td style={{ ...tdStyle, textAlign: 'center' }}>
                             <button
                               onClick={() => isEditing ? setEditingId(null) : startEdit(p)}
@@ -1427,6 +1462,7 @@ function PipelineInventory({ groups, onAction, onDelete }: { groups: Record<stri
                               }}
                             >{isEditing ? '✕' : '✎'}</button>
                           </td>
+                          )}
                           {onAction && (stageActions[stageKey] || []).length > 0 && (
                             <td style={{ ...tdStyle, textAlign: 'center' }}>
                               <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
@@ -1440,7 +1476,7 @@ function PipelineInventory({ groups, onAction, onDelete }: { groups: Record<stri
                               </div>
                             </td>
                           )}
-                          {onDelete && (
+                          {onDelete && canEdit && (
                             <td style={{ ...tdStyle, textAlign: 'center' }}>
                               {confirmDelete === p.id ? (
                                 <div style={{ display: 'flex', gap: 4, alignItems: 'center', justifyContent: 'center' }}>

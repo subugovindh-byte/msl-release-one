@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import QRCode from 'qrcode';
 import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
-import { useProducts, useUpdateProduct } from '@/hooks/useApi';
+import { useProducts, useUpdateProduct, useDeleteProduct } from '@/hooks/useApi';
+import { useAuthStore } from '@/store';
 import { DataGridTable } from '@/components/DataGridTable';
 import { useViewport } from '@/hooks/useViewport';
 import { formatINR } from '@/utils/format';
@@ -13,12 +14,24 @@ const INVENTORY_GRADES = ['A+', 'A', 'B'];
 export function InventoryPage() {
   const { data: productsData, isLoading } = useProducts({ active: 'true' });
   const updateProduct = useUpdateProduct();
+  const deleteProduct = useDeleteProduct();
   const { notify } = useToastStore();
+  const { user } = useAuthStore();
+  const canEdit = user?.role === 'admin' || user?.role === 'yard';
   const [searchQuery, setSearchQuery] = useState('');
   const [varietyFilter, setVarietyFilter] = useState('All');
   const [kindFilter, setKindFilter] = useState('All');
   const { isTablet, isMobile } = useViewport();
   const [qrLabel, setQrLabel] = useState<{ product: any; dataUrl: string } | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  function executeDelete() {
+    if (!confirmDeleteId) return;
+    deleteProduct.mutate(confirmDeleteId, {
+      onSuccess: () => { setConfirmDeleteId(null); notify(`${confirmDeleteId} removed from inventory`, 'success'); },
+      onError: (err: any) => { setConfirmDeleteId(null); notify(err.message || 'Delete failed', 'error'); },
+    });
+  }
 
   const handlePrintQR = async (product: any) => {
     const text = product.id;
@@ -194,7 +207,7 @@ export function InventoryPage() {
 
   const columnDefs = useMemo<ColDef<any>[]>(() => [
     { headerName: 'ID', field: 'id', minWidth: isMobile ? 110 : 140, pinned: isMobile ? undefined : 'left' },
-    { headerName: 'Variety', field: 'variety', minWidth: isMobile ? 150 : 180, editable: true },
+    { headerName: 'Variety', field: 'variety', minWidth: isMobile ? 150 : 180, editable: canEdit },
     {
       headerName: 'Kind',
       field: 'kind',
@@ -301,7 +314,24 @@ export function InventoryPage() {
         </button>
       ),
     },
-  ], [isMobile, isTablet]);
+    {
+    ...(canEdit ? [{
+      headerName: 'Delete',
+      field: 'delete_action',
+      minWidth: 80,
+      maxWidth: 80,
+      sortable: false,
+      filter: false,
+      floatingFilter: false,
+      cellRenderer: (params: any) => (
+        <button
+          onClick={() => setConfirmDeleteId(params.data?.id)}
+          title="Delete this product"
+          style={{ fontSize: 11, color: 'var(--red)', background: 'none', border: '1px solid var(--red)', borderRadius: 3, cursor: 'pointer', padding: '1px 7px', opacity: 0.75 }}
+        >✕ Del</button>
+      ),
+    }] as any : []),
+  ], [isMobile, isTablet, canEdit]);
 
   return (
     <div className="page">
@@ -342,6 +372,28 @@ export function InventoryPage() {
         <StatCard label="Stock Value" value={formatINR(totalValue)} subtitle="at selling rate" />
         <StatCard label="Low Stock" value={lowStockCount.toString()} subtitle="≤ 2 pieces" color="var(--rust)" />
       </div>
+
+      {/* Delete confirmation banner */}
+      {confirmDeleteId && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+          background: 'rgba(220,50,50,0.1)', border: '1px solid var(--red)',
+          borderRadius: 6, padding: '10px 14px', marginBottom: 16, fontSize: 13,
+        }}>
+          <span style={{ color: 'var(--red)', fontWeight: 600 }}>
+            Remove <span style={{ fontFamily: 'monospace' }}>{confirmDeleteId}</span> from inventory?
+            This cannot be undone.
+          </span>
+          <button onClick={executeDelete} disabled={deleteProduct.isPending}
+            style={{ background: 'var(--red)', color: '#fff', border: 'none', borderRadius: 4, padding: '5px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+            {deleteProduct.isPending ? 'Removing…' : 'Yes, delete'}
+          </button>
+          <button onClick={() => setConfirmDeleteId(null)}
+            style={{ background: 'var(--bg2)', color: 'var(--t2)', border: '1px solid var(--bd)', borderRadius: 4, padding: '5px 12px', fontSize: 12, cursor: 'pointer' }}>
+            Cancel
+          </button>
+        </div>
+      )}
 
       {/* Filters */}
       <div style={{

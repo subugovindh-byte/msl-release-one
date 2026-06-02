@@ -137,6 +137,15 @@ export function useMoveProduct(options?: UseMutationOptions<Product, Error, { id
   });
 }
 
+export function useRecordDamage(options?: UseMutationOptions<{ ok: boolean; new_stock: number }, Error, { id: string; qty: number; reason: 'damage' | 'wastage'; notes?: string }>) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }) => api.post<{ ok: boolean; new_stock: number }>(`/products/${id}/damage`, data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.products.all }); },
+    ...options,
+  });
+}
+
 export function useCreateProduct(options?: UseMutationOptions<Product, Error, Partial<Product>>) {
   const queryClient = useQueryClient();
   

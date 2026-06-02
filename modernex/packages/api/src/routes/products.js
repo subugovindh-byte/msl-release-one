@@ -281,6 +281,46 @@ productsRouter.post('/:id/move',
 );
 
 // ─── POST /products/bulk-rate — admin bulk rate update ───
+// ─── POST /products/:id/damage ─── record ad-hoc damage or wastage at any stage
+productsRouter.post('/:id/damage',
+  requireRole('admin', 'yard'),
+  validate(z.object({
+    qty: z.number().positive(),
+    reason: z.enum(['damage', 'wastage']),
+    notes: z.string().max(500).nullable().optional(),
+  })),
+  (req, res, next) => {
+    try {
+      const db = getDb();
+      const product = loadProduct(db, req.params.id);
+      if (!product) throw new NotFoundError('Product not found');
+      const { qty, reason, notes } = req.body;
+      if (product.stock < qty) {
+        throw new AppError(
+          `Cannot record ${reason} of ${qty} — only ${product.stock} in stock`,
+          400
+        );
+      }
+      db.transaction(() => {
+        db.prepare('UPDATE products SET stock = stock - ?, updated_at = datetime(\'now\'), updated_by = ? WHERE id = ?')
+          .run(qty, req.user.username, req.params.id);
+        recordInventoryMove(db, {
+          productId: req.params.id,
+          qty,
+          fromLocationId: product.current_location_id,
+          toLocationId: null,
+          moveType: 'adjust',
+          stage: null,
+          notes: `${reason === 'damage' ? 'Damage' : 'Wastage'} write-off: ${notes || ''}`.trim(),
+          createdBy: req.user.username,
+        });
+      })();
+      audit(req, reason === 'damage' ? 'DAMAGE_WRITEOFF' : 'WASTAGE_WRITEOFF', 'products', req.params.id, null, { qty, notes });
+      res.json({ ok: true, new_stock: product.stock - qty });
+    } catch (err) { next(err); }
+  }
+);
+
 const bulkRateSchema = z.object({
   filter: z.object({
     kind: z.string().optional(),
@@ -347,6 +387,17 @@ productsRouter.delete('/:id', requireRole('admin'), (req, res, next) => {
     const db = getDb();
     const existing = loadProduct(db, req.params.id);
     if (!existing) throw new NotFoundError('Product not found');
+
+    // Block deletion if sold on an invoice
+    const soldItem = db.prepare(
+      `SELECT invoice_id FROM invoice_items WHERE product_id = ? LIMIT 1`
+    ).get(req.params.id);
+    if (soldItem) {
+      throw new AppError(
+        `Cannot delete ${req.params.id} — it has been sold on invoice ${soldItem.invoice_id}.`,
+        409
+      );
+    }
 
     // Block deletion if the product has been consumed in a production job
     const jobInput = db.prepare(
