@@ -355,6 +355,21 @@ function ReceiveBlock({ notify }: { notify: any }) {
           </Sel>
         </Fld>
       )}
+      {form.po_id && (() => {
+        const po = pos.find((p: any) => p.id === form.po_id);
+        if (!po) return null;
+        if (po.status === 'new') return (
+          <div style={{ background: 'rgba(220,50,50,0.1)', border: '1px solid var(--red)', borderRadius: 5, padding: '7px 12px', fontSize: 12, color: 'var(--red)', fontWeight: 600 }}>
+            PO is still <strong>New</strong> — receive blocks via GRN first, then get it approved before registering for production.
+          </div>
+        );
+        if (po.status === 'received') return (
+          <div style={{ background: 'rgba(230,160,0,0.1)', border: '1px solid var(--amber)', borderRadius: 5, padding: '7px 12px', fontSize: 12, color: 'var(--amber)', fontWeight: 600 }}>
+            PO is <strong>Received</strong> — pending approval. Ask admin to approve before production.
+          </div>
+        );
+        return null;
+      })()}
 
       <div style={{ borderTop: '1px solid var(--bd)', paddingTop: 12 }}>
         <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--t3)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.04em' }}>

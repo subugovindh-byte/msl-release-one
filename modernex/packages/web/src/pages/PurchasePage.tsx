@@ -2,10 +2,10 @@ import { useMemo, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ColDef } from 'ag-grid-community';
 import { GST_RATE, GST_RATE_LABEL, VARIETIES } from '@modernex/shared';
-import { usePurchaseOrders, useVendors, useCreatePurchaseOrder, useCreatePayment } from '@/hooks/useApi';
+import { usePurchaseOrders, useVendors, useCreatePurchaseOrder, useCreatePayment, useDeletePurchaseOrder } from '@/hooks/useApi';
 import { DataGridTable } from '@/components/DataGridTable';
 import { formatINR, numericInputValue, selectOnFocus } from '@/utils/format';
-import { useToastStore } from '@/store';
+import { useToastStore, useAuthStore } from '@/store';
 
 const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
   received:  { bg: 'var(--bg3)', color: 'var(--t2)' },
@@ -26,7 +26,11 @@ export function PurchasePage() {
   const { data: vendorsData } = useVendors({});
   const createPO = useCreatePurchaseOrder();
   const createPayment = useCreatePayment();
+  const deletePO = useDeletePurchaseOrder();
   const { notify } = useToastStore();
+  const { user } = useAuthStore();
+  const canManage = user?.role === 'admin' || user?.role === 'accounts';
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const [payingPo, setPayingPo] = useState<any | null>(null);
   const [payAmount, setPayAmount] = useState<'full' | 'custom'>('full');
@@ -204,7 +208,26 @@ export function PurchasePage() {
         </button>
       ),
     },
-  ], [navigate, openPay]);
+    ...(canManage ? [{
+      headerName: '',
+      colId: 'delete_action',
+      width: 75,
+      pinned: 'right',
+      sortable: false,
+      filter: false,
+      cellRenderer: (p: any) => {
+        if (p.data?.status !== 'new') {
+          return <span style={{ fontSize: 10, color: 'var(--t3)', padding: '0 4px' }} title="Can only delete 'new' POs">locked</span>;
+        }
+        return (
+          <button
+            onClick={() => setConfirmDeleteId(p.data?.id)}
+            style={{ padding: '3px 8px', fontSize: 11, border: '1px solid var(--red)', borderRadius: 3, cursor: 'pointer', background: 'transparent', color: 'var(--red)', fontWeight: 600 }}
+          >✕ Del</button>
+        );
+      },
+    }] as any : []),
+  ], [navigate, openPay, canManage]);
 
   return (
     <div className="page">
@@ -214,6 +237,23 @@ export function PurchasePage() {
           Manage raw material and block purchases
         </p>
       </div>
+
+      {/* Delete confirmation */}
+      {confirmDeleteId && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(220,50,50,0.1)', border: '1px solid var(--red)', borderRadius: 6, padding: '10px 14px', marginBottom: 16, fontSize: 13, flexWrap: 'wrap' }}>
+          <span style={{ color: 'var(--red)', fontWeight: 600 }}>Delete PO <span style={{ fontFamily: 'monospace' }}>{confirmDeleteId}</span>? This cannot be undone.</span>
+          <button onClick={() => deletePO.mutate(confirmDeleteId, {
+            onSuccess: () => { setConfirmDeleteId(null); notify(`PO ${confirmDeleteId} deleted`, 'success'); },
+            onError: (err: any) => { setConfirmDeleteId(null); notify(err.message || 'Delete failed', 'error'); },
+          })} disabled={deletePO.isPending}
+            style={{ background: 'var(--red)', color: '#fff', border: 'none', borderRadius: 4, padding: '5px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+            {deletePO.isPending ? 'Deleting…' : 'Yes, delete'}
+          </button>
+          <button onClick={() => setConfirmDeleteId(null)}
+            style={{ background: 'var(--bg2)', color: 'var(--t2)', border: '1px solid var(--bd)', borderRadius: 4, padding: '5px 12px', fontSize: 12, cursor: 'pointer' }}>Cancel</button>
+          <span style={{ fontSize: 11, color: 'var(--t3)' }}>— To cancel an approved/received PO, use the Status dropdown on the detail page instead.</span>
+        </div>
+      )}
 
       {/* Filters and Actions */}
       <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', alignItems: 'center', flexWrap: 'wrap' }}>

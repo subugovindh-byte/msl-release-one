@@ -132,7 +132,77 @@ purchaseRouter.post('/',
   }
 );
 
+// ─── PATCH /purchase/:id — edit PO details (only while status = 'new') ───
+purchaseRouter.patch('/:id',
+  requireRole('admin', 'accounts'),
+  validate(poCreateSchema.partial()),
+  (req, res, next) => {
+    try {
+      const db = getDb();
+      const existing = db.prepare('SELECT * FROM purchase_orders WHERE id = ?').get(req.params.id);
+      if (!existing) throw new NotFoundError('PO not found');
+      if (existing.status !== 'new') {
+        throw new AppError(`Cannot edit PO ${req.params.id} — status is '${existing.status}'. Only 'new' POs can be edited.`, 409);
+      }
+      const p = req.body;
+      const editable = ['vendor_id', 'variety', 'blocks', 'cft', 'rate_per_cft_paise', 'transport_paise', 'notes'];
+      const updates = [];
+      const params = [];
+      for (const k of editable) {
+        if (p[k] !== undefined) { updates.push(`${k} = ?`); params.push(p[k]); }
+      }
+      if (updates.length) {
+        // Recompute financials if key fields changed
+        if (p.cft !== undefined || p.rate_per_cft_paise !== undefined || p.transport_paise !== undefined) {
+          const cft = p.cft ?? existing.cft;
+          const rate = p.rate_per_cft_paise ?? existing.rate_per_cft_paise;
+          const transport = p.transport_paise ?? existing.transport_paise;
+          const taxable = Math.round(cft * rate) + (transport || 0);
+          const gst = Math.round(taxable * GST_RATE);
+          updates.push('taxable_paise = ?', 'gst_paise = ?', 'total_paise = ?');
+          params.push(taxable, gst, taxable + gst);
+        }
+        updates.push('updated_by = ?');
+        params.push(req.user.username, req.params.id);
+        db.prepare(`UPDATE purchase_orders SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+      }
+      const updated = db.prepare('SELECT * FROM purchase_orders WHERE id = ?').get(req.params.id);
+      audit(req, 'PO_UPDATE', 'purchase_orders', req.params.id, existing, updated);
+      res.json({ po: updated });
+    } catch (err) { next(err); }
+  }
+);
+
+// ─── DELETE /purchase/:id — only allowed while status = 'new' ───
+purchaseRouter.delete('/:id',
+  requireRole('admin', 'accounts'),
+  (req, res, next) => {
+    try {
+      const db = getDb();
+      const existing = db.prepare('SELECT * FROM purchase_orders WHERE id = ?').get(req.params.id);
+      if (!existing) throw new NotFoundError('PO not found');
+      if (existing.status !== 'new') {
+        throw new AppError(`Cannot delete PO ${req.params.id} — status is '${existing.status}'. Cancel it instead.`, 409);
+      }
+      const hasPayments = db.prepare('SELECT 1 FROM payments WHERE po_id = ? LIMIT 1').get(req.params.id);
+      if (hasPayments) throw new AppError(`Cannot delete PO ${req.params.id} — payments have been recorded against it.`, 409);
+      db.prepare('DELETE FROM purchase_orders WHERE id = ?').run(req.params.id);
+      audit(req, 'PO_DELETE', 'purchase_orders', req.params.id, existing, null);
+      res.json({ ok: true });
+    } catch (err) { next(err); }
+  }
+);
+
 // ─── PATCH /purchase/:id/status ───
+// Enforced flow: new → received (GRN) → approved → [production ready]
+// Cancellation is allowed from any non-approved/non-received state.
+const ALLOWED_TRANSITIONS: Record<string, string[]> = {
+  new:      ['received', 'cancelled'],
+  received: ['approved', 'cancelled'],
+  approved: ['cancelled'],
+  cancelled: [],
+};
+
 purchaseRouter.patch('/:id/status',
   requireRole('admin', 'accounts'),
   (req, res, next) => {
@@ -144,6 +214,29 @@ purchaseRouter.patch('/:id/status',
       const db = getDb();
       const existing = db.prepare('SELECT * FROM purchase_orders WHERE id = ?').get(req.params.id);
       if (!existing) throw new NotFoundError('PO not found');
+
+      const allowed = ALLOWED_TRANSITIONS[existing.status] || [];
+      if (!allowed.includes(status)) {
+        throw new AppError(
+          `Cannot move PO from '${existing.status}' to '${status}'. ` +
+          `Flow: new → received (via GRN) → approved → cancelled.`,
+          400
+        );
+      }
+
+      // To mark 'approved', a QC-passed GRN must exist
+      if (status === 'approved') {
+        const qcPass = db.prepare(
+          `SELECT id FROM purchase_order_receipts WHERE po_id = ? AND qc_pass = 1 LIMIT 1`
+        ).get(req.params.id);
+        if (!qcPass) {
+          throw new AppError(
+            `Cannot approve PO ${req.params.id} — no QC-passed goods receipt (GRN) found. ` +
+            `Record a GRN with QC pass first.`,
+            400
+          );
+        }
+      }
 
       db.prepare('UPDATE purchase_orders SET status = ?, updated_by = ? WHERE id = ?')
         .run(status, req.user.username, req.params.id);

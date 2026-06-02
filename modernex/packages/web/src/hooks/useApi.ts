@@ -534,6 +534,24 @@ export function useCreatePurchaseOrder(options?: UseMutationOptions<{ po: Purcha
   });
 }
 
+export function useUpdatePurchaseOrder(options?: UseMutationOptions<{ po: any }, Error, { id: string; data: any }>) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }) => api.patch<{ po: any }>(`/purchase/${id}`, data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.purchase.all }); },
+    ...options,
+  });
+}
+
+export function useDeletePurchaseOrder(options?: UseMutationOptions<{ ok: boolean }, Error, string>) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete<{ ok: boolean }>(`/purchase/${id}`),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.purchase.all }); },
+    ...options,
+  });
+}
+
 // ─── Company Details ───
 export function useCompany() {
   return useQuery({

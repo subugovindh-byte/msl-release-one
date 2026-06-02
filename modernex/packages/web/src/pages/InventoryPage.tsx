@@ -21,6 +21,7 @@ export function InventoryPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [varietyFilter, setVarietyFilter] = useState('All');
   const [kindFilter, setKindFilter] = useState('All');
+  const [hideZeroStock, setHideZeroStock] = useState(true);
   const { isTablet, isMobile } = useViewport();
   const [qrLabel, setQrLabel] = useState<{ product: any; dataUrl: string } | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -91,14 +92,18 @@ export function InventoryPage() {
   // Filter products
   const filteredProducts = useMemo(() => {
     return products.filter((p: any) => {
-      const matchesSearch = !searchQuery || 
+      const matchesSearch = !searchQuery ||
         p.variety?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.id?.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesVariety = varietyFilter === 'All' || p.variety === varietyFilter;
       const matchesKind = kindFilter === 'All' || p.kind === kindFilter;
-      return matchesSearch && matchesVariety && matchesKind;
+      const matchesStock = !hideZeroStock || (p.stock ?? 0) > 0;
+      return matchesSearch && matchesVariety && matchesKind && matchesStock;
     });
-  }, [products, searchQuery, varietyFilter, kindFilter]);
+  }, [products, searchQuery, varietyFilter, kindFilter, hideZeroStock]);
+
+  const zeroStockCount = products.filter((p: any) => (p.stock ?? 0) === 0).length;
+  const inStockCount   = products.length - zeroStockCount;
 
   // Calculate stats
   const totalStock = filteredProducts.reduce((sum: number, p: any) => sum + (p.stock || 0), 0);
@@ -367,10 +372,13 @@ export function InventoryPage() {
         gap: '16px',
         marginBottom: '24px'
       }}>
-        <StatCard label="Total Products" value={filteredProducts.length.toString()} subtitle="items" />
-        <StatCard label="Total Stock" value={totalStock.toString()} subtitle="units" />
+        <StatCard label="In Stock" value={inStockCount.toString()} subtitle={`${zeroStockCount > 0 ? `+ ${zeroStockCount} zero-stock` : 'all active'}`} />
+        <StatCard label="Total Stock" value={totalStock.toString()} subtitle="units (in-stock products)" />
         <StatCard label="Stock Value" value={formatINR(totalValue)} subtitle="at selling rate" />
         <StatCard label="Low Stock" value={lowStockCount.toString()} subtitle="≤ 2 pieces" color="var(--rust)" />
+        {zeroStockCount > 0 && (
+          <StatCard label="Zero Stock" value={zeroStockCount.toString()} subtitle="consumed / written off" color="var(--t3)" />
+        )}
       </div>
 
       {/* Delete confirmation banner */}
@@ -447,6 +455,11 @@ export function InventoryPage() {
         >
           {kinds.map(k => <option key={k} value={k}>{k === 'All' ? 'All Kinds' : getKindLabel(k)}</option>)}
         </select>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--t2)', cursor: 'pointer', userSelect: 'none', padding: '0 4px' }}>
+          <input type="checkbox" checked={hideZeroStock} onChange={e => setHideZeroStock(e.target.checked)} style={{ accentColor: 'var(--rust)', width: 14, height: 14 }} />
+          Hide zero-stock
+          {zeroStockCount > 0 && <span style={{ fontSize: 11, background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 10, padding: '0 7px', color: 'var(--t3)' }}>{zeroStockCount}</span>}
+        </label>
       </div>
 
       {/* Products Table */}
@@ -454,7 +467,9 @@ export function InventoryPage() {
         <p>Loading inventory...</p>
       ) : filteredProducts.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px', color: 'var(--t3)' }}>
-          <p>No products found matching your filters.</p>
+          <p>{hideZeroStock && zeroStockCount > 0
+            ? `All ${zeroStockCount} product${zeroStockCount > 1 ? 's' : ''} have zero stock. Uncheck "Hide zero-stock" to see them.`
+            : 'No products found matching your filters.'}</p>
         </div>
       ) : (
         <DataGridTable

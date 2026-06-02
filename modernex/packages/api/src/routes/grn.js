@@ -69,8 +69,8 @@ grnRouter.post('/',
                g.qc_notes || null, g.vehicle_no || null,
                g.lr_no || null, req.user.username);
 
-        // Auto-advance PO to 'received' if QC passed
-        if (g.qc_pass && po.status !== 'received') {
+        // Advance PO to 'received' on QC pass (awaits manual 'approved' step before production)
+        if (g.qc_pass && po.status === 'new') {
           db.prepare("UPDATE purchase_orders SET status='received', updated_by=? WHERE id=?")
             .run(req.user.username, g.po_id);
         }
