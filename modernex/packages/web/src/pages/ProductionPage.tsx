@@ -4,7 +4,8 @@ import QRCode from 'qrcode';
 import { VARIETIES, GRADES, STANDARD_SPECS } from '@modernex/shared';
 import {
   useProducts, useCreateProduct, useCreateProductionJob,
-  useProductionJobs, useMoveProduct, usePurchaseOrders, useDeleteProduct,
+  useProductionJobs, useMoveProduct, usePurchaseOrders,
+  useDeleteProduct, useUpdateProduct,
 } from '@/hooks/useApi';
 import { useToastStore } from '@/store';
 
@@ -1245,6 +1246,52 @@ function PipelineInventory({ groups, onAction, onDelete }: { groups: Record<stri
     Object.fromEntries(Object.keys(STAGE_META).map(k => [k, true]))
   );
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<Record<string, any>>({});
+  const updateProduct = useUpdateProduct();
+  const { notify } = useToastStore();
+
+  function startEdit(p: any) {
+    const d = p.dimensions || {};
+    setEditForm({
+      lot_id:       p.lot_id || '',
+      grade:        p.grade || '',
+      stock:        String(p.stock ?? 0),
+      rate_rs:      p.rate_paise ? String((p.rate_paise / 100).toFixed(2)) : '',
+      length_mm:    d.length_m ? String(Math.round(d.length_m * 1000)) : '',
+      width_mm:     d.width_m  ? String(Math.round(d.width_m  * 1000)) : '',
+      height_mm:    d.height_m ? String(Math.round(d.height_m * 1000)) : '',
+      size_lw:      d.size_lw      || '',
+      thickness_mm: d.thickness_mm ? String(d.thickness_mm) : '',
+    });
+    setEditingId(p.id);
+    setConfirmDelete(null);
+  }
+
+  function saveEdit(p: any) {
+    const ef = editForm;
+    const data: Record<string, any> = {
+      lot_id:     ef.lot_id  || null,
+      grade:      ef.grade   || null,
+      stock:      Number(ef.stock),
+      rate_paise: ef.rate_rs ? Math.round(Number(ef.rate_rs) * 100) : 0,
+    };
+    if (p.kind === 'block' && ef.length_mm && ef.width_mm && ef.height_mm) {
+      data.dimensions = {
+        length_m: Number(ef.length_mm) / 1000,
+        width_m:  Number(ef.width_mm)  / 1000,
+        height_m: Number(ef.height_mm) / 1000,
+      };
+    } else if ((p.kind === 'slab' || p.kind === 'cts') && ef.size_lw && ef.thickness_mm) {
+      data.dimensions = { size_lw: ef.size_lw, thickness_mm: Number(ef.thickness_mm), sqft: sqftFromSize(ef.size_lw) };
+    } else if (p.kind === 'tile' && ef.size_lw && ef.thickness_mm) {
+      data.dimensions = { size_lw: ef.size_lw, thickness_mm: Number(ef.thickness_mm), sqft_per_tile: sqftFromSize(ef.size_lw) };
+    }
+    updateProduct.mutate({ id: p.id, data }, {
+      onSuccess: () => { setEditingId(null); notify(`${p.id} updated`, 'success'); },
+      onError: (err: any) => notify(err.message || 'Update failed', 'error'),
+    });
+  }
 
   const thStyle: React.CSSProperties = {
     textAlign: 'left', padding: '6px 10px', fontSize: 11, fontWeight: 700,
@@ -1316,6 +1363,7 @@ function PipelineInventory({ groups, onAction, onDelete }: { groups: Record<stri
                       <th style={{ ...thStyle, textAlign: 'right' }}>Stock</th>
                       <th style={{ ...thStyle, textAlign: 'right' }}>Rate</th>
                       <th style={{ ...thStyle, textAlign: 'center' }}>Label</th>
+                      <th style={{ ...thStyle, textAlign: 'center' }}>Edit</th>
                       {onAction && (stageActions[stageKey] || []).length > 0 && <th style={{ ...thStyle, textAlign: 'center' }}>Action</th>}
                       {onDelete && <th style={{ ...thStyle, textAlign: 'center' }}>Delete</th>}
                     </tr>
@@ -1338,8 +1386,11 @@ function PipelineInventory({ groups, onAction, onDelete }: { groups: Record<stri
                         if (d.sqft)          dimStr += ` · ${d.sqft} sqft`;
                         if (d.sqft_per_tile) dimStr += ` · ${d.sqft_per_tile} sqft/tile`;
                       }
+                      const isEditing = editingId === p.id;
+                      const colCount = 10 + (onAction && (stageActions[stageKey]||[]).length > 0 ? 1 : 0) + (onDelete ? 1 : 0);
                       return (
-                        <tr key={p.id} style={{ background: 'var(--bg1)' }}>
+                        <React.Fragment key={p.id}>
+                        <tr style={{ background: isEditing ? 'var(--rustW)' : 'var(--bg1)', outline: isEditing ? '1px solid var(--rust)' : 'none' }}>
                           <td style={{ ...tdStyle, fontFamily: 'monospace', fontSize: 11, color: 'var(--t1)', fontWeight: 600 }}>{p.id}</td>
                           <td style={{ ...tdStyle, color: 'var(--gold)', fontWeight: 600 }}>{p.lot_id || '—'}</td>
                           <td style={tdStyle}>
@@ -1363,6 +1414,18 @@ function PipelineInventory({ groups, onAction, onDelete }: { groups: Record<stri
                               color: 'var(--t3)', borderRadius: 4, padding: '2px 7px',
                               fontSize: 11, cursor: 'pointer',
                             }}>🏷</button>
+                          </td>
+                          <td style={{ ...tdStyle, textAlign: 'center' }}>
+                            <button
+                              onClick={() => isEditing ? setEditingId(null) : startEdit(p)}
+                              title={isEditing ? 'Cancel edit' : 'Edit product'}
+                              style={{
+                                background: isEditing ? 'var(--rust)' : 'transparent',
+                                border: `1px solid ${isEditing ? 'var(--rust)' : 'var(--bd)'}`,
+                                color: isEditing ? '#fff' : 'var(--t2)',
+                                borderRadius: 4, padding: '2px 8px', fontSize: 11, cursor: 'pointer',
+                              }}
+                            >{isEditing ? '✕' : '✎'}</button>
                           </td>
                           {onAction && (stageActions[stageKey] || []).length > 0 && (
                             <td style={{ ...tdStyle, textAlign: 'center' }}>
@@ -1407,6 +1470,74 @@ function PipelineInventory({ groups, onAction, onDelete }: { groups: Record<stri
                             </td>
                           )}
                         </tr>
+                        {/* ── Inline edit row ── */}
+                        {isEditing && (
+                          <tr style={{ background: 'var(--bg2)' }}>
+                            <td colSpan={colCount} style={{ padding: '12px 14px', borderBottom: '2px solid var(--rust)' }}>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'flex-end' }}>
+                                <div style={fieldStyle}>
+                                  <label style={labelStyle}>Lot ID</label>
+                                  <input style={{ ...inputStyle, width: 90 }} value={editForm.lot_id}
+                                    onChange={e => setEditForm((f: any) => ({ ...f, lot_id: e.target.value }))} />
+                                </div>
+                                <div style={fieldStyle}>
+                                  <label style={labelStyle}>Grade</label>
+                                  <select style={{ ...selectStyle, width: 70 }} value={editForm.grade}
+                                    onChange={e => setEditForm((f: any) => ({ ...f, grade: e.target.value }))}>
+                                    <option value="">—</option>
+                                    {['A+','A','B','C'].map(g => <option key={g}>{g}</option>)}
+                                  </select>
+                                </div>
+                                <div style={fieldStyle}>
+                                  <label style={labelStyle}>Stock</label>
+                                  <input style={{ ...inputStyle, width: 70 }} type="number" min="0" value={editForm.stock}
+                                    onChange={e => setEditForm((f: any) => ({ ...f, stock: e.target.value }))} />
+                                </div>
+                                <div style={fieldStyle}>
+                                  <label style={labelStyle}>Rate (₹)</label>
+                                  <input style={{ ...inputStyle, width: 90 }} type="number" min="0" step="0.01" value={editForm.rate_rs}
+                                    onChange={e => setEditForm((f: any) => ({ ...f, rate_rs: e.target.value }))} />
+                                </div>
+                                {p.kind === 'block' && (<>
+                                  <div style={{ width: 1, background: 'var(--bd)', alignSelf: 'stretch', margin: '0 2px' }} />
+                                  {(['length_mm','width_mm','height_mm'] as const).map(k => (
+                                    <div key={k} style={fieldStyle}>
+                                      <label style={labelStyle}>{k === 'length_mm' ? 'L (mm)' : k === 'width_mm' ? 'W (mm)' : 'H (mm)'}</label>
+                                      <input style={{ ...inputStyle, width: 72 }} type="number" min="0" value={editForm[k]}
+                                        onChange={e => setEditForm((f: any) => ({ ...f, [k]: e.target.value }))} />
+                                    </div>
+                                  ))}
+                                </>)}
+                                {(p.kind === 'slab' || p.kind === 'tile' || p.kind === 'cts') && (<>
+                                  <div style={{ width: 1, background: 'var(--bd)', alignSelf: 'stretch', margin: '0 2px' }} />
+                                  <div style={fieldStyle}>
+                                    <label style={labelStyle}>Size (L×W)</label>
+                                    <input style={{ ...inputStyle, width: 110 }} value={editForm.size_lw}
+                                      onChange={e => setEditForm((f: any) => ({ ...f, size_lw: e.target.value }))}
+                                      placeholder="2600×1600" />
+                                  </div>
+                                  <div style={fieldStyle}>
+                                    <label style={labelStyle}>Thick (mm)</label>
+                                    <input style={{ ...inputStyle, width: 70 }} type="number" min="0" value={editForm.thickness_mm}
+                                      onChange={e => setEditForm((f: any) => ({ ...f, thickness_mm: e.target.value }))} />
+                                  </div>
+                                </>)}
+                                <div style={{ display: 'flex', gap: 6, marginLeft: 4 }}>
+                                  <button
+                                    onClick={() => saveEdit(p)}
+                                    disabled={updateProduct.isPending}
+                                    style={{ background: 'var(--rust)', color: '#fff', border: 'none', borderRadius: 5, padding: '7px 16px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+                                  >{updateProduct.isPending ? 'Saving…' : 'Save'}</button>
+                                  <button
+                                    onClick={() => setEditingId(null)}
+                                    style={{ background: 'var(--bg1)', color: 'var(--t2)', border: '1px solid var(--bd)', borderRadius: 5, padding: '7px 14px', fontSize: 12, cursor: 'pointer' }}
+                                  >Cancel</button>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                        </React.Fragment>
                       );
                     })}
                   </tbody>
