@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { CGST_RATE_LABEL, SGST_RATE_LABEL, GST_RATE_LABEL, PAYMENT_MODES } from '@modernex/shared'; // CGST/SGST used in totals
-import { usePurchaseOrder, useCompany, useCreatePayment, useGRNList, useCreateGRN, useUpdatePOTransport, useVendors } from '@/hooks/useApi';
+import { usePurchaseOrder, useCompany, useCreatePayment, useGRNList, useCreateGRN, useUpdatePOTransport, useVendors, useUpdatePOStatus } from '@/hooks/useApi';
 import { formatINR, formatDate, selectOnFocus } from '@/utils/format';
 import { useToastStore } from '@/store';
 
@@ -59,6 +59,7 @@ export function PurchaseOrderReceiptPage() {
   });
   const createGRN = useCreateGRN();
   const updateTransport = useUpdatePOTransport(decodedId);
+  const updateStatus = useUpdatePOStatus();
 
   const [showPayForm, setShowPayForm] = useState(false);
   const [payForm, setPayForm] = useState({ ...BLANK_FORM });
@@ -154,13 +155,90 @@ export function PurchaseOrderReceiptPage() {
     <div className="receipt-wrap">
       {/* Toolbar */}
       <div className="receipt-toolbar no-print">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <button
             onClick={() => navigate('/purchase')}
             style={{ padding: '8px 16px', border: '1px solid var(--bd)', borderRadius: 4, cursor: 'pointer', fontSize: 12, background: 'var(--bg2)', color: 'var(--t1)' }}
           >
             ← Back
           </button>
+
+          {/* PO Status badge + action buttons */}
+          <span style={{
+            padding: '4px 12px', borderRadius: 10, fontSize: 11, fontWeight: 700,
+            background: `${statusMeta?.color}22`, color: statusMeta?.color,
+            border: `1px solid ${statusMeta?.color}`,
+          }}>
+            {statusMeta?.label}
+          </span>
+
+          {/* Status actions based on current status */}
+          {po.status === 'new' && (
+            <>
+              <button
+                onClick={() => {
+                  if (window.confirm(`Mark PO ${po.id} as Received? Do this only after recording a GRN with QC pass.`))
+                    updateStatus.mutate({ id: po.id, status: 'received' }, {
+                      onSuccess: () => notify('PO marked as Received', 'success'),
+                      onError: (e: any) => notify(e.message || 'Failed', 'error'),
+                    });
+                }}
+                disabled={updateStatus.isPending}
+                style={{ padding: '6px 14px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+              >✓ Mark Received</button>
+              <button
+                onClick={() => {
+                  if (window.confirm(`Cancel PO ${po.id}? This cannot be undone.`))
+                    updateStatus.mutate({ id: po.id, status: 'cancelled' }, {
+                      onSuccess: () => notify('PO cancelled', 'success'),
+                      onError: (e: any) => notify(e.message || 'Failed', 'error'),
+                    });
+                }}
+                disabled={updateStatus.isPending}
+                style={{ padding: '6px 14px', background: 'transparent', color: 'var(--red)', border: '1px solid var(--red)', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+              >✕ Cancel PO</button>
+            </>
+          )}
+          {po.status === 'received' && (
+            <>
+              <button
+                onClick={() => {
+                  if (window.confirm(`Approve PO ${po.id}? This confirms blocks are received and QC-passed — they will become available for production.`))
+                    updateStatus.mutate({ id: po.id, status: 'approved' }, {
+                      onSuccess: () => notify('PO approved — blocks ready for production', 'success'),
+                      onError: (e: any) => notify(e.message || 'Failed', 'error'),
+                    });
+                }}
+                disabled={updateStatus.isPending}
+                style={{ padding: '6px 14px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+              >✓ Approve PO</button>
+              <button
+                onClick={() => {
+                  if (window.confirm(`Cancel PO ${po.id}?`))
+                    updateStatus.mutate({ id: po.id, status: 'cancelled' }, {
+                      onSuccess: () => notify('PO cancelled', 'success'),
+                      onError: (e: any) => notify(e.message || 'Failed', 'error'),
+                    });
+                }}
+                disabled={updateStatus.isPending}
+                style={{ padding: '6px 14px', background: 'transparent', color: 'var(--red)', border: '1px solid var(--red)', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+              >✕ Cancel PO</button>
+            </>
+          )}
+          {po.status === 'approved' && (
+            <button
+              onClick={() => {
+                if (window.confirm(`Cancel approved PO ${po.id}? This will block further production from these blocks.`))
+                  updateStatus.mutate({ id: po.id, status: 'cancelled' }, {
+                    onSuccess: () => notify('PO cancelled', 'success'),
+                    onError: (e: any) => notify(e.message || 'Failed', 'error'),
+                  });
+              }}
+              disabled={updateStatus.isPending}
+              style={{ padding: '6px 14px', background: 'transparent', color: 'var(--red)', border: '1px solid var(--red)', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+            >✕ Cancel PO</button>
+          )}
+
           <span style={{ padding: '4px 12px', borderRadius: 10, fontSize: 11, fontWeight: 700, background: payMeta?.bg, color: payMeta?.color }}>
             {payMeta?.label}
             {paidPaise > 0 && paidPaise < total && ` — Paid ${formatINR(paidPaise)} · Due ${formatINR(balance)}`}

@@ -541,6 +541,19 @@ export function usePurchaseOrder(id: string, options?: Partial<UseQueryOptions<a
   });
 }
 
+export function useUpdatePOStatus(options?: UseMutationOptions<{ po: any }, Error, { id: string; status: string }>) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }) =>
+      api.patch<{ po: any }>(`/purchase/${pid(id)}/status`, { status }),
+    onSuccess: (_d, v) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchase.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchase.detail(v.id) });
+    },
+    ...options,
+  });
+}
+
 export function useCreatePurchaseOrder(options?: UseMutationOptions<{ po: PurchaseOrder }, Error, any>) {
   const queryClient = useQueryClient();
   
