@@ -302,8 +302,8 @@ export function PayrollPage() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                     <span style={{ fontWeight: 700, fontSize: 15 }}>{r.month}</span>
                     <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
-                      backgroundColor: r.status === 'paid' ? '#e8f5e9' : r.status === 'processed' ? '#e3f2fd' : 'var(--bg3)',
-                      color: r.status === 'paid' ? '#2e7d32' : r.status === 'processed' ? '#1565c0' : 'var(--t3)' }}>
+                      backgroundColor: r.status === 'paid' ? 'var(--sageW)' : r.status === 'processed' ? 'var(--blueW)' : 'var(--bg3)',
+                      color: r.status === 'paid' ? 'var(--sage)' : r.status === 'processed' ? 'var(--blue)' : 'var(--t3)' }}>
                       {r.status}
                     </span>
                   </div>
@@ -412,8 +412,8 @@ export function PayrollPage() {
                           <td style={{ padding: '8px 12px', color: 'var(--t3)' }}>{a.reason || '—'}</td>
                           <td style={{ padding: '8px 12px' }}>
                             <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600,
-                              backgroundColor: a.status === 'approved' ? '#e8f5e9' : a.status === 'rejected' ? '#ffebee' : 'var(--bg3)',
-                              color: a.status === 'approved' ? '#2e7d32' : a.status === 'rejected' ? '#c62828' : 'var(--t3)' }}>
+                              backgroundColor: a.status === 'approved' ? 'var(--sageW)' : a.status === 'rejected' ? 'var(--redW)' : 'var(--bg3)',
+                              color: a.status === 'approved' ? 'var(--sage)' : a.status === 'rejected' ? 'var(--red)' : 'var(--t3)' }}>
                               {a.status}
                             </span>
                           </td>
@@ -504,7 +504,7 @@ export function PayrollPage() {
                       <td style={{ padding: '8px 12px', textAlign: 'right' }}>{formatINR(c.employer_paise)}</td>
                       <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600 }}>{formatINR(c.employee_paise + c.employer_paise)}</td>
                       <td style={{ padding: '8px 12px', textAlign: 'right' }}>
-                        <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, backgroundColor: c.paid ? '#e8f5e9' : 'var(--bg3)', color: c.paid ? '#2e7d32' : 'var(--t3)', fontWeight: 600 }}>
+                        <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, backgroundColor: c.paid ? 'var(--sageW)' : 'var(--bg3)', color: c.paid ? 'var(--sage)' : 'var(--t3)', fontWeight: 600 }}>
                           {c.paid ? 'Paid' : 'Pending'}
                         </span>
                       </td>

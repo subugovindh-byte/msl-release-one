@@ -147,7 +147,7 @@ export function BankReconPage() {
             <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
               <div style={{ backgroundColor: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8, padding: '10px 16px' }}>
                 <div style={{ fontSize: 10, color: 'var(--t3)', textTransform: 'uppercase', fontWeight: 600 }}>Unreconciled Credits</div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: '#2e7d32' }}>{formatINR(unreconciledCredit)}</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--sage)' }}>{formatINR(unreconciledCredit)}</div>
               </div>
               <div style={{ backgroundColor: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8, padding: '10px 16px' }}>
                 <div style={{ fontSize: 10, color: 'var(--t3)', textTransform: 'uppercase', fontWeight: 600 }}>Unreconciled Debits</div>
@@ -179,12 +179,12 @@ export function BankReconPage() {
                         <td style={{ padding: '7px 10px', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.description || '—'}</td>
                         <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontSize: 11, color: 'var(--t3)' }}>{l.ref_no || '—'}</td>
                         <td style={{ padding: '7px 10px', textAlign: 'right', color: 'var(--rust)' }}>{l.debit_paise > 0 ? formatINR(l.debit_paise) : '—'}</td>
-                        <td style={{ padding: '7px 10px', textAlign: 'right', color: '#2e7d32' }}>{l.credit_paise > 0 ? formatINR(l.credit_paise) : '—'}</td>
+                        <td style={{ padding: '7px 10px', textAlign: 'right', color: 'var(--sage)' }}>{l.credit_paise > 0 ? formatINR(l.credit_paise) : '—'}</td>
                         <td style={{ padding: '7px 10px', textAlign: 'right', fontWeight: 600 }}>{formatINR(l.running_balance_paise)}</td>
                         <td style={{ padding: '7px 10px' }}>
                           {l.reconciled
-                            ? <span style={{ padding: '2px 8px', borderRadius: 8, fontSize: 10, backgroundColor: '#e8f5e9', color: '#2e7d32', fontWeight: 600 }}>Reconciled</span>
-                            : <span style={{ padding: '2px 8px', borderRadius: 8, fontSize: 10, backgroundColor: 'var(--amberW)', color: '#e65100', fontWeight: 600 }}>Pending</span>
+                            ? <span style={{ padding: '2px 8px', borderRadius: 8, fontSize: 10, backgroundColor: 'var(--sageW)', color: 'var(--sage)', fontWeight: 600 }}>Reconciled</span>
+                            : <span style={{ padding: '2px 8px', borderRadius: 8, fontSize: 10, backgroundColor: 'var(--amberW)', color: 'var(--amber)', fontWeight: 600 }}>Pending</span>
                           }
                         </td>
                         <td style={{ padding: '7px 10px' }}>
@@ -253,7 +253,7 @@ export function BankReconPage() {
                   {brs.uncleared_deposits.map((d: any) => (
                     <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 14px', fontSize: 12 }}>
                       <span style={{ color: 'var(--t2)' }}>{d.date} · {d.customer_name || d.id}</span>
-                      <span style={{ color: '#2e7d32' }}>{formatINR(d.amount_paise)}</span>
+                      <span style={{ color: 'var(--sage)' }}>{formatINR(d.amount_paise)}</span>
                     </div>
                   ))}
                 </>

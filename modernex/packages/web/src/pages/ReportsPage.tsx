@@ -165,7 +165,7 @@ export function ReportsPage() {
                 <div style={{ height: 2, backgroundColor: 'var(--bd)', margin: '16px 0 12px' }} />
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 15, fontWeight: 700 }}>
                   <span>NET PROFIT</span>
-                  <span style={{ color: (plRealData as any)?.totals?.net_profit_paise >= 0 ? '#2e7d32' : 'var(--rust)' }}>
+                  <span style={{ color: (plRealData as any)?.totals?.net_profit_paise >= 0 ? 'var(--sage)' : 'var(--rust)' }}>
                     {formatINR((plRealData as any)?.totals?.net_profit_paise || 0)}
                   </span>
                 </div>
@@ -319,7 +319,7 @@ export function ReportsPage() {
                           <td style={{ padding: '7px 10px', textAlign: 'right' }}>{formatINR(po.total_paise)}</td>
                           <td style={{ padding: '7px 10px', textAlign: 'right', color: po.age_days > 45 && po.msme_registered ? 'var(--rust)' : 'var(--t2)' }}>{po.age_days}d</td>
                           <td style={{ padding: '7px 10px' }}>
-                            {po.msme_registered ? <span style={{ padding: '2px 6px', borderRadius: 8, fontSize: 10, backgroundColor: po.msme_overdue_days > 0 ? 'var(--rust)' : '#e8f5e9', color: po.msme_overdue_days > 0 ? 'white' : '#2e7d32', fontWeight: 600 }}>MSME</span> : null}
+                            {po.msme_registered ? <span style={{ padding: '2px 6px', borderRadius: 8, fontSize: 10, backgroundColor: po.msme_overdue_days > 0 ? 'var(--rust)' : 'var(--sageW)', color: po.msme_overdue_days > 0 ? 'white' : 'var(--sage)', fontWeight: 600 }}>MSME</span> : null}
                           </td>
                         </tr>
                       ))}
@@ -351,7 +351,7 @@ export function ReportsPage() {
           <div style={{ backgroundColor: 'var(--bg2)', border: '2px solid var(--bd)', borderRadius: 8, padding: 16, marginTop: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16, fontWeight: 700 }}>
               <span>Net Change in Cash (A+B+C)</span>
-              <span style={{ color: (cashFlowData as any)?.net_change_in_cash_paise >= 0 ? '#2e7d32' : 'var(--rust)' }}>
+              <span style={{ color: (cashFlowData as any)?.net_change_in_cash_paise >= 0 ? 'var(--sage)' : 'var(--rust)' }}>
                 {formatINR((cashFlowData as any)?.net_change_in_cash_paise)}
               </span>
             </div>
@@ -537,7 +537,7 @@ export function ReportsPage() {
                       <td style={{ padding: '7px 10px' }}>
                         {a.fully_depreciated
                           ? <span style={{ padding: '2px 6px', borderRadius: 8, fontSize: 10, backgroundColor: 'var(--bg3)', color: 'var(--t3)', fontWeight: 600 }}>Fully Dep.</span>
-                          : <span style={{ padding: '2px 6px', borderRadius: 8, fontSize: 10, backgroundColor: '#e8f5e9', color: '#2e7d32', fontWeight: 600 }}>Active</span>
+                          : <span style={{ padding: '2px 6px', borderRadius: 8, fontSize: 10, backgroundColor: 'var(--sageW)', color: 'var(--sage)', fontWeight: 600 }}>Active</span>
                         }
                       </td>
                     </tr>
@@ -646,7 +646,7 @@ function CashFlowSection({ title, items, net }: { title: string; items: { label:
       ))}
       <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 10, fontWeight: 700, fontSize: 13 }}>
         <span>Net Cash {title.includes('Operating') ? 'from Ops' : title.includes('Investing') ? 'from Investing' : 'from Financing'}</span>
-        <span style={{ color: net >= 0 ? '#2e7d32' : 'var(--rust)' }}>{formatINR(net)}</span>
+        <span style={{ color: net >= 0 ? 'var(--sage)' : 'var(--rust)' }}>{formatINR(net)}</span>
       </div>
     </div>
   );
@@ -684,10 +684,10 @@ function RatioCard({ title, items }: { title: string; items: { label: string; va
 
 function agingColor(bucket: string): string {
   switch (bucket) {
-    case '0-30':  return '#4caf50';
-    case '31-60': return '#ff9800';
-    case '61-90': return '#f44336';
-    case '91-120': return '#b71c1c';
-    default:      return '#880e4f';
+    case '0-30':  return 'var(--sage)';
+    case '31-60': return 'var(--amber)';
+    case '61-90': return 'var(--red)';
+    case '91-120': return 'var(--red)';
+    default:      return 'var(--rust)';
   }
 }

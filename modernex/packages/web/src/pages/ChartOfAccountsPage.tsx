@@ -9,7 +9,7 @@ import { useToastStore } from '@/store';
 type Tab = 'accounts' | 'vouchers' | 'trial-balance' | 'balance-sheet';
 
 const NATURE_COLORS: Record<string, string> = {
-  asset: '#1565c0', liability: '#c62828', capital: '#6a1b9a', income: '#2e7d32', expense: '#e65100',
+  asset: 'var(--blue)', liability: 'var(--red)', capital: 'var(--rust)', income: 'var(--sage)', expense: 'var(--amber)',
 };
 
 type JVEntry = { account_id: string; debit_paise: number; credit_paise: number; narration: string };
@@ -195,7 +195,7 @@ export function ChartOfAccountsPage() {
             <div style={{ display: 'flex', gap: 20, marginBottom: 14, padding: '10px 16px', backgroundColor: 'var(--bg3)', borderRadius: 8, fontSize: 13 }}>
               <span>Dr Total: <strong>{formatINR(Math.round(jvTotalDr * 100))}</strong></span>
               <span>Cr Total: <strong>{formatINR(Math.round(jvTotalCr * 100))}</strong></span>
-              <span style={{ marginLeft: 'auto', fontWeight: 700, color: jvBalanced ? '#2e7d32' : 'var(--rust)' }}>
+              <span style={{ marginLeft: 'auto', fontWeight: 700, color: jvBalanced ? 'var(--sage)' : 'var(--rust)' }}>
                 {jvBalanced ? '✓ Balanced' : `Difference: ${formatINR(Math.round(Math.abs(jvTotalDr - jvTotalCr) * 100))}`}
               </span>
             </div>

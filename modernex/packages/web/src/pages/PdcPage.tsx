@@ -2,12 +2,9 @@ import { useState } from 'react';
 import { usePDCs, usePDCsDueToday, useCreatePDC, useUpdatePDCStatus, useCustomers, useVendors } from '@/hooks/useApi';
 import { formatINR, numericInputValue, selectOnFocus } from '@/utils/format';
 import { useToastStore } from '@/store';
+import { badge } from '@/styles/ui';
 
 type ViewType = 'all' | 'received' | 'issued' | 'due';
-
-const STATUS_COLORS: Record<string, string> = {
-  pending: '#f57f17', deposited: '#1565c0', cleared: '#2e7d32', returned: '#c62828', cancelled: 'var(--t3)',
-};
 const BLANK_PDC = { type: 'received', cheque_no: '', bank_name: '', branch: '', amount_paise: 0, cheque_date: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10), customer_id: '', vendor_id: '', invoice_id: '', notes: '' };
 
 export function PdcPage() {
@@ -161,7 +158,7 @@ export function PdcPage() {
           {pdcs.map((pdc: any) => {
             const daysUntil = Math.ceil((new Date(pdc.cheque_date).getTime() - Date.now()) / 86400000);
             return (
-              <div key={pdc.id} style={{ backgroundColor: 'var(--bg2)', border: `1px solid ${daysUntil <= 3 && pdc.status === 'pending' ? '#ffcc80' : 'var(--bd)'}`, borderRadius: 8, padding: '14px 18px', display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div key={pdc.id} style={{ backgroundColor: 'var(--bg2)', border: `1px solid ${daysUntil <= 3 && pdc.status === 'pending' ? 'var(--amber)' : 'var(--bd)'}`, borderRadius: 8, padding: '14px 18px', display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: 160 }}>
                   <div style={{ fontWeight: 700, fontSize: 13 }}>{pdc.customer_name || pdc.vendor_name || '—'}</div>
                   <div style={{ fontSize: 11, color: 'var(--t3)' }}>Cheque #{pdc.cheque_no} · {pdc.bank_name}{pdc.branch ? ` (${pdc.branch})` : ''}</div>
@@ -175,7 +172,7 @@ export function PdcPage() {
                     {daysUntil === 0 ? 'Due TODAY' : `Due in ${daysUntil}d`}
                   </span>
                 )}
-                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, backgroundColor: STATUS_COLORS[pdc.status] + '22', color: STATUS_COLORS[pdc.status], textTransform: 'capitalize' }}>
+                <span style={badge(pdc.status)}>
                   {pdc.status}
                 </span>
                 {pdc.status === 'pending' && (

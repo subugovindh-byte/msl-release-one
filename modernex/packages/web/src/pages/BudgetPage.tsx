@@ -29,8 +29,8 @@ function fyMonths(fy: string): string[] {
 
 function varianceColor(category: string, variance: number): string {
   if (variance === 0) return 'var(--t3)';
-  if (category === 'Revenue') return variance > 0 ? '#2e7d32' : 'var(--rust)';
-  return variance > 0 ? '#2e7d32' : 'var(--rust)';
+  if (category === 'Revenue') return variance > 0 ? 'var(--sage)' : 'var(--rust)';
+  return variance > 0 ? 'var(--sage)' : 'var(--rust)';
 }
 
 export function BudgetPage() {
@@ -160,7 +160,7 @@ export function BudgetPage() {
                       {utilPct !== null && utilPct !== undefined ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
                           <div style={{ width: 80, height: 6, backgroundColor: 'var(--bg3)', borderRadius: 3, overflow: 'hidden' }}>
-                            <div style={{ width: `${Math.min(utilPct, 100)}%`, height: '100%', backgroundColor: utilPct > 100 ? 'var(--rust)' : utilPct > 80 ? '#ff9800' : '#4caf50', borderRadius: 3 }} />
+                            <div style={{ width: `${Math.min(utilPct, 100)}%`, height: '100%', backgroundColor: utilPct > 100 ? 'var(--rust)' : utilPct > 80 ? 'var(--amber)' : 'var(--sage)', borderRadius: 3 }} />
                           </div>
                           <span style={{ fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", color: utilPct > 100 ? 'var(--rust)' : 'var(--t2)' }}>{utilPct}%</span>
                         </div>

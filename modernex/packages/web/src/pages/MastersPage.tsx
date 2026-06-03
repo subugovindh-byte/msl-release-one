@@ -744,8 +744,8 @@ export function MastersPage() {
                     <td style={{ padding: '10px 12px', fontWeight: 600 }}>{p.variety}</td>
                     <td style={{ padding: '10px 12px' }}>
                       <span style={{ padding: '2px 10px', borderRadius: 20, fontWeight: 700, fontSize: 12,
-                        color: p.grade === 'A+' ? '#15803d' : p.grade === 'A' ? '#1d4ed8' : '#92400e',
-                        background: p.grade === 'A+' ? '#dcfce7' : p.grade === 'A' ? '#dbeafe' : '#fef9c3' }}>
+                        color: p.grade === 'A+' ? 'var(--sage)' : p.grade === 'A' ? 'var(--blue)' : 'var(--amber)',
+                        background: p.grade === 'A+' ? 'var(--sageW)' : p.grade === 'A' ? 'var(--blueW)' : 'var(--amberW)' }}>
                         {p.grade}
                       </span>
                     </td>
@@ -759,7 +759,7 @@ export function MastersPage() {
                         Edit
                       </button>
                       <button onClick={() => handleDeletePrice(p.id)}
-                        style={{ padding: '4px 10px', fontSize: 12, background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 5, cursor: 'pointer' }}>
+                        style={{ padding: '4px 10px', fontSize: 12, background: 'var(--redW)', color: 'var(--red)', border: '1px solid var(--redW)', borderRadius: 5, cursor: 'pointer' }}>
                         ✕
                       </button>
                     </td>

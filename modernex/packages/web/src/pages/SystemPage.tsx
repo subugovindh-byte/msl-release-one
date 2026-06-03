@@ -304,7 +304,7 @@ function DemoTab() {
           <ActionBtn
             label="Purge ALL Data"
             desc="Wipe every transactional row (keeps users, company, COA). Irreversible."
-            color="#c0392b"
+            color="var(--red)"
             busy={loading === 'purgeall'}
             onClick={() => {
               if (confirm('This will delete ALL transactional data. Are you sure?')) call('purgeall');

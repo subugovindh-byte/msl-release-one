@@ -80,7 +80,7 @@ function FilingCalendar() {
 
   const periods: any[] = data?.periods || [];
   const STATUS_COLOR: Record<string, string> = {
-    pending: '#e57373', filed: '#81c784', revised: '#ffb74d', nil: '#90a4ae',
+    pending: 'var(--red)', filed: 'var(--sage)', revised: 'var(--amber)', nil: 'var(--t3)',
   };
 
   const handleSave = async (id: number) => {
@@ -213,7 +213,7 @@ function SalesRegister({ from, to }: { from: string; to: string }) {
           <AmtCell paise={r.sgst_paise} />,
           <AmtCell paise={r.igst_paise} />,
           <AmtCell paise={r.total_paise} />,
-          <span style={{ fontSize: 11, color: r.payment_status === 'Paid' ? '#81c784' : 'var(--rust)' }}>{r.payment_status}</span>,
+          <span style={{ fontSize: 11, color: r.payment_status === 'Paid' ? 'var(--sage)' : 'var(--rust)' }}>{r.payment_status}</span>,
         ])}
         empty="No sales in this period."
       />
@@ -339,7 +339,7 @@ function GSTR1({ from, to }: { from: string; to: string }) {
             rows={cdnr.map((r: any) => [
               <span style={{ fontFamily: 'monospace', fontSize: 11 }}>{r.id}</span>,
               r.date,
-              <span style={{ fontWeight: 600, color: r.type === 'credit' ? '#81c784' : 'var(--rust)' }}>{r.type.toUpperCase()}</span>,
+              <span style={{ fontWeight: 600, color: r.type === 'credit' ? 'var(--sage)' : 'var(--rust)' }}>{r.type.toUpperCase()}</span>,
               r.customer_name,
               <span style={{ fontFamily: 'monospace', fontSize: 10 }}>{r.customer_gstin}</span>,
               r.ref_invoice_id || '—',
@@ -359,7 +359,7 @@ function GSTR1({ from, to }: { from: string; to: string }) {
                 rows={cdnur.map((r: any) => [
                   <span style={{ fontFamily: 'monospace', fontSize: 11 }}>{r.id}</span>,
                   r.date,
-                  <span style={{ fontWeight: 600, color: r.type === 'credit' ? '#81c784' : 'var(--rust)' }}>{r.type.toUpperCase()}</span>,
+                  <span style={{ fontWeight: 600, color: r.type === 'credit' ? 'var(--sage)' : 'var(--rust)' }}>{r.type.toUpperCase()}</span>,
                   r.customer_name, r.reason,
                   <AmtCell paise={r.taxable_paise} />,
                   <AmtCell paise={r.total_paise} />,
@@ -483,11 +483,11 @@ function GSTR9() {
         <KPI label="CGST Output" value={out.cgst || 0} color="var(--rust)" />
         <KPI label="SGST Output" value={out.sgst || 0} color="var(--rust)" />
         <KPI label="IGST Output" value={out.igst || 0} color="var(--rust)" />
-        <KPI label="ITC Available" value={itc.total_paise || 0} color="#81c784" />
-        <KPI label="Net Tax Paid" value={(paid.cgst || 0) + (paid.sgst || 0) + (paid.igst || 0)} color="#ffb74d" />
+        <KPI label="ITC Available" value={itc.total_paise || 0} color="var(--sage)" />
+        <KPI label="Net Tax Paid" value={(paid.cgst || 0) + (paid.sgst || 0) + (paid.igst || 0)} color="var(--amber)" />
       </div>
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-        <KPI label="Collections Received" value={cash.collections_paise || 0} color="#81c784" />
+        <KPI label="Collections Received" value={cash.collections_paise || 0} color="var(--sage)" />
         <KPI label="Vendor Payments Made" value={cash.payments_paise || 0} color="var(--rust)" />
       </div>
       {data.hsn_breakdown?.length > 0 && (

@@ -161,8 +161,8 @@ export function AccountsPage() {
         return (
           <span style={{
             padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 700,
-            background: isReceipt ? '#f0fdf4' : '#eff6ff',
-            color: isReceipt ? '#15803d' : '#2563eb',
+            background: isReceipt ? 'var(--sageW)' : 'var(--blueW)',
+            color: isReceipt ? 'var(--sage)' : 'var(--blue)',
             textTransform: 'capitalize',
           }}>{p.value || '—'}</span>
         );
@@ -472,10 +472,10 @@ export function AccountsPage() {
                       <td style={{ padding: '10px 14px', textAlign: 'right', color: entry.debit_paise > 0 ? 'var(--rust)' : 'var(--t3)' }}>
                         {entry.debit_paise > 0 ? formatINR(entry.debit_paise) : '—'}
                       </td>
-                      <td style={{ padding: '10px 14px', textAlign: 'right', color: entry.credit_paise > 0 ? '#2e7d32' : 'var(--t3)' }}>
+                      <td style={{ padding: '10px 14px', textAlign: 'right', color: entry.credit_paise > 0 ? 'var(--sage)' : 'var(--t3)' }}>
                         {entry.credit_paise > 0 ? formatINR(entry.credit_paise) : '—'}
                       </td>
-                      <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700, color: entry.balance_paise >= 0 ? 'var(--rust)' : '#2e7d32' }}>
+                      <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700, color: entry.balance_paise >= 0 ? 'var(--rust)' : 'var(--sage)' }}>
                         {formatINR(Math.abs(entry.balance_paise))} {entry.balance_paise >= 0 ? 'Dr' : 'Cr'}
                       </td>
                     </tr>

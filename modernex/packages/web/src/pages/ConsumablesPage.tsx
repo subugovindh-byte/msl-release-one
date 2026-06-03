@@ -9,16 +9,11 @@ import { useToastStore } from '@/store';
 import { PageHeader, ConfirmDialog, StatCard, ReceiptAttach } from '@/components/Shared';
 import { DataGridTable } from '@/components/DataGridTable';
 import { formatINR, selectOnFocus } from '@/utils/format';
+import { statusTone } from '@/styles/ui';
 
 const CATEGORIES = ['Consumables', 'Machinery Parts', 'Tools & Equipment', 'Safety & PPE', 'Office & Admin', 'Other'];
 const UNITS = ['Nos', 'Pcs', 'Set', 'Kg', 'Ltr', 'Mtr', 'Roll', 'Box', 'Pair'];
 const PAYMENT_MODES = ['Cash', 'Cheque', 'NEFT', 'RTGS', 'UPI'];
-const STATUS_COLORS: Record<string, string> = {
-  pending: 'var(--gold)', partial: '#d97706', paid: 'var(--sage)', cancelled: 'var(--red)',
-};
-const STATUS_BG: Record<string, string> = {
-  pending: '#fefce8', partial: '#fff7ed', paid: '#f0fdf4', cancelled: '#f3f4f6',
-};
 
 const BLANK_ITEM: CPItem = { description: '', qty: 1, unit: 'Nos', rate_paise: 0, amount_paise: 0 };
 
@@ -171,15 +166,14 @@ export function ConsumablesPage() {
       headerName: 'Balance', field: 'balance_paise', minWidth: 110, type: 'numericColumn',
       cellRenderer: (p: any) => {
         if (p.value == null || p.value <= 0) return '<span style="color:var(--sage);font-weight:700">Nil</span>';
-        return `<span style="color:#b91c1c;font-weight:700">${formatINR(p.value)}</span>`;
+        return `<span style="color:var(--red);font-weight:700">${formatINR(p.value)}</span>`;
       },
     },
     {
       headerName: 'Status', field: 'payment_status', minWidth: 110,
       cellRenderer: (p: any) => {
         const st = p.value ?? p.data?.status ?? 'pending';
-        const color = STATUS_COLORS[st] ?? 'var(--t3)';
-        const bg = STATUS_BG[st] ?? 'var(--bg3)';
+        const { color, bg } = statusTone(st);
         return `<span style="padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;background:${bg};color:${color};text-transform:capitalize">${st}</span>`;
       },
     },
@@ -201,7 +195,7 @@ export function ConsumablesPage() {
           <div style="display:flex;gap:6px;align-items:center;height:100%">
             <button class="btn-edit" data-id="${d.id}" style="padding:3px 10px;font-size:11px;font-weight:600;border:none;border-radius:4px;cursor:pointer;background:var(--blue);color:#fff">Edit</button>
             ${canPay ? `<button class="btn-pay" data-id="${d.id}" style="padding:3px 10px;font-size:11px;font-weight:600;border:none;border-radius:4px;cursor:pointer;background:var(--rust);color:#fff">₹ Pay</button>` : ''}
-            <button class="btn-cancel" data-id="${d.id}" style="padding:3px 10px;font-size:11px;font-weight:600;border:1px solid #b91c1c;border-radius:4px;cursor:pointer;background:transparent;color:#b91c1c">Cancel</button>
+            <button class="btn-cancel" data-id="${d.id}" style="padding:3px 10px;font-size:11px;font-weight:600;border:1px solid var(--red);border-radius:4px;cursor:pointer;background:transparent;color:var(--red)">Cancel</button>
           </div>`;
       },
       onCellClicked: (p: any) => {
@@ -235,7 +229,7 @@ export function ConsumablesPage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px,1fr))', gap: 14, marginBottom: 24 }}>
         <StatCard label="Total Spend" value={formatINR(totalSpend)} sub={`${active.length} purchases`} />
         <StatCard label="Outstanding Due" value={formatINR(pendingSpend)} sub="unpaid + partial" valueColor="var(--gold)" />
-        <StatCard label="Partial Payments" value={String(partialCount)} sub="in progress" valueColor="#d97706" />
+        <StatCard label="Partial Payments" value={String(partialCount)} sub="in progress" valueColor="var(--amber)" />
         <StatCard label="Fully Paid" value={String(paidCount)} sub="completed" valueColor="var(--sage)" />
       </div>
 
@@ -391,7 +385,7 @@ export function ConsumablesPage() {
             <div style={{ display: 'flex', gap: 14, background: 'var(--bg2)', padding: '10px 14px', borderRadius: 6, fontSize: 13, marginBottom: 16, flexWrap: 'wrap' }}>
               <span style={{ color: 'var(--t3)' }}>Total <strong style={{ color: 'var(--t1)' }}>{formatINR(payingCP.total_paise)}</strong></span>
               <span style={{ color: 'var(--t3)' }}>Paid <strong style={{ color: 'var(--sage)' }}>{formatINR(payingCP.paid_paise ?? 0)}</strong></span>
-              <span style={{ color: 'var(--t3)' }}>Due <strong style={{ color: '#b91c1c' }}>{formatINR(payingCP.balance_paise ?? payingCP.total_paise)}</strong></span>
+              <span style={{ color: 'var(--t3)' }}>Due <strong style={{ color: 'var(--red)' }}>{formatINR(payingCP.balance_paise ?? payingCP.total_paise)}</strong></span>
             </div>
             {/* Vendor advance banner */}
             {(() => {
@@ -399,10 +393,10 @@ export function ConsumablesPage() {
               const adv = vendor?.advance_paise ?? 0;
               if (adv <= 0) return null;
               return (
-                <label style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 6, padding: '10px 14px', cursor: 'pointer', marginBottom: 12 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--sageW)', border: '1px solid var(--sage)', borderRadius: 6, padding: '10px 14px', cursor: 'pointer', marginBottom: 12 }}>
                   <input type="checkbox" checked={payApplyAdvance} onChange={e => setPayApplyAdvance(e.target.checked)} />
                   <span style={{ fontSize: 13 }}>
-                    Apply vendor advance <strong style={{ color: '#15803d' }}>{formatINR(adv)}</strong> towards this payment
+                    Apply vendor advance <strong style={{ color: 'var(--sage)' }}>{formatINR(adv)}</strong> towards this payment
                   </span>
                 </label>
               );
@@ -486,7 +480,7 @@ export function ConsumablesPage() {
                 setCancelAdvanceCP(null);
                 await cancel.mutateAsync({ id: cp.id, advance_paid: true });
                 notify(`${cp.id} cancelled — ${formatINR(cp.paid_paise ?? 0)} credited to vendor advance`, 'success');
-              }} style={{ background: '#15803d', color: '#fff', border: 'none', borderRadius: 6, padding: '12px 16px', cursor: 'pointer', textAlign: 'left' }}>
+              }} style={{ background: 'var(--sage)', color: '#fff', border: 'none', borderRadius: 6, padding: '12px 16px', cursor: 'pointer', textAlign: 'left' }}>
                 <div style={{ fontWeight: 700, fontSize: 13 }}>Adjust against future purchase</div>
                 <div style={{ fontWeight: 400, fontSize: 12, opacity: 0.85, marginTop: 3 }}>
                   {formatINR(cancelAdvanceCP.paid_paise ?? 0)} credited to vendor advance
@@ -497,7 +491,7 @@ export function ConsumablesPage() {
                 setCancelAdvanceCP(null);
                 await cancel.mutateAsync({ id: cp.id, advance_paid: false });
                 notify(`${cp.id} cancelled`, 'success');
-              }} style={{ background: 'transparent', color: '#b91c1c', border: '1px solid #b91c1c', borderRadius: 6, padding: '12px 16px', cursor: 'pointer', textAlign: 'left' }}>
+              }} style={{ background: 'transparent', color: 'var(--red)', border: '1px solid var(--red)', borderRadius: 6, padding: '12px 16px', cursor: 'pointer', textAlign: 'left' }}>
                 <div style={{ fontWeight: 700, fontSize: 13 }}>Write off</div>
                 <div style={{ fontWeight: 400, fontSize: 12, opacity: 0.85, marginTop: 3 }}>
                   Treat the {formatINR(cancelAdvanceCP.paid_paise ?? 0)} as a loss
