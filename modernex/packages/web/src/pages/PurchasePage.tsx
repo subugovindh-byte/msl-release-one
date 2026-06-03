@@ -297,10 +297,98 @@ function POCard({ po, canManage, onApprove, onCancel, onDelete, onPay, onEdit, n
   );
 }
 
+// ── PO Table (compact list view) ─────────────────────────────────────────────
+function POTable({ pos, canManage, selectedIds, onToggle, onSelectAll, onApprove, onCancel, onDelete, onPay, onEdit, navigate }: {
+  pos: any[]; canManage: boolean; selectedIds: Set<string>;
+  onToggle: (id: string) => void; onSelectAll: (ids: string[]) => void;
+  onApprove: (id: string) => void; onCancel: (id: string) => void;
+  onDelete: (id: string) => void; onPay: (po: any) => void;
+  onEdit: (po: any) => void; navigate: (to: string) => void;
+}) {
+  const th: React.CSSProperties = {
+    textAlign: 'left', padding: '8px 10px', fontSize: 11, fontWeight: 700,
+    color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '0.04em',
+    background: 'var(--bg2)', borderBottom: '1px solid var(--bd)', whiteSpace: 'nowrap',
+  };
+  const td: React.CSSProperties = {
+    padding: '8px 10px', fontSize: 12, color: 'var(--t2)', borderBottom: '1px solid var(--bd)', whiteSpace: 'nowrap',
+  };
+  const allSel = pos.length > 0 && pos.every(p => selectedIds.has(p.id));
+
+  return (
+    <div style={{ overflowX: 'auto', border: '1px solid var(--bd)', borderRadius: 8 }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 880 }}>
+        <thead>
+          <tr>
+            <th style={{ ...th, width: 36 }}>
+              <input type="checkbox" checked={allSel} onChange={() => onSelectAll(pos.map(p => p.id))}
+                style={{ width: 15, height: 15, accentColor: 'var(--rust)', cursor: 'pointer' }} />
+            </th>
+            <th style={th}>PO ID</th>
+            <th style={th}>Date</th>
+            <th style={th}>Vendor</th>
+            <th style={th}>Variety</th>
+            <th style={{ ...th, textAlign: 'right' }}>Blocks</th>
+            <th style={{ ...th, textAlign: 'right' }}>Total</th>
+            <th style={{ ...th, textAlign: 'right' }}>Balance</th>
+            <th style={{ ...th, textAlign: 'center' }}>Status</th>
+            <th style={{ ...th, textAlign: 'right' }}>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {pos.map(po => {
+            const sm: StatusMeta = STATUS[po.status] ?? STATUS_FALLBACK;
+            const balance = po.balance_paise ?? (po.total_paise - (po.paid_paise ?? 0));
+            const isPaid = (po.paid_paise ?? 0) >= po.total_paise;
+            const canApprove = canManage && (po.status === 'new' || po.status === 'received');
+            const canPay = po.status === 'approved' && !isPaid;
+            const canEdit = canManage && po.status === 'new';
+            const canDel = canManage && (po.status === 'new' || po.status === 'cancelled') && (po.paid_paise ?? 0) === 0;
+            const canCancel = canManage && po.status !== 'cancelled';
+            const sel = selectedIds.has(po.id);
+            return (
+              <tr key={po.id} style={{ background: sel ? 'var(--rustW, rgba(180,80,40,0.06))' : 'var(--bg1)' }}>
+                <td style={td}>
+                  <input type="checkbox" checked={sel} onChange={() => onToggle(po.id)}
+                    style={{ width: 15, height: 15, accentColor: 'var(--rust)', cursor: 'pointer' }} />
+                </td>
+                <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700, color: 'var(--t1)' }}>{po.id}</td>
+                <td style={td}>{po.date ? new Date(po.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '—'}</td>
+                <td style={{ ...td, fontWeight: 600, color: 'var(--t1)' }}>{po.vendor_name || po.vendor_id}</td>
+                <td style={td}>{po.variety}</td>
+                <td style={{ ...td, textAlign: 'right' }}>{po.blocks}</td>
+                <td style={{ ...td, textAlign: 'right', fontWeight: 600, color: 'var(--t1)' }}>{formatINR(po.total_paise)}</td>
+                <td style={{ ...td, textAlign: 'right', fontWeight: 600, color: isPaid ? '#15803d' : '#b91c1c' }}>
+                  {isPaid ? '✓ Paid' : formatINR(balance)}
+                </td>
+                <td style={{ ...td, textAlign: 'center' }}>
+                  <span style={{ padding: '2px 9px', borderRadius: 20, fontSize: 10, fontWeight: 700, background: sm.bg, color: sm.color }}>{sm.label}</span>
+                </td>
+                <td style={{ ...td, textAlign: 'right' }}>
+                  <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
+                    {canApprove && <button onClick={() => onApprove(po.id)} title="Approve" style={{ ...btn('#15803d'), padding: '3px 8px', fontSize: 10 }}>✓</button>}
+                    {canPay && <button onClick={() => onPay(po)} title="Record Payment" style={{ ...btn('var(--rust)'), padding: '3px 8px', fontSize: 10 }}>₹</button>}
+                    <button onClick={() => navigate(`/purchase/${(po.id || '').replace(/\//g, '~')}`)} title="View" style={{ ...btn('var(--bg2)', 'var(--t1)', '1px solid var(--bd)'), padding: '3px 8px', fontSize: 10 }}>↗</button>
+                    {canEdit && <button onClick={() => onEdit(po)} title="Edit" style={{ ...btn('transparent', 'var(--t2)', '1px solid var(--bd)'), padding: '3px 8px', fontSize: 10 }}>✎</button>}
+                    {canCancel && <button onClick={() => onCancel(po.id)} title="Cancel PO" style={{ ...btn('transparent', '#b91c1c', '1px solid #b91c1c'), padding: '3px 8px', fontSize: 10 }}>✕</button>}
+                    {canDel && <button onClick={() => onDelete(po.id)} title="Delete" style={{ ...btn('transparent', '#b91c1c', '1px solid #b91c1c'), padding: '3px 8px', fontSize: 10 }}>🗑</button>}
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export function PurchasePage() {
   const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState('all');
+  const [viewMode, setViewMode] = useState<'cards' | 'list'>(() =>
+    (localStorage.getItem('po-view') as 'cards' | 'list') || 'cards');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState<'approve' | 'cancel' | 'delete' | null>(null);
   const [modal, setModal] = useState<'new' | 'edit' | 'pay' | 'bulk-confirm' | null>(null);
@@ -528,11 +616,27 @@ export function PurchasePage() {
           <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: 'var(--t1)' }}>Purchase Orders</h1>
           <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--t3)' }}>Manage raw material and block purchases</p>
         </div>
-        {canManage && (
-          <button onClick={() => setModal('new')} style={{ ...btn('var(--rust)'), fontSize: 13, padding: '9px 22px' }}>
-            + New PO
-          </button>
-        )}
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          {/* View toggle */}
+          <div style={{ display: 'flex', border: '1px solid var(--bd)', borderRadius: 6, overflow: 'hidden' }}>
+            {(['cards', 'list'] as const).map(v => (
+              <button key={v} onClick={() => { setViewMode(v); localStorage.setItem('po-view', v); }}
+                title={v === 'cards' ? 'Card view' : 'List view'}
+                style={{
+                  padding: '7px 12px', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                  background: viewMode === v ? 'var(--rust)' : 'transparent',
+                  color: viewMode === v ? '#fff' : 'var(--t3)',
+                }}>
+                {v === 'cards' ? '▦ Cards' : '☰ List'}
+              </button>
+            ))}
+          </div>
+          {canManage && (
+            <button onClick={() => setModal('new')} style={{ ...btn('var(--rust)'), fontSize: 13, padding: '9px 22px' }}>
+              + New PO
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Workflow pipeline indicator */}
@@ -610,15 +714,23 @@ export function PurchasePage() {
               </>
             )}
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {pos.map(po => (
-              <POCard key={po.id} po={po} canManage={canManage}
-                onApprove={handleApprove} onCancel={handleCancel}
-                onDelete={handleDelete} onPay={handlePay}
-                onEdit={handleEdit} navigate={navigate}
-                isSelected={selectedIds.has(po.id)} onToggle={handleToggleSelect} />
-            ))}
-          </div>
+          {viewMode === 'cards' ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {pos.map(po => (
+                <POCard key={po.id} po={po} canManage={canManage}
+                  onApprove={handleApprove} onCancel={handleCancel}
+                  onDelete={handleDelete} onPay={handlePay}
+                  onEdit={handleEdit} navigate={navigate}
+                  isSelected={selectedIds.has(po.id)} onToggle={handleToggleSelect} />
+              ))}
+            </div>
+          ) : (
+            <POTable pos={pos} canManage={canManage} selectedIds={selectedIds}
+              onToggle={handleToggleSelect} onSelectAll={handleSelectAll}
+              onApprove={handleApprove} onCancel={handleCancel}
+              onDelete={(id) => { if (window.confirm(`Delete PO ${id}? This cannot be undone.`)) handleDelete(id); }}
+              onPay={handlePay} onEdit={handleEdit} navigate={navigate} />
+          )}
         </>
       )}
 
