@@ -240,6 +240,7 @@ interface CartState {
   addItem: (product: CartProduct) => 'added' | 'updated' | 'max_stock';
   removeItem: (productId: string) => void;
   adjustQuantity: (productId: string, delta: number) => void;
+  setQuantity: (productId: string, quantity: number) => void;
   setRate: (productId: string, rateRupees: number) => void;
   setCustomerId: (id: string) => void;
   clearCart: () => void;
@@ -275,6 +276,16 @@ export const useCartStore = create<CartState>()(
           items: get().items.map((i) => {
             if (i.product.id !== productId) return i;
             return { ...i, quantity: Math.max(1, Math.min(i.product.stock ?? 99, i.quantity + delta)) };
+          }),
+        });
+      },
+
+      setQuantity: (productId, quantity) => {
+        set({
+          items: get().items.map((i) => {
+            if (i.product.id !== productId) return i;
+            const q = Number.isFinite(quantity) ? Math.floor(quantity) : 1;
+            return { ...i, quantity: Math.max(1, Math.min(i.product.stock ?? 99, q)) };
           }),
         });
       },

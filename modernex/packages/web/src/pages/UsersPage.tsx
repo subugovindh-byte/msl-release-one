@@ -201,14 +201,14 @@ export function UsersPage() {
         const isLocked = u.locked_until && new Date(u.locked_until) > new Date();
         return (
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', height: '100%' }}>
-            <button onClick={() => openEdit(u)} style={btn('var(--blue)')}>Edit</button>
-            <button onClick={() => openRoles(u)} style={btn('var(--sage)')}>Roles</button>
-            <button onClick={() => handleReset(u)} style={btn('var(--gold)')}>Reset PW</button>
-            {isLocked && <button onClick={() => handleUnlock(u)} style={btn('var(--amber)')}>Unlock</button>}
+            <button onClick={() => openEdit(u)} style={gbtn()}>✎ Edit</button>
+            <button onClick={() => openRoles(u)} style={gbtn()}>⊞ Roles</button>
+            <button onClick={() => handleReset(u)} style={gbtn()}>↻ Reset PW</button>
+            {isLocked && <button onClick={() => handleUnlock(u)} style={gbtn('var(--amber)')}>⊙ Unlock</button>}
             {!isMe && (
               <button onClick={() => u.active ? handleToggleActive(u) : setConfirmDelete(u)}
-                style={btn(u.active ? 'var(--red)' : 'var(--sage)')}>
-                {u.active ? 'Deactivate' : 'Reactivate'}
+                style={gbtn(u.active ? 'var(--red)' : 'var(--sage)')}>
+                {u.active ? '✕ Deactivate' : '✓ Reactivate'}
               </button>
             )}
           </div>
@@ -226,8 +226,8 @@ export function UsersPage() {
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={() => { setPanel({ mode: 'reset-all' }); setResetAllPw(''); }}
-            style={{ padding: '10px 20px', backgroundColor: 'var(--amber)', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 14 }}>
-            Reset All Passwords
+            style={{ padding: '10px 18px', background: 'transparent', color: 'var(--t2)', border: '1px solid var(--bd)', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+            ↻ Reset All Passwords
           </button>
           <button onClick={() => { setPanel({ mode: 'create' }); setCreateForm({ ...BLANK_CREATE }); }}
             style={{ padding: '10px 20px', backgroundColor: 'var(--rust)', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 14 }}>
@@ -437,5 +437,14 @@ function btn(color: string, large = false): React.CSSProperties {
     border: 'none', borderRadius: large ? 5 : 4,
     cursor: 'pointer', fontWeight: 600,
     fontSize: large ? 13 : 11, whiteSpace: 'nowrap',
+  };
+}
+
+// Neutral ghost row-action button; pass an accent for text-only emphasis.
+function gbtn(accent?: string): React.CSSProperties {
+  return {
+    padding: '4px 10px', background: 'transparent', color: accent || 'var(--t2)',
+    border: '1px solid var(--bd)', borderRadius: 4, cursor: 'pointer',
+    fontWeight: 600, fontSize: 11, whiteSpace: 'nowrap',
   };
 }

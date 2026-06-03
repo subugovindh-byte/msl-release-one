@@ -42,6 +42,7 @@ export function POSPage() {
     addItem,
     removeItem,
     adjustQuantity,
+    setQuantity,
     setRate,
     setCustomerId,
     clearCart,
@@ -565,9 +566,22 @@ export function POSPage() {
                     </div>
                     <div className="ci-bot">
                       <div className="qty">
-                        <button className="qb" onClick={() => adjustQuantity(item.product.id, -1)}>−</button>
-                        <div className="qn">{item.quantity}</div>
-                        <button className="qb" onClick={() => adjustQuantity(item.product.id, 1)}>+</button>
+                        <button className="qb" onClick={() => adjustQuantity(item.product.id, -1)} title="Decrease">−</button>
+                        <input
+                          className="qn"
+                          type="number"
+                          min={1}
+                          max={item.product.stock ?? 99}
+                          value={item.quantity}
+                          onChange={(e) => setQuantity(item.product.id, parseInt(e.target.value, 10))}
+                          onFocus={(e) => e.target.select()}
+                          style={{
+                            width: 48, textAlign: 'center', border: '1px solid var(--bd)',
+                            borderRadius: 5, background: 'var(--bg1)', color: 'var(--t1)',
+                            fontSize: 13, fontWeight: 700, padding: '4px 2px', MozAppearance: 'textfield',
+                          }}
+                        />
+                        <button className="qb" onClick={() => adjustQuantity(item.product.id, 1)} title="Increase">+</button>
                       </div>
                       <div className="ci-tot">
                         {formatCurrency(getCartRatePaise(item) * getUomQty(item.product) * item.quantity)}
