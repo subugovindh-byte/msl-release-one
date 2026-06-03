@@ -59,6 +59,7 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
   const [form, setForm] = useState<FormState>(BLANK());
   const [photos, setPhotos] = useState<{ data_url: string; caption: string }[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const photoRef = useRef<HTMLInputElement>(null);    // camera
   const galleryRef = useRef<HTMLInputElement>(null);  // gallery
   const create = useCreateBlockInspection();
@@ -77,17 +78,22 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
   };
   const activeDefects = form.defect_note ? form.defect_note.split(', ').map(s => s.trim()).filter(Boolean) : [];
 
-  // Photo capture from camera
-  const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
-    if (!files.length) return;
-    files.forEach(file => {
-      if (file.size > 4 * 1024 * 1024) { toast('Photo must be < 4 MB', 'error'); return; }
+  // Shared file ingest — used by camera, gallery picker, and drag-drop
+  const addFiles = (files: File[]) => {
+    const images = files.filter(f => f.type.startsWith('image/'));
+    if (!images.length) return;
+    const room = 10 - photos.length;
+    if (room <= 0) { toast('Maximum 10 photos', 'error'); return; }
+    images.slice(0, room).forEach(file => {
+      if (file.size > 4 * 1024 * 1024) { toast(`${file.name || 'Photo'} is over 4 MB`, 'error'); return; }
       const reader = new FileReader();
       reader.onload = () => setPhotos(p => [...p, { data_url: reader.result as string, caption: '' }]);
       reader.readAsDataURL(file);
     });
-    if (photoRef.current) photoRef.current.value = '';
+  };
+  const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+    addFiles(Array.from(e.target.files ?? []));
+    e.target.value = '';
   };
   const removePhoto = (idx: number) => setPhotos(p => p.filter((_, i) => i !== idx));
 
@@ -240,38 +246,56 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
           value={form.notes} placeholder="Any other remark…" onChange={e => set('notes', e.target.value)} />
 
         {/* ── PHOTOS ── */}
-        <label style={lbl}>Photos <span style={{ fontWeight:400, textTransform:'none' }}>({photos.length}/10 · tap thumbnails to remove)</span></label>
-        {/* Thumbnail strip */}
-        {photos.length > 0 && (
-          <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:10 }}>
-            {photos.map((ph, i) => (
-              <div key={i} style={{ position:'relative' }}>
-                <img src={ph.data_url} alt="" style={{ width:72, height:72, objectFit:'cover', borderRadius:8, border:'2px solid var(--bd)' }} />
-                <button type="button" onClick={() => removePhoto(i)} style={{
-                  position:'absolute', top:-6, right:-6, width:20, height:20, borderRadius:'50%',
-                  background:'var(--red)', color:'#fff', border:'none', fontSize:13, lineHeight:1,
-                  cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
-                }}>×</button>
-              </div>
-            ))}
-          </div>
-        )}
+        <label style={lbl}>Photos <span style={{ fontWeight:400, textTransform:'none' }}>({photos.length}/10)</span></label>
+
         {/* Hidden inputs — one for camera, one for gallery */}
         <input ref={photoRef} type="file" accept="image/*" capture="environment" multiple
           style={{ display:'none' }} onChange={handlePhotoCapture} />
         <input ref={galleryRef} type="file" accept="image/*" multiple
           style={{ display:'none' }} onChange={handlePhotoCapture} />
+
+        {/* Tile grid: thumbnails + add-dropzone as the last cell */}
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(84px, 1fr))', gap:10, marginBottom:18 }}>
+          {photos.map((ph, i) => (
+            <div key={i} style={{ position:'relative', aspectRatio:'1', borderRadius:10, overflow:'hidden', border:'1px solid var(--bd)' }}>
+              <img src={ph.data_url} alt="" style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} />
+              {/* gradient + remove */}
+              <button type="button" onClick={() => removePhoto(i)} title="Remove" style={{
+                position:'absolute', top:5, right:5, width:24, height:24, borderRadius:'50%',
+                background:'rgba(0,0,0,0.55)', color:'#fff', border:'none', fontSize:15, lineHeight:1,
+                cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', backdropFilter:'blur(2px)',
+              }}>×</button>
+              <span style={{ position:'absolute', bottom:4, left:6, fontSize:10, fontWeight:700, color:'#fff', textShadow:'0 1px 2px rgba(0,0,0,0.6)' }}>{i + 1}</span>
+            </div>
+          ))}
+
+          {/* Add / dropzone tile */}
+          {photos.length < 10 && (
+            <button type="button"
+              onClick={() => galleryRef.current?.click()}
+              onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={e => { e.preventDefault(); setDragOver(false); addFiles(Array.from(e.dataTransfer.files)); }}
+              style={{
+                aspectRatio:'1', borderRadius:10, cursor:'pointer',
+                border:`2px dashed ${dragOver ? 'var(--rust)' : 'var(--bd)'}`,
+                background: dragOver ? 'var(--rustW)' : 'var(--bg1)',
+                color: dragOver ? 'var(--rust)' : 'var(--t3)',
+                display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:3,
+                transition:'all 0.15s', touchAction:'manipulation',
+              }}>
+              <span style={{ fontSize:26, fontWeight:300, lineHeight:1 }}>+</span>
+              <span style={{ fontSize:10, fontWeight:600 }}>Add</span>
+            </button>
+          )}
+        </div>
+
+        {/* Camera shortcut — direct capture (mobile) / harmless on desktop */}
         {photos.length < 10 && (
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:18 }}>
-            <button type="button" onClick={() => photoRef.current?.click()}
-              style={{ ...btn('var(--rust)'), fontSize:13, padding:'11px 0' }}>
-              📷 Camera
-            </button>
-            <button type="button" onClick={() => galleryRef.current?.click()}
-              style={{ ...btn('var(--blue)'), fontSize:13, padding:'11px 0' }}>
-              🖼 Gallery
-            </button>
-          </div>
+          <button type="button" onClick={() => photoRef.current?.click()}
+            style={{ ...btn('transparent', 'var(--t2)', '1px solid var(--bd)'), width:'100%', fontSize:13, padding:'10px 0', marginBottom:18, display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+            <span style={{ fontSize:15 }}>📷</span> Take a photo
+          </button>
         )}
 
         {/* ── Actions ── */}
