@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   useBlockInspections, useVendors, useCreateBlockInspection,
@@ -20,6 +20,88 @@ const btn = (bg: string, color = '#fff', border = 'none'): React.CSSProperties =
   padding: '7px 16px', background: bg, color, border, borderRadius: 5,
   fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
 });
+
+// ── Cross-platform camera capture (Mac webcam + mobile rear camera) ──
+function CameraCapture({ onCapture, onClose, onFallback }: {
+  onCapture: (dataUrl: string) => void; onClose: () => void; onFallback: () => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [ready, setReady] = useState(false);
+  const [err, setErr] = useState('');
+  const [facing, setFacing] = useState<'environment' | 'user'>('environment');
+  const [shots, setShots] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing }, audio: false });
+        if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play().catch(() => {});
+        }
+        setReady(true);
+      } catch (e: any) {
+        setErr(e?.name === 'NotAllowedError' ? 'Camera permission was denied' : 'No camera found on this device');
+      }
+    })();
+    return () => { cancelled = true; streamRef.current?.getTracks().forEach(t => t.stop()); };
+  }, [facing]);
+
+  function snap() {
+    const v = videoRef.current; if (!v || !v.videoWidth) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = v.videoWidth; canvas.height = v.videoHeight;
+    const ctx = canvas.getContext('2d'); if (!ctx) return;
+    if (facing === 'user') { ctx.translate(canvas.width, 0); ctx.scale(-1, 1); } // un-mirror selfie
+    ctx.drawImage(v, 0, 0);
+    onCapture(canvas.toDataURL('image/jpeg', 0.85));
+    setShots(s => s + 1);
+  }
+
+  const ovBtn = (extra?: React.CSSProperties): React.CSSProperties => ({
+    padding: '8px 16px', background: 'transparent', color: '#fff',
+    border: '1px solid rgba(255,255,255,0.45)', borderRadius: 6,
+    fontSize: 13, fontWeight: 600, cursor: 'pointer', ...extra,
+  });
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', zIndex: 1200,
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      {err ? (
+        <div style={{ textAlign: 'center', color: '#fff', maxWidth: 320 }}>
+          <p style={{ fontSize: 14, marginBottom: 16, lineHeight: 1.5 }}>{err}. You can choose an image file instead.</p>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+            <button onClick={onClose} style={ovBtn()}>Cancel</button>
+            <button onClick={() => { onClose(); onFallback(); }} style={{ ...ovBtn(), background: 'var(--rust)', border: 'none' }}>Choose File</button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div style={{ width: '100%', maxWidth: 600, borderRadius: 12, overflow: 'hidden', background: '#000', position: 'relative' }}>
+            <video ref={videoRef} playsInline muted
+              style={{ width: '100%', display: 'block', transform: facing === 'user' ? 'scaleX(-1)' : 'none' }} />
+            {shots > 0 && (
+              <span style={{ position: 'absolute', top: 10, right: 12, background: 'var(--sage)', color: '#fff', fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 20 }}>
+                {shots} captured
+              </span>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 18, alignItems: 'center', marginTop: 22 }}>
+            <button onClick={onClose} style={ovBtn()}>Done</button>
+            <button onClick={snap} disabled={!ready} title="Capture"
+              style={{ width: 66, height: 66, borderRadius: '50%', border: '4px solid #fff',
+                background: ready ? 'var(--rust)' : 'rgba(255,255,255,0.3)', cursor: ready ? 'pointer' : 'default' }} />
+            <button onClick={() => { setReady(false); setFacing(f => f === 'environment' ? 'user' : 'environment'); }} style={ovBtn()}>⟲ Flip</button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 const GRADE_COLORS: Record<string, { color: string; bg: string }> = {
   'A+': { color: 'var(--sage)',  bg: 'var(--sageW)' },
@@ -60,7 +142,8 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
   const [photos, setPhotos] = useState<{ data_url: string; caption: string }[]>([]);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
-  const photoRef = useRef<HTMLInputElement>(null);    // camera
+  const [showCamera, setShowCamera] = useState(false);
+  const photoRef = useRef<HTMLInputElement>(null);    // native camera fallback
   const galleryRef = useRef<HTMLInputElement>(null);  // gallery
   const create = useCreateBlockInspection();
   const addPhoto = useAddInspectionPhoto();
@@ -95,7 +178,15 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
     addFiles(Array.from(e.target.files ?? []));
     e.target.value = '';
   };
+  const pushDataUrl = (dataUrl: string) => setPhotos(p => (p.length >= 10 ? p : [...p, { data_url: dataUrl, caption: '' }]));
   const removePhoto = (idx: number) => setPhotos(p => p.filter((_, i) => i !== idx));
+
+  // Take a photo: prefer live getUserMedia (works on Mac webcam + mobile);
+  // fall back to the native file-capture input if the API is unavailable.
+  const openCamera = () => {
+    if (navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function') setShowCamera(true);
+    else photoRef.current?.click();
+  };
 
   const submit = async () => {
     if (!form.variety) { toast('Tap a variety first', 'error'); return; }
@@ -131,6 +222,13 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
   };
 
   return (
+    <>
+    {showCamera && (
+      <CameraCapture
+        onCapture={pushDataUrl}
+        onClose={() => setShowCamera(false)}
+        onFallback={() => photoRef.current?.click()} />
+    )}
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', zIndex:1000,
       display:'flex', alignItems:'flex-end', justifyContent:'center' }}>
       <div style={{ background:'var(--bg0)', borderRadius:'16px 16px 0 0', width:'100%', maxWidth:560,
@@ -291,9 +389,9 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
           )}
         </div>
 
-        {/* Camera shortcut — direct capture (mobile) / harmless on desktop */}
+        {/* Camera shortcut — live webcam (Mac) / rear camera (mobile) */}
         {photos.length < 10 && (
-          <button type="button" onClick={() => photoRef.current?.click()}
+          <button type="button" onClick={openCamera}
             style={{ ...btn('transparent', 'var(--t2)', '1px solid var(--bd)'), width:'100%', fontSize:13, padding:'10px 0', marginBottom:18, display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
             <span style={{ fontSize:15 }}>⊙</span> Take a photo
           </button>
@@ -311,6 +409,7 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
         </div>
       </div>
     </div>
+    </>
   );
 }
 
