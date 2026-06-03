@@ -262,8 +262,18 @@ purchaseRouter.patch('/:id/status',
       }
 
       const tx = db.transaction(() => {
-        db.prepare('UPDATE purchase_orders SET status = ?, updated_by = ? WHERE id = ?')
-          .run(status, req.user.username, req.params.id);
+        // Set status and the corresponding timestamp column
+        const tsCol = status === 'received' ? 'received_at'
+                    : status === 'approved'  ? 'approved_at'
+                    : status === 'cancelled' ? 'cancelled_at' : null;
+        const nowISO = new Date().toISOString();
+        if (tsCol) {
+          db.prepare(`UPDATE purchase_orders SET status = ?, ${tsCol} = ?, updated_by = ? WHERE id = ?`)
+            .run(status, nowISO, req.user.username, req.params.id);
+        } else {
+          db.prepare('UPDATE purchase_orders SET status = ?, updated_by = ? WHERE id = ?')
+            .run(status, req.user.username, req.params.id);
+        }
 
         // When cancelling a partially-paid PO, optionally credit the paid
         // amount as a vendor advance for adjustment against future purchases.

@@ -603,14 +603,40 @@ export function PurchaseOrderReceiptPage() {
           <div>4. This PO is subject to quality inspection on receipt.</div>
         </div>
 
+        {/* Status Audit Trail */}
+        <div style={{ marginTop: 14, padding: '10px 14px', background: '#f7f5f2', border: '1px solid rgba(26,22,18,.1)', borderRadius: 4 }}>
+          <div className="receipt-label" style={{ marginBottom: 8 }}>Status History</div>
+          <div style={{ display: 'flex', gap: 0, flexWrap: 'wrap' }}>
+            {[
+              { key: 'created_at',   label: 'Created',   color: '#2563eb' },
+              { key: 'received_at',  label: 'Received',  color: '#64748b' },
+              { key: 'approved_at',  label: 'Approved',  color: '#16a34a' },
+              { key: 'cancelled_at', label: 'Cancelled', color: '#dc2626' },
+            ].map(({ key, label, color }, idx) => {
+              const ts = (po as any)[key];
+              return (
+                <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+                  {idx > 0 && (
+                    <div style={{ width: 24, height: 1, background: ts ? color : 'rgba(26,22,18,.15)', margin: '0 2px', alignSelf: 'center' }} />
+                  )}
+                  <div style={{ textAlign: 'center', opacity: ts ? 1 : 0.35 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: ts ? color : 'rgba(26,22,18,.2)', margin: '0 auto 4px' }} />
+                    <div style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: ts ? color : 'rgba(26,22,18,.4)', marginBottom: 2 }}>{label}</div>
+                    <div style={{ fontSize: 9, color: 'rgba(26,22,18,.6)', fontFamily: "'IBM Plex Mono', monospace", whiteSpace: 'nowrap' }}>
+                      {ts ? new Date(ts).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Footer */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 32, marginTop: 28, paddingTop: 16, borderTop: '2px solid rgba(26,22,18,.12)', alignItems: 'end' }}>
           <div style={{ fontSize: 10, color: 'rgba(26,22,18,.45)', lineHeight: 1.9 }}>
             <div>This is a computer-generated purchase order.</div>
             <div>Prepared by: <strong style={{ color: 'rgba(26,22,18,.65)' }}>{po.created_by ?? '—'}</strong></div>
-            {po.created_at && (
-              <div>Created: {new Date(po.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</div>
-            )}
           </div>
           <div style={{ textAlign: 'right', minWidth: 160 }}>
             <div style={{ fontSize: 10, color: 'rgba(26,22,18,.55)', marginBottom: 40, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
