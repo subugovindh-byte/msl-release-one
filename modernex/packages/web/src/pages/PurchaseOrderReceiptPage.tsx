@@ -71,6 +71,75 @@ export function PurchaseOrderReceiptPage() {
     QRCode.toDataURL(decodedId, { width: 80, margin: 1, color: { dark: '#1a1612', light: '#ffffff' } })
       .then(setQrDataUrl).catch(() => {});
   }, [decodedId]);
+
+  async function printBlockStickers() {
+    if (!poData?.po) return;
+    const p = poData.po as any;
+    const url = window.location.href;
+    // Generate a large, high-res QR for the sticker
+    const stickerQR = await QRCode.toDataURL(url, {
+      width: 300, margin: 2,
+      color: { dark: '#000000', light: '#ffffff' },
+      errorCorrectionLevel: 'M',
+    });
+    const blockCount = p.blocks ?? 1;
+    const dateStr = p.date ? new Date(p.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+    // Build one sticker div per block
+    const stickers = Array.from({ length: blockCount }, (_, i) => `
+      <div class="sticker">
+        <div class="sticker-top">
+          <div class="company">MODERNEX STONES</div>
+          <div class="tag">GRANITE BLOCK</div>
+        </div>
+        <img class="qr" src="${stickerQR}" alt="QR" />
+        <div class="po-id">${p.id}</div>
+        <div class="meta">${p.vendor_name ?? p.vendor_id ?? ''}</div>
+        <div class="meta">${p.variety ?? ''} &nbsp;·&nbsp; Block ${i + 1} of ${blockCount}</div>
+        <div class="meta date">${dateStr}</div>
+        <div class="scan-hint">Scan to open PO &amp; mark inspection</div>
+      </div>
+    `).join('');
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Block QR Stickers — ${p.id}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #fff; font-family: 'Helvetica Neue', Arial, sans-serif; }
+  .page { display: flex; flex-wrap: wrap; gap: 8mm; padding: 8mm; }
+  .sticker {
+    width: 75mm; border: 1.5px solid #222; border-radius: 4mm;
+    padding: 4mm; display: flex; flex-direction: column;
+    align-items: center; gap: 2mm; background: #fff;
+    page-break-inside: avoid;
+  }
+  .sticker-top { width: 100%; display: flex; justify-content: space-between; align-items: baseline; }
+  .company { font-size: 7pt; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: #1a1612; }
+  .tag { font-size: 6pt; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+         background: #1a1612; color: #fff; padding: 1.5mm 3mm; border-radius: 2mm; }
+  .qr { width: 52mm; height: 52mm; display: block; border: 1px solid #e5e5e5; border-radius: 2mm; }
+  .po-id { font-family: 'Courier New', monospace; font-size: 13pt; font-weight: 900;
+           letter-spacing: -0.5px; color: #1a1612; text-align: center; }
+  .meta { font-size: 7pt; color: #555; text-align: center; }
+  .date { color: #888; font-size: 6.5pt; }
+  .scan-hint { font-size: 6pt; color: #aaa; letter-spacing: 0.8px; text-transform: uppercase;
+               border-top: 1px dashed #ddd; width: 100%; text-align: center; padding-top: 2mm; margin-top: 1mm; }
+  @media print {
+    @page { size: A4 portrait; margin: 8mm; }
+    body { background: white; }
+    .sticker { border-color: #000; }
+  }
+</style>
+</head>
+<body>
+<div class="page">${stickers}</div>
+<script>window.onload = function(){ window.print(); }<\/script>
+</body>
+</html>`;
+    const win = window.open('', '_blank', 'width=800,height=700');
+    if (win) { win.document.write(html); win.document.close(); }
+  }
   const [showGRNForm, setShowGRNForm] = useState(false);
   const [grnForm, setGrnForm] = useState({ ...BLANK_GRN });
   const [showTransportForm, setShowTransportForm] = useState(false);
@@ -240,6 +309,13 @@ export function PurchaseOrderReceiptPage() {
               {showPayForm ? 'Cancel' : '+ Record Payment'}
             </button>
           )}
+          <button
+            onClick={printBlockStickers}
+            title={`Print ${po.blocks ?? 1} QR sticker${(po.blocks ?? 1) !== 1 ? 's' : ''} — one per block`}
+            style={{ padding: '8px 16px', background: '#0f172a', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+          >
+            🏷 Sticker{(po.blocks ?? 1) > 1 ? ` ×${po.blocks}` : ''}
+          </button>
           <button
             onClick={() => window.print()}
             style={{ padding: '8px 20px', background: 'var(--t1)', color: 'var(--bg1)', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
