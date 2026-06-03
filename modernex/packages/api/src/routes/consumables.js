@@ -42,7 +42,17 @@ consumablesRouter.get('/', requireRole(...ALLOWED), (req, res, next) => {
     sql += ` ORDER BY date DESC, created_at DESC`;
     const rows = db.prepare(sql).all(...params);
 
-    const purchases = rows.map(r => ({ ...r, items: JSON.parse(r.items || '[]') }));
+    const paidStmt = db.prepare(
+      `SELECT COALESCE(SUM(amount_paise),0) AS v FROM payments WHERE cp_id = ? AND type = 'payment'`
+    );
+    const purchases = rows.map(r => {
+      const paid_paise = paidStmt.get(r.id)?.v ?? 0;
+      const balance_paise = r.total_paise - paid_paise;
+      const payment_status = paid_paise === 0 ? 'unpaid'
+        : paid_paise >= r.total_paise ? 'paid'
+        : 'partial';
+      return { ...r, items: JSON.parse(r.items || '[]'), paid_paise, balance_paise, payment_status };
+    });
     res.json({ purchases });
   } catch (err) { next(err); }
 });

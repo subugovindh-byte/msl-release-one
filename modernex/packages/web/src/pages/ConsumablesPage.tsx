@@ -1,18 +1,23 @@
 import { useState } from 'react';
 import {
   useConsumablePurchases, useCreateConsumablePurchase,
-  useUpdateConsumablePurchase, useCancelConsumablePurchase,
+  useUpdateConsumablePurchase, useCancelConsumablePurchase, useCreatePayment,
   type ConsumablePurchase, type CPItem,
 } from '@/hooks/useApi';
 import { useToastStore } from '@/store';
 import { PageHeader, ConfirmDialog, StatCard, ReceiptAttach } from '@/components/Shared';
 import { DataGridTable } from '@/components/DataGridTable';
-import { formatINR } from '@/utils/format';
+import { formatINR, selectOnFocus } from '@/utils/format';
 
 const CATEGORIES = ['Consumables', 'Machinery Parts', 'Tools & Equipment', 'Safety & PPE', 'Office & Admin', 'Other'];
 const UNITS = ['Nos', 'Pcs', 'Set', 'Kg', 'Ltr', 'Mtr', 'Roll', 'Box', 'Pair'];
 const PAYMENT_MODES = ['Cash', 'Cheque', 'NEFT', 'RTGS', 'UPI'];
-const STATUS_COLORS: Record<string, string> = { pending: 'var(--gold)', paid: 'var(--sage)', cancelled: 'var(--red)' };
+const STATUS_COLORS: Record<string, string> = {
+  pending: 'var(--gold)', partial: '#d97706', paid: 'var(--sage)', cancelled: 'var(--red)',
+};
+const STATUS_BG: Record<string, string> = {
+  pending: '#fefce8', partial: '#fff7ed', paid: '#f0fdf4', cancelled: '#f3f4f6',
+};
 
 const BLANK_ITEM: CPItem = { description: '', qty: 1, unit: 'Nos', rate_paise: 0, amount_paise: 0 };
 
@@ -31,7 +36,14 @@ export function ConsumablesPage() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<ConsumablePurchase | null>(null);
   const [toCancel, setToCancel] = useState<ConsumablePurchase | null>(null);
-  const [markPaid, setMarkPaid] = useState<ConsumablePurchase | null>(null);
+  const [payingCP, setPayingCP] = useState<ConsumablePurchase | null>(null);
+  const [payAmount, setPayAmount] = useState<'full' | 'custom'>('full');
+  const [payCustom, setPayCustom] = useState('');
+  const [payMode, setPayMode] = useState('NEFT');
+  const [payDate, setPayDate] = useState(new Date().toISOString().slice(0, 10));
+  const [payUtr, setPayUtr] = useState('');
+  const [payNotes, setPayNotes] = useState('');
+  const createPayment = useCreatePayment();
 
   // ── form state ──
   const blank = { date: today(), vendor_name: '', vendor_id: '', category: 'Consumables', payment_mode: '', reference_no: '', notes: '', receipt_url: '' };
@@ -83,19 +95,42 @@ export function ConsumablesPage() {
     } catch (err: any) { notify(err.message || 'Failed', 'error'); }
   }
 
-  async function handleMarkPaid() {
-    if (!markPaid) return;
+  function openPayModal(cp: ConsumablePurchase) {
+    setPayingCP(cp);
+    setPayAmount('full');
+    setPayCustom('');
+    setPayMode('NEFT');
+    setPayDate(new Date().toISOString().slice(0, 10));
+    setPayUtr('');
+    setPayNotes('');
+  }
+
+  async function handlePaySubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!payingCP) return;
+    const balance = payingCP.balance_paise ?? (payingCP.total_paise - (payingCP.paid_paise ?? 0));
+    const amount = payAmount === 'full' ? balance : Math.round((parseFloat(payCustom) || 0) * 100);
+    if (amount <= 0) { notify('Enter a valid amount', 'error'); return; }
     try {
-      await update.mutateAsync({ id: markPaid.id, status: 'paid' });
-      notify(`${markPaid.id} marked as paid`, 'success');
-      setMarkPaid(null);
-    } catch (err: any) { notify(err.message || 'Failed', 'error'); }
+      await createPayment.mutateAsync({
+        cp_id: payingCP.id, type: 'payment',
+        amount_paise: amount, mode: payMode,
+        utr: payUtr || undefined, date: payDate,
+        notes: payNotes || undefined,
+        party: payingCP.vendor_name,
+      });
+      notify('Payment recorded', 'success');
+      setPayingCP(null);
+    } catch (err: any) { notify(err.message || 'Failed to record payment', 'error'); }
   }
 
   // ── summary stats ──
-  const totalSpend = purchases.filter(p => p.status !== 'cancelled').reduce((s, p) => s + p.total_paise, 0);
-  const pendingSpend = purchases.filter(p => p.status === 'pending').reduce((s, p) => s + p.total_paise, 0);
-  const paidCount = purchases.filter(p => p.status === 'paid').length;
+  const active = purchases.filter(p => p.status !== 'cancelled');
+  const totalSpend = active.reduce((s, p) => s + p.total_paise, 0);
+  const pendingSpend = active.filter(p => p.payment_status !== 'paid')
+    .reduce((s, p) => s + (p.balance_paise ?? p.total_paise), 0);
+  const partialCount = active.filter(p => p.payment_status === 'partial').length;
+  const paidCount = active.filter(p => p.payment_status === 'paid').length;
 
   // ── AG Grid columns ──
   const colDefs: any[] = [
@@ -112,10 +147,23 @@ export function ConsumablesPage() {
       valueFormatter: (p: any) => formatINR(p.value),
     },
     {
-      headerName: 'Status', field: 'status', minWidth: 100,
+      headerName: 'Paid', field: 'paid_paise', minWidth: 110, type: 'numericColumn',
+      valueFormatter: (p: any) => p.value != null ? formatINR(p.value) : '—',
+    },
+    {
+      headerName: 'Balance', field: 'balance_paise', minWidth: 110, type: 'numericColumn',
       cellRenderer: (p: any) => {
-        const color = STATUS_COLORS[p.value] ?? 'var(--t3)';
-        return `<span style="color:${color};font-weight:700;text-transform:capitalize">${p.value}</span>`;
+        if (p.value == null || p.value <= 0) return '<span style="color:var(--sage);font-weight:700">Nil</span>';
+        return `<span style="color:#b91c1c;font-weight:700">${formatINR(p.value)}</span>`;
+      },
+    },
+    {
+      headerName: 'Status', field: 'payment_status', minWidth: 110,
+      cellRenderer: (p: any) => {
+        const st = p.value ?? p.data?.status ?? 'pending';
+        const color = STATUS_COLORS[st] ?? 'var(--t3)';
+        const bg = STATUS_BG[st] ?? 'var(--bg3)';
+        return `<span style="padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;background:${bg};color:${color};text-transform:capitalize">${st}</span>`;
       },
     },
     { headerName: 'Mode', field: 'payment_mode', minWidth: 90 },
@@ -127,15 +175,16 @@ export function ConsumablesPage() {
         : '<span style="color:var(--t3);font-size:11px">—</span>',
     },
     {
-      headerName: 'Actions', minWidth: 180, sortable: false, filter: false,
+      headerName: 'Actions', minWidth: 220, sortable: false, filter: false,
       cellRenderer: (p: any) => {
         const d = p.data as ConsumablePurchase;
         if (d.status === 'cancelled') return '<span style="color:var(--t3);font-size:11px">Cancelled</span>';
+        const canPay = d.payment_status !== 'paid';
         return `
           <div style="display:flex;gap:6px;align-items:center;height:100%">
             <button class="btn-edit" data-id="${d.id}" style="padding:3px 10px;font-size:11px;font-weight:600;border:none;border-radius:4px;cursor:pointer;background:var(--blue);color:#fff">Edit</button>
-            ${d.status === 'pending' ? `<button class="btn-pay" data-id="${d.id}" style="padding:3px 10px;font-size:11px;font-weight:600;border:none;border-radius:4px;cursor:pointer;background:var(--sage);color:#fff">Mark Paid</button>` : ''}
-            <button class="btn-cancel" data-id="${d.id}" style="padding:3px 10px;font-size:11px;font-weight:600;border:none;border-radius:4px;cursor:pointer;background:var(--red);color:#fff">Cancel</button>
+            ${canPay ? `<button class="btn-pay" data-id="${d.id}" style="padding:3px 10px;font-size:11px;font-weight:600;border:none;border-radius:4px;cursor:pointer;background:var(--rust);color:#fff">₹ Pay</button>` : ''}
+            <button class="btn-cancel" data-id="${d.id}" style="padding:3px 10px;font-size:11px;font-weight:600;border:1px solid #b91c1c;border-radius:4px;cursor:pointer;background:transparent;color:#b91c1c">Cancel</button>
           </div>`;
       },
       onCellClicked: (p: any) => {
@@ -145,7 +194,7 @@ export function ConsumablesPage() {
         const row = purchases.find(x => x.id === id);
         if (!row) return;
         if (btn.classList.contains('btn-edit')) openEdit(row);
-        if (btn.classList.contains('btn-pay')) setMarkPaid(row);
+        if (btn.classList.contains('btn-pay')) openPayModal(row);
         if (btn.classList.contains('btn-cancel')) setToCancel(row);
       },
     },
@@ -161,9 +210,10 @@ export function ConsumablesPage() {
 
       {/* ── Stats ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px,1fr))', gap: 14, marginBottom: 24 }}>
-        <StatCard label="Total Spend" value={formatINR(totalSpend)} sub={`${purchases.filter(p => p.status !== 'cancelled').length} purchases`} />
-        <StatCard label="Pending Payment" value={formatINR(pendingSpend)} sub="unpaid" valueColor="var(--gold)" />
-        <StatCard label="Paid" value={String(paidCount)} sub="completed" valueColor="var(--sage)" />
+        <StatCard label="Total Spend" value={formatINR(totalSpend)} sub={`${active.length} purchases`} />
+        <StatCard label="Outstanding Due" value={formatINR(pendingSpend)} sub="unpaid + partial" valueColor="var(--gold)" />
+        <StatCard label="Partial Payments" value={String(partialCount)} sub="in progress" valueColor="#d97706" />
+        <StatCard label="Fully Paid" value={String(paidCount)} sub="completed" valueColor="var(--sage)" />
       </div>
 
       {/* ── Filters ── */}
@@ -171,6 +221,7 @@ export function ConsumablesPage() {
         <select className="fi" style={{ width: 'auto' }} value={filters.status ?? 'all'} onChange={e => setFilters(f => ({ ...f, status: e.target.value }))}>
           <option value="all">All Status</option>
           <option value="pending">Pending</option>
+          <option value="partial">Partial</option>
           <option value="paid">Paid</option>
           <option value="cancelled">Cancelled</option>
         </select>
@@ -302,15 +353,86 @@ export function ConsumablesPage() {
         onConfirm={async () => { if (toCancel) { await cancel.mutateAsync(toCancel.id); notify(`${toCancel.id} cancelled`, 'success'); setToCancel(null); } }}
         onCancel={() => setToCancel(null)}
       />
-      <ConfirmDialog
-        open={!!markPaid}
-        title={`Mark ${markPaid?.id} as paid?`}
-        message={`Total: ${formatINR(markPaid?.total_paise ?? 0)}`}
-        confirmLabel="Mark Paid"
-        loading={update.isPending}
-        onConfirm={handleMarkPaid}
-        onCancel={() => setMarkPaid(null)}
-      />
+
+      {/* ── Record Payment Modal ── */}
+      {payingCP && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+          onClick={e => { if (e.target === e.currentTarget) setPayingCP(null); }}>
+          <div style={{ background: 'var(--bg1)', border: '1px solid var(--bd)', borderRadius: 12, padding: 28, width: 440, maxWidth: '95vw', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Record Payment</h3>
+              <div style={{ fontSize: 13, color: 'var(--t3)', marginTop: 4 }}>
+                {payingCP.id} — {payingCP.vendor_name} · {payingCP.category}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 14, background: 'var(--bg2)', padding: '10px 14px', borderRadius: 6, fontSize: 13, marginBottom: 16, flexWrap: 'wrap' }}>
+              <span style={{ color: 'var(--t3)' }}>Total <strong style={{ color: 'var(--t1)' }}>{formatINR(payingCP.total_paise)}</strong></span>
+              <span style={{ color: 'var(--t3)' }}>Paid <strong style={{ color: 'var(--sage)' }}>{formatINR(payingCP.paid_paise ?? 0)}</strong></span>
+              <span style={{ color: 'var(--t3)' }}>Due <strong style={{ color: '#b91c1c' }}>{formatINR(payingCP.balance_paise ?? payingCP.total_paise)}</strong></span>
+            </div>
+            <form onSubmit={handlePaySubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 6 }}>Amount *</label>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                  {(['full', 'custom'] as const).map(opt => (
+                    <button key={opt} type="button" onClick={() => setPayAmount(opt)} style={{
+                      padding: '7px 14px', borderRadius: 5, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                      border: '1px solid var(--bd)',
+                      background: payAmount === opt ? 'var(--rust)' : 'transparent',
+                      color: payAmount === opt ? '#fff' : 'var(--t2)',
+                    }}>
+                      {opt === 'full'
+                        ? `Full — ${formatINR(payingCP.balance_paise ?? payingCP.total_paise)}`
+                        : 'Custom'}
+                    </button>
+                  ))}
+                </div>
+                {payAmount === 'custom' && (
+                  <input type="number" min="0.01" step="0.01" required
+                    style={{ background: 'var(--bg1)', border: '1px solid var(--bd)', borderRadius: 5, color: 'var(--t1)', fontSize: 13, padding: '7px 10px', width: '100%', boxSizing: 'border-box' }}
+                    value={payCustom} onChange={e => setPayCustom(e.target.value)}
+                    placeholder="Amount in ₹" onFocus={selectOnFocus} />
+                )}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 4 }}>Mode *</label>
+                  <select style={{ background: 'var(--bg1)', border: '1px solid var(--bd)', borderRadius: 5, color: 'var(--t1)', fontSize: 13, padding: '7px 10px', width: '100%' }}
+                    value={payMode} onChange={e => setPayMode(e.target.value)} required>
+                    {PAYMENT_MODES.map(m => <option key={m}>{m}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 4 }}>Date *</label>
+                  <input type="date"
+                    style={{ background: 'var(--bg1)', border: '1px solid var(--bd)', borderRadius: 5, color: 'var(--t1)', fontSize: 13, padding: '7px 10px', width: '100%', boxSizing: 'border-box' }}
+                    value={payDate} onChange={e => setPayDate(e.target.value)} required />
+                </div>
+              </div>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 4 }}>UTR / Reference</label>
+                <input
+                  style={{ background: 'var(--bg1)', border: '1px solid var(--bd)', borderRadius: 5, color: 'var(--t1)', fontSize: 13, padding: '7px 10px', width: '100%', boxSizing: 'border-box' }}
+                  value={payUtr} onChange={e => setPayUtr(e.target.value)} placeholder="Transaction ID (optional)" />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 4 }}>Notes</label>
+                <input
+                  style={{ background: 'var(--bg1)', border: '1px solid var(--bd)', borderRadius: 5, color: 'var(--t1)', fontSize: 13, padding: '7px 10px', width: '100%', boxSizing: 'border-box' }}
+                  value={payNotes} onChange={e => setPayNotes(e.target.value)} placeholder="Optional" />
+              </div>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                <button type="button" onClick={() => setPayingCP(null)}
+                  style={{ padding: '7px 16px', background: 'transparent', color: 'var(--t2)', border: '1px solid var(--bd)', borderRadius: 5, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
+                <button type="submit" disabled={createPayment.isPending}
+                  style={{ padding: '7px 16px', background: 'var(--rust)', color: '#fff', border: 'none', borderRadius: 5, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                  {createPayment.isPending ? 'Saving…' : `Record ${payAmount === 'full' ? formatINR(payingCP.balance_paise ?? payingCP.total_paise) : 'Payment'}`}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

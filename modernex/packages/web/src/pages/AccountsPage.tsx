@@ -126,25 +126,83 @@ export function AccountsPage() {
 
   const paymentsColDefs = useMemo<ColDef[]>(() => [
     {
+      headerName: 'ID',
+      field: 'id',
+      minWidth: 130,
+      pinned: 'left',
+      cellRenderer: (p: any) => (
+        <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--t1)', fontWeight: 700 }}>{p.value}</span>
+      ),
+    },
+    {
       headerName: 'Date',
       field: 'date',
       minWidth: 120,
-      valueFormatter: (p) => p.value ? new Date(p.value).toLocaleDateString() : '—',
+      valueFormatter: (p) => p.value ? new Date(p.value).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—',
     },
-    { headerName: 'Invoice', field: 'invoice_id', minWidth: 140 },
     {
-      headerName: 'Method',
-      field: 'method',
-      minWidth: 130,
+      headerName: 'Type',
+      field: 'type',
+      minWidth: 100,
+      cellRenderer: (p: any) => {
+        const isReceipt = p.value === 'receipt';
+        return (
+          <span style={{
+            padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 700,
+            background: isReceipt ? '#f0fdf4' : '#eff6ff',
+            color: isReceipt ? '#15803d' : '#2563eb',
+            textTransform: 'capitalize',
+          }}>{p.value || '—'}</span>
+        );
+      },
+    },
+    {
+      headerName: 'Party',
+      field: 'party',
+      minWidth: 170,
+      flex: 2,
+      valueFormatter: (p) => p.value || '—',
+    },
+    {
+      headerName: 'Invoice / PO / CP',
+      colId: 'ref_doc',
+      minWidth: 160,
+      valueGetter: (p) => p.data?.invoice_id || p.data?.po_id || p.data?.cp_id || '—',
+      cellRenderer: (p: any) => {
+        const inv = p.data?.invoice_id;
+        const po = p.data?.po_id;
+        const cp = p.data?.cp_id;
+        if (inv) return (
+          <a href={`/invoice/${inv.replace(/\//g, '~')}`} target="_blank" rel="noopener noreferrer"
+            style={{ fontSize: 12, color: 'var(--t2)', textDecoration: 'none', fontFamily: 'monospace' }}>
+            {inv} ↗
+          </a>
+        );
+        if (po) return (
+          <a href={`/purchase/${po.replace(/\//g, '~')}`} target="_blank" rel="noopener noreferrer"
+            style={{ fontSize: 12, color: 'var(--t2)', textDecoration: 'none', fontFamily: 'monospace' }}>
+            {po} ↗
+          </a>
+        );
+        if (cp) return (
+          <span style={{ fontSize: 12, color: 'var(--t2)', fontFamily: 'monospace' }}>{cp}</span>
+        );
+        return <span style={{ color: 'var(--t3)' }}>—</span>;
+      },
+    },
+    {
+      headerName: 'Mode',
+      field: 'mode',
+      minWidth: 110,
       cellRenderer: (p: any) => (
-        <span style={{ padding: '2px 8px', backgroundColor: 'var(--bg3)', color: 'var(--t2)', borderRadius: 10, fontSize: 11, fontWeight: 600, textTransform: 'capitalize' }}>
-          {p.value}
+        <span style={{ padding: '2px 8px', backgroundColor: 'var(--bg3)', color: 'var(--t2)', borderRadius: 10, fontSize: 11, fontWeight: 600 }}>
+          {p.value || '—'}
         </span>
       ),
     },
     {
-      headerName: 'Reference',
-      field: 'reference',
+      headerName: 'UTR / Ref',
+      field: 'utr',
       minWidth: 150,
       valueFormatter: (p) => p.value || '—',
     },
@@ -156,26 +214,11 @@ export function AccountsPage() {
       valueFormatter: (p) => formatINR(p.value),
     },
     {
-      headerName: '',
-      colId: 'receipt',
-      minWidth: 110,
-      maxWidth: 130,
-      sortable: false,
-      filter: false,
-      floatingFilter: false,
-      cellRenderer: (p: any) => {
-        if (!p.data?.invoice_id) return <span style={{ fontSize: 11, color: 'var(--t3)' }}>—</span>;
-        return (
-          <a
-            href={`/invoice/${(p.data.invoice_id || '').replace(/\//g, '~')}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ fontSize: 11, color: 'var(--t2)', textDecoration: 'none', fontFamily: "'IBM Plex Mono', monospace" }}
-          >
-            Receipt ↗
-          </a>
-        );
-      },
+      headerName: 'Notes',
+      field: 'notes',
+      minWidth: 160,
+      flex: 1,
+      valueFormatter: (p) => p.value || '—',
     },
   ], []);
 

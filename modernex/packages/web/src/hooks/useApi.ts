@@ -999,7 +999,10 @@ export interface ConsumablePurchase {
   payment_mode?: string;
   reference_no?: string;
   notes?: string;
-  status: 'pending' | 'paid' | 'cancelled';
+  status: 'pending' | 'partial' | 'paid' | 'cancelled';
+  paid_paise?: number;
+  balance_paise?: number;
+  payment_status?: 'unpaid' | 'partial' | 'paid';
   created_at: string;
   created_by: string;
   receipt_url?: string;

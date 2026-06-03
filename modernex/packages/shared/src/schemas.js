@@ -259,6 +259,7 @@ export const paymentCreateSchema = z.object({
   type: z.enum(['receipt', 'payment']),
   invoice_id: z.string().optional(),
   po_id: z.string().optional(),
+  cp_id: z.string().optional(),
   party: z.string().min(1),
   amount_paise: z.number().int().positive(),
   mode: z.enum(PAYMENT_MODES),
