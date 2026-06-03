@@ -152,7 +152,7 @@ function POCard({ po, canManage, onApprove, onCancel, onDelete, onPay, onEdit, n
   const isPaid = (po.paid_paise ?? 0) >= po.total_paise;
   const isPartial = !isPaid && (po.paid_paise ?? 0) > 0;
   const canEdit = canManage && (po.status === 'new');
-  const canDel = canManage && (po.status === 'new' || po.status === 'cancelled');
+  const canDel = canManage && (po.status === 'new' || po.status === 'cancelled') && (po.paid_paise ?? 0) === 0;
   const canApprove = canManage && (po.status === 'new' || po.status === 'received');
   const canCancel = canManage && po.status !== 'cancelled';
   const canPay = po.status === 'approved' && !isPaid;
@@ -430,7 +430,7 @@ export function PurchasePage() {
       if (!po) return false;
       if (bulkAction === 'approve') return po.status === 'new' || po.status === 'received';
       if (bulkAction === 'cancel') return po.status !== 'cancelled';
-      if (bulkAction === 'delete') return po.status === 'new' || po.status === 'cancelled';
+      if (bulkAction === 'delete') return (po.status === 'new' || po.status === 'cancelled') && (po.paid_paise ?? 0) === 0;
       return false;
     });
     const skipped = selectedIds.size - eligible.length;
