@@ -135,30 +135,50 @@ export function POSPage() {
   const [addingCustomer, setAddingCustomer] = useState(false);
   const BLANK_CUST = { name: '', gstin: '', state: 'Tamil Nadu', contact: '', credit_days: 30 };
   const [newCust, setNewCust] = useState(BLANK_CUST);
+  const [custError, setCustError] = useState('');
+  // Customers created this session — merged into the list so checkout finds
+  // them immediately, before the background refetch lands.
+  const [sessionCustomers, setSessionCustomers] = useState<Customer[]>([]);
+
+  // A GSTIN, if provided, must be exactly 15 alphanumerics. Empty is allowed.
+  const gstinValid = !newCust.gstin.trim() || /^[0-9A-Z]{15}$/i.test(newCust.gstin.trim());
 
   async function handleAddCustomer(e: React.FormEvent) {
     e.preventDefault();
-    if (!newCust.name.trim()) { notify('Customer name is required', 'error'); return; }
+    setCustError('');
+    if (!newCust.name.trim()) { setCustError('Customer name is required'); return; }
+    if (!gstinValid) { setCustError('GSTIN must be exactly 15 characters (e.g. 33AABCV1234A1Z5), or leave it blank'); return; }
     try {
       const created: any = await createCustomerMutation.mutateAsync({
         name: newCust.name.trim(),
-        gstin: newCust.gstin.trim() || undefined,
+        gstin: newCust.gstin.trim().toUpperCase() || undefined,
         state: newCust.state,
         contact: newCust.contact.trim() || undefined,
         credit_days: Number(newCust.credit_days) || 0,
       } as any);
-      const id = created?.customer?.id || created?.id;
-      if (id) setCustomerId(id);
+      const cust = (created?.customer ?? created) as Customer;
+      if (cust?.id) {
+        setSessionCustomers(prev => [...prev.filter(c => c.id !== cust.id), cust]);
+        setCustomerId(cust.id);
+      }
       setNewCust(BLANK_CUST);
       setAddingCustomer(false);
       notify(`Customer "${newCust.name}" added`, 'success');
     } catch (err: any) {
-      notify(err?.message || 'Failed to add customer', 'error');
+      const msg = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Failed to add customer';
+      setCustError(msg);
+      notify(msg, 'error');
     }
   }
 
   const products: PosProduct[] = (productsResponse?.products || []) as unknown as PosProduct[];
-  const customers: Customer[] = (customersResponse?.customers || []) as Customer[];
+  const fetchedCustomers: Customer[] = (customersResponse?.customers || []) as Customer[];
+  // Merge session-created customers (deduped) so a just-added customer is
+  // selectable and usable at checkout even before the list refetch lands.
+  const customers: Customer[] = [
+    ...fetchedCustomers,
+    ...sessionCustomers.filter(sc => !fetchedCustomers.some(fc => fc.id === sc.id)),
+  ];
 
   useEffect(() => {
     if (!selectedCustomerId && customers.length > 0) {
@@ -496,11 +516,14 @@ export function POSPage() {
                   />
                   <input
                     className="fi"
-                    placeholder="GSTIN (optional)"
+                    placeholder="GSTIN (optional — 15 chars)"
                     value={newCust.gstin}
-                    onChange={e => setNewCust(c => ({ ...c, gstin: e.target.value }))}
-                    style={{ fontSize: 11 }}
+                    onChange={e => { setNewCust(c => ({ ...c, gstin: e.target.value })); setCustError(''); }}
+                    style={{ fontSize: 11, borderColor: newCust.gstin && !gstinValid ? 'var(--red)' : undefined, textTransform: 'uppercase' }}
                   />
+                  {custError && (
+                    <div style={{ fontSize: 10, color: 'var(--red)', fontWeight: 600, lineHeight: 1.4 }}>{custError}</div>
+                  )}
                   <select
                     className="fsel"
                     value={newCust.state}
@@ -527,12 +550,13 @@ export function POSPage() {
                     />
                   </div>
                   <div style={{ display: 'flex', gap: 5, marginTop: 2 }}>
-                    <button type="submit" disabled={createCustomerMutation.isPending}
+                    <button type="submit" disabled={createCustomerMutation.isPending || !gstinValid || !newCust.name.trim()}
                       style={{ flex: 1, padding: '5px 0', fontSize: 11, fontWeight: 700,
-                        background: 'var(--rust)', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
+                        background: 'var(--rust)', color: '#fff', border: 'none', borderRadius: 4,
+                        cursor: 'pointer', opacity: (!gstinValid || !newCust.name.trim()) ? 0.5 : 1 }}>
                       {createCustomerMutation.isPending ? 'Saving…' : 'Save'}
                     </button>
-                    <button type="button" onClick={() => { setAddingCustomer(false); setNewCust(BLANK_CUST); }}
+                    <button type="button" onClick={() => { setAddingCustomer(false); setNewCust(BLANK_CUST); setCustError(''); }}
                       style={{ padding: '5px 10px', fontSize: 11,
                         background: 'var(--bg3)', color: 'var(--t2)', border: '1px solid var(--bd)', borderRadius: 4, cursor: 'pointer' }}>
                       Cancel
