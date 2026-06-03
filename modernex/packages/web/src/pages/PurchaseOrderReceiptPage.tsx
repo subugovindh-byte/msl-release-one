@@ -140,6 +140,118 @@ export function PurchaseOrderReceiptPage() {
     const win = window.open('', '_blank', 'width=800,height=700');
     if (win) { win.document.write(html); win.document.close(); }
   }
+
+  async function printRibbon() {
+    if (!poData?.po) return;
+    const p = poData.po as any;
+    const url = window.location.href;
+    const ribbonQR = await QRCode.toDataURL(url, {
+      width: 200, margin: 1,
+      color: { dark: '#000000', light: '#ffffff' },
+      errorCorrectionLevel: 'M',
+    });
+    const fp = (v: number) => '\u20b9' + (v / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+    const fd = (iso: string | null | undefined) => iso
+      ? new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+      : '\u2014';
+    const row = (lbl: string, val: string, bold = false) =>
+      `<tr${bold ? ' class="b"' : ''}><td class="l">${lbl}</td><td class="v">${val}</td></tr>`;
+    const tax  = p.taxable_paise ?? 0;
+    const gstV = p.gst_paise ?? 0;
+    const tot  = p.total_paise ?? 0;
+    const cg   = Math.round(gstV / 2);
+    const sg   = gstV - cg;
+    const tr   = p.transport_paise ?? 0;
+    const mat  = tax - tr;
+    const paid = p.paid_paise ?? 0;
+    const bal  = p.balance_paise ?? (tot - paid);
+    const payLbl = p.payment_status ?? (paid === 0 ? 'unpaid' : paid >= tot ? 'paid' : 'partial');
+    const statusHistory = [
+      ['Created',   p.created_at],
+      ['Received',  p.received_at],
+      ['Approved',  p.approved_at],
+      ['Cancelled', p.cancelled_at],
+    ].filter(([, ts]) => ts)
+     .map(([lbl, ts]) => row(lbl as string, fd(ts as string)))
+     .join('');
+    const coName  = co?.name  ?? 'MODERNEX STONES LLP';
+    const coCity  = co?.city  ?? 'Krishnagiri';
+    const coState = co?.state ?? 'Tamil Nadu';
+    const coGstin = co?.gstin ?? '33ACGFM7745J1ZW';
+    const hsnCode = co?.hsn   ?? '2516';
+    const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>${p.id} \u2014 80mm</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#fff;font-family:'Courier New',Courier,monospace;font-size:9pt;color:#000;width:76mm;padding:4mm 3mm}
+  .co{font-size:11pt;font-weight:900;letter-spacing:1px;text-transform:uppercase;text-align:center;margin-bottom:1mm}
+  .sub{font-size:7pt;color:#555;text-align:center;line-height:1.6;margin-bottom:2mm}
+  .rule{border:none;border-top:1px dashed #000;margin:2.5mm 0}
+  .solid{border:none;border-top:2px solid #000;margin:2.5mm 0}
+  .hdr{font-size:7pt;font-weight:900;letter-spacing:2px;text-transform:uppercase;text-align:center;background:#000;color:#fff;padding:1mm 0;margin:2mm 0 1.5mm}
+  table{width:100%;border-collapse:collapse}
+  td{padding:.5mm 0;vertical-align:top;font-size:8.5pt}
+  td.l{color:#555;width:42%}
+  td.v{font-weight:600;text-align:right;color:#000}
+  tr.b td{font-weight:900;font-size:10.5pt;color:#000}
+  .po-id{font-size:14pt;font-weight:900;text-align:center;letter-spacing:-.5px;margin:1mm 0}
+  .badge{display:block;font-size:8pt;font-weight:900;letter-spacing:2px;text-transform:uppercase;border:1.5px solid #000;padding:1mm 0;text-align:center;margin:1.5mm 0}
+  .qr{display:block;width:44mm;height:44mm;margin:3mm auto 1mm}
+  .scan{font-size:6.5pt;color:#888;text-align:center;letter-spacing:1px;text-transform:uppercase}
+  @media print{@page{size:80mm auto;margin:3mm 2mm}body{width:76mm}}
+</style></head>
+<body>
+  <div class="co">${coName}</div>
+  <div class="sub">GSTIN: ${coGstin}<br>${coCity}, ${coState}</div>
+  <hr class="solid">
+  <div class="hdr">Purchase Order</div>
+  <div class="po-id">${p.id}</div>
+  <div class="sub">${fd(p.date)}</div>
+  <div class="badge">${(p.status ?? '').toUpperCase()}</div>
+  <hr class="rule">
+  <div class="hdr">Vendor</div>
+  <div style="text-align:center;font-weight:700;font-size:9.5pt;margin-bottom:1mm">${p.vendor_name ?? p.vendor_id ?? '\u2014'}</div>
+  ${p.vendor_gstin ? `<div class="sub">GST: ${p.vendor_gstin}</div>` : ''}
+  <hr class="rule">
+  <div class="hdr">Material</div>
+  <table>
+    ${row('Variety', p.variety ?? '\u2014')}
+    ${row('Blocks', String(p.blocks ?? '\u2014'))}
+    ${row('Volume', `${p.cft ?? 0} CFT`)}
+    ${row('Rate/CFT', fp(p.rate_per_cft_paise ?? 0))}
+    ${row('HSN', hsnCode)}
+  </table>
+  <hr class="rule">
+  <div class="hdr">Amount</div>
+  <table>
+    ${row('Material', fp(mat))}
+    ${tr > 0 ? row('Transport', fp(tr)) : ''}
+    ${row('Taxable', fp(tax))}
+    ${row(`CGST @${CGST_RATE_LABEL}%`, fp(cg))}
+    ${row(`SGST @${SGST_RATE_LABEL}%`, fp(sg))}
+  </table>
+  <hr class="solid">
+  <table>${row('TOTAL', fp(tot), true)}</table>
+  <hr class="rule">
+  <div class="hdr">Payment</div>
+  <table>
+    ${row('Status', payLbl.toUpperCase())}
+    ${paid > 0 ? row('Paid', fp(paid)) : ''}
+    ${bal > 0 ? row('Balance Due', fp(bal)) : ''}
+  </table>
+  ${p.notes ? `<hr class="rule"><div style="font-size:7.5pt;color:#555;font-style:italic">Note: ${p.notes}</div>` : ''}
+  ${statusHistory ? `<hr class="rule"><div class="hdr">Status History</div><table>${statusHistory}</table>` : ''}
+  <hr class="rule">
+  <img class="qr" src="${ribbonQR}" alt="QR">
+  <div class="scan">Scan to open PO</div>
+  <hr class="solid">
+  <div style="font-size:6pt;color:#aaa;text-align:center;margin-top:1mm">Computer generated</div>
+<script>window.onload=function(){window.print()}<\/script>
+</body></html>`;
+    const win = window.open('', '_blank', 'width=360,height=720');
+    if (win) { win.document.write(html); win.document.close(); }
+  }
+
   const [showGRNForm, setShowGRNForm] = useState(false);
   const [grnForm, setGrnForm] = useState({ ...BLANK_GRN });
   const [showTransportForm, setShowTransportForm] = useState(false);
@@ -316,12 +428,23 @@ export function PurchaseOrderReceiptPage() {
           >
             🏷 Sticker{(po.blocks ?? 1) > 1 ? ` ×${po.blocks}` : ''}
           </button>
-          <button
-            onClick={() => window.print()}
-            style={{ padding: '8px 20px', background: 'var(--t1)', color: 'var(--bg1)', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
-          >
-            ⎙ Print / Save PDF
-          </button>
+          {/* Print size group */}
+          <div style={{ display: 'flex', border: '1px solid var(--t1)', borderRadius: 4, overflow: 'hidden' }}>
+            <button
+              onClick={() => window.print()}
+              title="Print full A4 purchase order"
+              style={{ padding: '8px 14px', background: 'var(--t1)', color: 'var(--bg1)', border: 'none', borderRight: '1px solid rgba(255,255,255,.25)', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+            >
+              ⎙ A4
+            </button>
+            <button
+              onClick={printRibbon}
+              title="Print condensed 80mm ribbon / thermal receipt"
+              style={{ padding: '8px 14px', background: 'var(--t1)', color: 'var(--bg1)', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+            >
+              ≡ 80mm
+            </button>
+          </div>
         </div>
       </div>
 
