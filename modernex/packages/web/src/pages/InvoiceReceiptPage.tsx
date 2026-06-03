@@ -217,6 +217,80 @@ export function InvoiceReceiptPage() {
     return { ...item, resolvedTaxable, resolvedCgst, resolvedSgst, resolvedIgst, resolvedTotal };
   });
 
+  async function printRibbon() {
+    const url = window.location.href;
+    const qr = await QRCode.toDataURL(url, { width: 200, margin: 1, color: { dark: '#000', light: '#fff' }, errorCorrectionLevel: 'M' });
+    const fp = (v: number) => '₹' + (v / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+    const fd = (iso: string) => iso ? new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+    const coCity = co?.city ?? 'Krishnagiri';
+    const coState = co?.state ?? 'Tamil Nadu';
+    const itemRows = derivedItems.map((it: any) => {
+      const qty = Number(it.qty ?? it.quantity ?? 0);
+      const uomQty = Number(it.uom_qty ?? it.sqft ?? 1);
+      const rate = Number(it.rate_paise ?? it.ratePaise ?? 0);
+      const name = it.variety ?? it.description ?? it.product_id ?? '—';
+      const sub = `${qty}${it.uom ? ' ' + it.uom : ''} × ${fp(rate)}${uomQty && uomQty !== 1 ? ` × ${uomQty}` : ''}`;
+      return `<tr><td class="nm">${name}<div class="sub">${sub}</div></td><td class="v">${fp(it.resolvedTotal)}</td></tr>`;
+    }).join('');
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${invNum} — 80mm</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#fff;font-family:'Courier New',Courier,monospace;font-size:9pt;color:#000;width:76mm;padding:4mm 3mm}
+  .co{font-size:11pt;font-weight:900;letter-spacing:1px;text-transform:uppercase;text-align:center;margin-bottom:1mm}
+  .sub{font-size:7pt;color:#555;text-align:center;line-height:1.6}
+  .rule{border:none;border-top:1px dashed #000;margin:2.5mm 0}
+  .solid{border:none;border-top:2px solid #000;margin:2.5mm 0}
+  .hdr{font-size:7pt;font-weight:900;letter-spacing:2px;text-transform:uppercase;text-align:center;background:#000;color:#fff;padding:1mm 0;margin:2mm 0 1.5mm}
+  table{width:100%;border-collapse:collapse}
+  td{padding:.6mm 0;vertical-align:top;font-size:8.5pt}
+  td.l{color:#555;width:50%}
+  td.v{font-weight:700;text-align:right;color:#000;white-space:nowrap}
+  td.nm{font-weight:700}
+  td.nm .sub{font-size:7pt;color:#555;text-align:left;font-weight:400}
+  tr.b td{font-weight:900;font-size:11pt}
+  .inv-id{font-size:13pt;font-weight:900;text-align:center;letter-spacing:-.5px;margin:1mm 0}
+  .qr{display:block;width:42mm;height:42mm;margin:3mm auto 1mm}
+  .scan{font-size:6.5pt;color:#888;text-align:center;letter-spacing:1px;text-transform:uppercase}
+  .foot{font-size:6.5pt;color:#888;text-align:center;margin-top:2mm;line-height:1.6}
+  @media print{@page{size:80mm auto;margin:3mm 2mm}body{width:76mm}}
+</style></head>
+<body>
+  <div class="co">${COMPANY}</div>
+  <div class="sub">GSTIN: ${GSTIN}<br>${coCity}, ${coState}</div>
+  <hr class="solid">
+  <div class="hdr">Tax Invoice</div>
+  <div class="inv-id">${invNum}</div>
+  <div class="sub">${fd(invDate)}</div>
+  <hr class="rule">
+  <div class="hdr">Bill To</div>
+  <div style="text-align:center;font-weight:700;font-size:9.5pt;margin-bottom:1mm">${inv.customer_name ?? inv.customerName ?? '—'}</div>
+  ${(inv.customer_gstin ?? inv.customerGstin) ? `<div class="sub">GST: ${inv.customer_gstin ?? inv.customerGstin}</div>` : ''}
+  ${pos ? `<div class="sub">Place of supply: ${pos}</div>` : ''}
+  <hr class="rule">
+  <div class="hdr">Items</div>
+  <table>${itemRows}</table>
+  <hr class="rule">
+  <table>
+    <tr><td class="l">Taxable</td><td class="v">${fp(taxable)}</td></tr>
+    ${isIGST
+      ? `<tr><td class="l">IGST ${IGST_RATE_LABEL}</td><td class="v">${fp(igst)}</td></tr>`
+      : `<tr><td class="l">CGST ${CGST_RATE_LABEL}</td><td class="v">${fp(cgst)}</td></tr>
+         <tr><td class="l">SGST ${SGST_RATE_LABEL}</td><td class="v">${fp(sgst)}</td></tr>`}
+    ${roundOff ? `<tr><td class="l">Round off</td><td class="v">${fp(roundOff)}</td></tr>` : ''}
+  </table>
+  <hr class="solid">
+  <table><tr class="b"><td>TOTAL</td><td class="v">${fp(grandTotal)}</td></tr></table>
+  <hr class="rule">
+  <div class="sub" style="font-weight:600;color:#000">${amountInWords(grandTotal)}</div>
+  <img class="qr" src="${qr}"/>
+  <div class="scan">Scan to view invoice</div>
+  <div class="foot">This is a computer-generated invoice.<br>Thank you for your business!</div>
+  <script>window.onload=()=>{window.print();}<\/script>
+</body></html>`;
+    const w = window.open('', '_blank', 'width=380,height=640');
+    if (w) { w.document.write(html); w.document.close(); }
+  }
+
   const handleBack = () => {
     if (typeof window !== 'undefined' && typeof document !== 'undefined' && document.referrer) {
       try {
@@ -248,12 +322,22 @@ export function InvoiceReceiptPage() {
         >
           ← Back
         </button>
-        <button
-          onClick={() => window.print()}
-          style={{ padding: '8px 20px', background: 'var(--t1)', color: 'var(--bg1)', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
-        >
-          ⎙ Print / Save PDF
-        </button>
+        <div style={{ display: 'flex', border: '1px solid var(--bd)', borderRadius: 5, overflow: 'hidden' }}>
+          <button
+            onClick={() => window.print()}
+            title="Print full A4 tax invoice / save as PDF"
+            style={{ padding: '8px 16px', background: 'var(--t1)', color: 'var(--bg1)', border: 'none', borderRight: '1px solid var(--bd)', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+          >
+            ⎙ A4 / PDF
+          </button>
+          <button
+            onClick={printRibbon}
+            title="Print condensed 80mm thermal receipt"
+            style={{ padding: '8px 16px', background: 'var(--t1)', color: 'var(--bg1)', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+          >
+            ≡ 80mm
+          </button>
+        </div>
       </div>
 
       {/* Receipt card */}
