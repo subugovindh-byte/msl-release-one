@@ -164,6 +164,7 @@ export interface Vendor {
   email?: string;
   po_count?: number;
   outstanding_paise?: number;
+  advance_paise?: number;
   created_at?: string;
   updated_at?: string;
 }

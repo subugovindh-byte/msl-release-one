@@ -267,6 +267,7 @@ export const paymentCreateSchema = z.object({
   utr: z.string().max(30).optional(),
   date: z.string().optional(),
   notes: z.string().max(500).optional(),
+  apply_advance_paise: z.number().int().min(0).optional(),
 });
 
 // ─── DEBIT / CREDIT NOTE ───

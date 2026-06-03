@@ -314,6 +314,9 @@ export function PurchasePage() {
   const [payDate, setPayDate] = useState(new Date().toISOString().slice(0, 10));
   const [payUtr, setPayUtr] = useState('');
   const [payNotes, setPayNotes] = useState('');
+  const [payApplyAdvance, setPayApplyAdvance] = useState(false);
+  // cancel-with-advance: id of PO pending cancel choice
+  const [cancelAdvancePO, setCancelAdvancePO] = useState<any | null>(null);
 
   const { data: posData, isLoading } = usePurchaseOrders({
     status: statusFilter === 'all' ? undefined : statusFilter,
@@ -355,11 +358,17 @@ export function PurchasePage() {
   }, [updateStatus, notify]);
 
   const handleCancel = useCallback((id: string) => {
+    const po = allPos.find((p: any) => p.id === id);
+    // If there are partial payments, ask about advance
+    if (po && (po.paid_paise ?? 0) > 0) {
+      setCancelAdvancePO(po);
+      return;
+    }
     updateStatus.mutate({ id, status: 'cancelled' }, {
       onSuccess: () => notify(`PO ${id} cancelled`, 'success'),
       onError: (e: any) => notify(e.message || 'Failed to cancel', 'error'),
     });
-  }, [updateStatus, notify]);
+  }, [updateStatus, notify, allPos]);
 
   const handleDelete = useCallback((id: string) => {
     deletePO.mutate(id, {
@@ -376,6 +385,7 @@ export function PurchasePage() {
     setPayDate(new Date().toISOString().slice(0, 10));
     setPayUtr('');
     setPayNotes('');
+    setPayApplyAdvance(false);
     setModal('pay');
   }, []);
 
@@ -413,9 +423,24 @@ export function PurchasePage() {
 
   async function executeBulk() {
     if (!bulkAction) return;
-    const ids = [...selectedIds];
+    const poMap = new Map(allPos.map((p: any) => [p.id, p]));
+    // Filter to only IDs that are eligible for this action
+    const eligible = [...selectedIds].filter(id => {
+      const po = poMap.get(id);
+      if (!po) return false;
+      if (bulkAction === 'approve') return po.status === 'new' || po.status === 'received';
+      if (bulkAction === 'cancel') return po.status !== 'cancelled';
+      if (bulkAction === 'delete') return po.status === 'new' || po.status === 'cancelled';
+      return false;
+    });
+    const skipped = selectedIds.size - eligible.length;
+    if (eligible.length === 0) {
+      const verb = bulkAction === 'approve' ? 'approve' : bulkAction === 'cancel' ? 'cancel' : 'delete';
+      notify(`No selected POs can be ${verb}d in their current state`, 'error');
+      setModal(null); setBulkAction(null); return;
+    }
     const results = await Promise.allSettled(
-      ids.map(id =>
+      eligible.map(id =>
         bulkAction === 'delete'
           ? deletePO.mutateAsync(id)
           : updateStatus.mutateAsync({ id, status: bulkAction === 'approve' ? 'approved' : 'cancelled' }),
@@ -424,7 +449,7 @@ export function PurchasePage() {
     const ok = results.filter(r => r.status === 'fulfilled').length;
     const fail = results.length - ok;
     const verb = bulkAction === 'delete' ? 'Deleted' : bulkAction === 'approve' ? 'Approved' : 'Cancelled';
-    if (ok > 0) notify(`${verb} ${ok} PO${ok !== 1 ? 's' : ''}`, 'success');
+    if (ok > 0) notify(`${verb} ${ok} PO${ok !== 1 ? 's' : ''}${skipped > 0 ? ` (${skipped} skipped — ineligible)` : ''}`, 'success');
     if (fail > 0) notify(`${fail} operation${fail !== 1 ? 's' : ''} failed`, 'error');
     setSelectedIds(new Set());
     setModal(null);
@@ -456,17 +481,32 @@ export function PurchasePage() {
     e.preventDefault();
     if (!payingPO) return;
     const balance = payingPO.balance_paise ?? (payingPO.total_paise - (payingPO.paid_paise ?? 0));
-    const amount = payAmount === 'full' ? balance : Math.round((parseFloat(payCustom) || 0) * 100);
-    if (amount <= 0) { notify('Enter a valid amount', 'error'); return; }
+    const vendor = vendors.find((v: any) => v.id === payingPO.vendor_id);
+    const vendorAdvance = vendor?.advance_paise ?? 0;
+    const advanceToApply = payApplyAdvance ? Math.min(vendorAdvance, balance) : 0;
+    // cash amount = balance - advance used; must be > 0 for 'custom', but full can be 0 if fully covered
+    let cashAmount: number;
+    if (payAmount === 'full') {
+      cashAmount = Math.max(0, balance - advanceToApply);
+    } else {
+      cashAmount = Math.round((parseFloat(payCustom) || 0) * 100);
+    }
+    // total credited = cash + advance
+    const totalCredit = cashAmount + advanceToApply;
+    if (totalCredit <= 0) { notify('Enter a valid amount', 'error'); return; }
+    // If fully covered by advance, amount_paise must still be > 0 per schema;
+    // treat 0-cash as a ₹0 adjustment — use advanceToApply as amount_paise instead
+    const payloadAmount = cashAmount > 0 ? cashAmount : advanceToApply;
     try {
       await createPayment.mutateAsync({
         po_id: payingPO.id, type: 'payment',
-        amount_paise: amount, mode: payMode,
+        amount_paise: payloadAmount, mode: cashAmount > 0 ? payMode : 'Other',
         utr: payUtr || undefined, date: payDate,
-        notes: payNotes || undefined,
+        notes: payNotes || (advanceToApply > 0 ? `Advance adjusted: ${formatINR(advanceToApply)}` : undefined),
         party: payingPO.vendor_name || payingPO.vendor_id,
+        apply_advance_paise: advanceToApply > 0 ? advanceToApply : undefined,
       });
-      notify('Payment recorded', 'success');
+      notify(`Payment recorded${advanceToApply > 0 ? ` (${formatINR(advanceToApply)} advance applied)` : ''}`, 'success');
       setModal(null);
       setPayingPO(null);
     } catch (err: any) { notify(err.message || 'Failed to record payment', 'error'); }
@@ -640,6 +680,20 @@ export function PurchasePage() {
                   <span style={{ color: 'var(--t3)' }}>Paid <strong style={{ color: 'var(--t1)' }}>{formatINR(payingPO.paid_paise ?? 0)}</strong></span>
                   <span style={{ color: 'var(--t3)' }}>Due <strong style={{ color: '#b91c1c' }}>{formatINR(payingPO.balance_paise ?? (payingPO.total_paise - (payingPO.paid_paise ?? 0)))}</strong></span>
                 </div>
+                {/* Vendor advance banner */}
+                {(() => {
+                  const vendor = vendors.find((v: any) => v.id === payingPO.vendor_id);
+                  const adv = vendor?.advance_paise ?? 0;
+                  if (adv <= 0) return null;
+                  return (
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 6, padding: '10px 14px', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={payApplyAdvance} onChange={e => setPayApplyAdvance(e.target.checked)} />
+                      <span style={{ fontSize: 13 }}>
+                        Apply vendor advance <strong style={{ color: '#15803d' }}>{formatINR(adv)}</strong> towards this payment
+                      </span>
+                    </label>
+                  );
+                })()}
                 <form onSubmit={handlePaySubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   <div>
                     <label style={lbl}>Amount *</label>
@@ -694,6 +748,52 @@ export function PurchasePage() {
                 </form>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Cancel-with-advance choice overlay */}
+      {cancelAdvancePO && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: 'var(--bg1)', border: '1px solid var(--bd)', borderRadius: 12, padding: 28, width: 420, maxWidth: '95vw' }}>
+            <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: 'var(--t1)' }}>
+              Cancel PO {cancelAdvancePO.id}
+            </h3>
+            <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--t3)' }}>
+              This PO has <strong style={{ color: 'var(--t1)' }}>{formatINR(cancelAdvancePO.paid_paise)}</strong> already paid.
+              What should happen to this amount?
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+              <button onClick={() => {
+                const id = cancelAdvancePO.id;
+                setCancelAdvancePO(null);
+                updateStatus.mutate({ id, status: 'cancelled', advance_paid: true }, {
+                  onSuccess: () => notify(`PO ${id} cancelled — ${formatINR(cancelAdvancePO.paid_paise)} added to vendor advance`, 'success'),
+                  onError: (e: any) => notify(e.message || 'Failed to cancel', 'error'),
+                });
+              }} style={{ ...btn('#15803d'), textAlign: 'left', padding: '12px 16px' }}>
+                <div style={{ fontWeight: 700, fontSize: 13 }}>Adjust against future purchase</div>
+                <div style={{ fontWeight: 400, fontSize: 12, opacity: 0.85, marginTop: 3 }}>
+                  {formatINR(cancelAdvancePO.paid_paise)} credited to vendor advance — apply when paying next PO
+                </div>
+              </button>
+              <button onClick={() => {
+                const id = cancelAdvancePO.id;
+                setCancelAdvancePO(null);
+                updateStatus.mutate({ id, status: 'cancelled', advance_paid: false }, {
+                  onSuccess: () => notify(`PO ${id} cancelled`, 'success'),
+                  onError: (e: any) => notify(e.message || 'Failed to cancel', 'error'),
+                });
+              }} style={{ ...btn('transparent', '#b91c1c', '1px solid #b91c1c'), textAlign: 'left', padding: '12px 16px' }}>
+                <div style={{ fontWeight: 700, fontSize: 13 }}>Write off</div>
+                <div style={{ fontWeight: 400, fontSize: 12, opacity: 0.85, marginTop: 3 }}>
+                  Treat the {formatINR(cancelAdvancePO.paid_paise)} as a loss — no adjustment
+                </div>
+              </button>
+            </div>
+            <button onClick={() => setCancelAdvancePO(null)} style={{ ...btn('transparent', 'var(--t2)', '1px solid var(--bd)'), width: '100%' }}>
+              Go Back
+            </button>
           </div>
         </div>
       )}

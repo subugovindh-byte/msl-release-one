@@ -141,8 +141,25 @@ consumablesRouter.delete('/:id', requireRole('admin', 'accounts'), (req, res, ne
     const existing = db.prepare('SELECT * FROM consumable_purchases WHERE id = ?').get(req.params.id);
     if (!existing) throw new NotFoundError('Purchase not found');
 
-    db.prepare(`UPDATE consumable_purchases SET status = 'cancelled' WHERE id = ?`).run(req.params.id);
-    audit(req, 'CP_CANCEL', 'consumable_purchases', req.params.id, existing, null);
+    const tx = db.transaction(() => {
+      db.prepare(`UPDATE consumable_purchases SET status = 'cancelled' WHERE id = ?`).run(req.params.id);
+
+      // If advance_paid=true, credit the amount already paid to vendor advance
+      if (req.body?.advance_paid && existing.vendor_id) {
+        const paidRow = db.prepare(
+          `SELECT COALESCE(SUM(amount_paise),0) AS v FROM payments WHERE cp_id = ? AND type = 'payment'`
+        ).get(req.params.id);
+        const paid = paidRow?.v ?? 0;
+        if (paid > 0) {
+          db.prepare('UPDATE vendors SET advance_paise = advance_paise + ? WHERE id = ?')
+            .run(paid, existing.vendor_id);
+        }
+      }
+    });
+    tx();
+
+    audit(req, 'CP_CANCEL', 'consumable_purchases', req.params.id, existing,
+          { advance_paid: req.body?.advance_paid ?? false });
     res.json({ ok: true });
   } catch (err) { next(err); }
 });

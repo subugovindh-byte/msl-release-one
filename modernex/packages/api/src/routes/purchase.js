@@ -261,12 +261,28 @@ purchaseRouter.patch('/:id/status',
         }
       }
 
-      db.prepare('UPDATE purchase_orders SET status = ?, updated_by = ? WHERE id = ?')
-        .run(status, req.user.username, req.params.id);
+      const tx = db.transaction(() => {
+        db.prepare('UPDATE purchase_orders SET status = ?, updated_by = ? WHERE id = ?')
+          .run(status, req.user.username, req.params.id);
+
+        // When cancelling a partially-paid PO, optionally credit the paid
+        // amount as a vendor advance for adjustment against future purchases.
+        if (status === 'cancelled' && req.body.advance_paid) {
+          const paidRow = db.prepare(
+            `SELECT COALESCE(SUM(amount_paise),0) AS v FROM payments WHERE po_id = ? AND type = 'payment'`
+          ).get(req.params.id);
+          const paid = paidRow?.v ?? 0;
+          if (paid > 0) {
+            db.prepare('UPDATE vendors SET advance_paise = advance_paise + ? WHERE id = ?')
+              .run(paid, existing.vendor_id);
+          }
+        }
+      });
+      tx();
 
       const updated = db.prepare('SELECT * FROM purchase_orders WHERE id = ?').get(req.params.id);
       audit(req, 'PO_STATUS_CHANGE', 'purchase_orders', req.params.id,
-            { status: existing.status }, { status });
+            { status: existing.status }, { status, advance_paid: req.body.advance_paid ?? false });
       res.json({ po: updated });
     } catch (err) { next(err); }
   }

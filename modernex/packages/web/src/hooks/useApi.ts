@@ -541,14 +541,15 @@ export function usePurchaseOrder(id: string, options?: Partial<UseQueryOptions<a
   });
 }
 
-export function useUpdatePOStatus(options?: UseMutationOptions<{ po: any }, Error, { id: string; status: string }>) {
+export function useUpdatePOStatus(options?: UseMutationOptions<{ po: any }, Error, { id: string; status: string; advance_paid?: boolean }>) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, status }) =>
-      api.patch<{ po: any }>(`/purchase/${pid(id)}/status`, { status }),
+    mutationFn: ({ id, status, advance_paid }) =>
+      api.patch<{ po: any }>(`/purchase/${pid(id)}/status`, { status, advance_paid }),
     onSuccess: (_d, v) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.purchase.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.purchase.detail(v.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.vendors.all });
     },
     ...options,
   });
@@ -622,6 +623,7 @@ export function useCreatePayment(options?: UseMutationOptions<{ payment: Payment
       queryClient.invalidateQueries({ queryKey: queryKeys.payments.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.invoices.all }); // invoice balance updates
       queryClient.invalidateQueries({ queryKey: ['reports'] }); // balance sheet, sales, GST
+      queryClient.invalidateQueries({ queryKey: queryKeys.vendors.all }); // advance_paise may change
       if (variables?.po_id) {
         queryClient.invalidateQueries({ queryKey: queryKeys.purchase.detail(variables.po_id) });
         queryClient.invalidateQueries({ queryKey: queryKeys.purchase.all });
@@ -1036,8 +1038,12 @@ export function useUpdateConsumablePurchase() {
 export function useCancelConsumablePurchase() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.delete<{ ok: boolean }>(`/consumable-purchases/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.consumables.all }),
+    mutationFn: ({ id, advance_paid }: { id: string; advance_paid?: boolean }) =>
+      api.delete<{ ok: boolean }>(`/consumable-purchases/${id}`, { body: JSON.stringify({ advance_paid: advance_paid ?? false }) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.consumables.all });
+      qc.invalidateQueries({ queryKey: queryKeys.vendors.all });
+    },
   });
 }
 

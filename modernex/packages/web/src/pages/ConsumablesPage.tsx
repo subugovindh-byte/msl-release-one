@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   useConsumablePurchases, useCreateConsumablePurchase,
   useUpdateConsumablePurchase, useCancelConsumablePurchase, useCreatePayment,
+  useVendors,
   type ConsumablePurchase, type CPItem,
 } from '@/hooks/useApi';
 import { useToastStore } from '@/store';
@@ -43,7 +44,11 @@ export function ConsumablesPage() {
   const [payDate, setPayDate] = useState(new Date().toISOString().slice(0, 10));
   const [payUtr, setPayUtr] = useState('');
   const [payNotes, setPayNotes] = useState('');
+  const [payApplyAdvance, setPayApplyAdvance] = useState(false);
+  const [cancelAdvanceCP, setCancelAdvanceCP] = useState<ConsumablePurchase | null>(null);
   const createPayment = useCreatePayment();
+  const { data: vendorsData } = useVendors({});
+  const vendors: any[] = (vendorsData as any)?.vendors ?? [];
 
   // ── form state ──
   const blank = { date: today(), vendor_name: '', vendor_id: '', category: 'Consumables', payment_mode: '', reference_no: '', notes: '', receipt_url: '' };
@@ -103,23 +108,35 @@ export function ConsumablesPage() {
     setPayDate(new Date().toISOString().slice(0, 10));
     setPayUtr('');
     setPayNotes('');
+    setPayApplyAdvance(false);
   }
 
   async function handlePaySubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!payingCP) return;
     const balance = payingCP.balance_paise ?? (payingCP.total_paise - (payingCP.paid_paise ?? 0));
-    const amount = payAmount === 'full' ? balance : Math.round((parseFloat(payCustom) || 0) * 100);
-    if (amount <= 0) { notify('Enter a valid amount', 'error'); return; }
+    const vendor = vendors.find((v: any) => v.id === payingCP.vendor_id);
+    const vendorAdvance = vendor?.advance_paise ?? 0;
+    const advanceToApply = payApplyAdvance ? Math.min(vendorAdvance, balance) : 0;
+    let cashAmount: number;
+    if (payAmount === 'full') {
+      cashAmount = Math.max(0, balance - advanceToApply);
+    } else {
+      cashAmount = Math.round((parseFloat(payCustom) || 0) * 100);
+    }
+    const totalCredit = cashAmount + advanceToApply;
+    if (totalCredit <= 0) { notify('Enter a valid amount', 'error'); return; }
+    const payloadAmount = cashAmount > 0 ? cashAmount : advanceToApply;
     try {
       await createPayment.mutateAsync({
         cp_id: payingCP.id, type: 'payment',
-        amount_paise: amount, mode: payMode,
+        amount_paise: payloadAmount, mode: cashAmount > 0 ? payMode : 'Other',
         utr: payUtr || undefined, date: payDate,
-        notes: payNotes || undefined,
+        notes: payNotes || (advanceToApply > 0 ? `Advance adjusted: ${formatINR(advanceToApply)}` : undefined),
         party: payingCP.vendor_name,
+        apply_advance_paise: advanceToApply > 0 ? advanceToApply : undefined,
       });
-      notify('Payment recorded', 'success');
+      notify(`Payment recorded${advanceToApply > 0 ? ` (${formatINR(advanceToApply)} advance applied)` : ''}`, 'success');
       setPayingCP(null);
     } catch (err: any) { notify(err.message || 'Failed to record payment', 'error'); }
   }
@@ -195,7 +212,13 @@ export function ConsumablesPage() {
         if (!row) return;
         if (btn.classList.contains('btn-edit')) openEdit(row);
         if (btn.classList.contains('btn-pay')) openPayModal(row);
-        if (btn.classList.contains('btn-cancel')) setToCancel(row);
+        if (btn.classList.contains('btn-cancel')) {
+          if ((row.paid_paise ?? 0) > 0) {
+            setCancelAdvanceCP(row);
+          } else {
+            setToCancel(row);
+          }
+        }
       },
     },
   ];
@@ -350,7 +373,7 @@ export function ConsumablesPage() {
         confirmLabel="Yes, Cancel"
         danger
         loading={cancel.isPending}
-        onConfirm={async () => { if (toCancel) { await cancel.mutateAsync(toCancel.id); notify(`${toCancel.id} cancelled`, 'success'); setToCancel(null); } }}
+        onConfirm={async () => { if (toCancel) { await cancel.mutateAsync({ id: toCancel.id, advance_paid: false }); notify(`${toCancel.id} cancelled`, 'success'); setToCancel(null); } }}
         onCancel={() => setToCancel(null)}
       />
 
@@ -370,6 +393,20 @@ export function ConsumablesPage() {
               <span style={{ color: 'var(--t3)' }}>Paid <strong style={{ color: 'var(--sage)' }}>{formatINR(payingCP.paid_paise ?? 0)}</strong></span>
               <span style={{ color: 'var(--t3)' }}>Due <strong style={{ color: '#b91c1c' }}>{formatINR(payingCP.balance_paise ?? payingCP.total_paise)}</strong></span>
             </div>
+            {/* Vendor advance banner */}
+            {(() => {
+              const vendor = vendors.find((v: any) => v.id === payingCP.vendor_id);
+              const adv = vendor?.advance_paise ?? 0;
+              if (adv <= 0) return null;
+              return (
+                <label style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 6, padding: '10px 14px', cursor: 'pointer', marginBottom: 12 }}>
+                  <input type="checkbox" checked={payApplyAdvance} onChange={e => setPayApplyAdvance(e.target.checked)} />
+                  <span style={{ fontSize: 13 }}>
+                    Apply vendor advance <strong style={{ color: '#15803d' }}>{formatINR(adv)}</strong> towards this payment
+                  </span>
+                </label>
+              );
+            })()}
             <form onSubmit={handlePaySubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div>
                 <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 6 }}>Amount *</label>
@@ -430,6 +467,46 @@ export function ConsumablesPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel-with-advance choice overlay */}
+      {cancelAdvanceCP && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: 'var(--bg1)', border: '1px solid var(--bd)', borderRadius: 12, padding: 28, width: 420, maxWidth: '95vw' }}>
+            <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>Cancel {cancelAdvanceCP.id}</h3>
+            <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--t3)' }}>
+              This purchase has <strong style={{ color: 'var(--t1)' }}>{formatINR(cancelAdvanceCP.paid_paise ?? 0)}</strong> already paid.
+              What should happen to this amount?
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+              <button onClick={async () => {
+                const cp = cancelAdvanceCP;
+                setCancelAdvanceCP(null);
+                await cancel.mutateAsync({ id: cp.id, advance_paid: true });
+                notify(`${cp.id} cancelled — ${formatINR(cp.paid_paise ?? 0)} credited to vendor advance`, 'success');
+              }} style={{ background: '#15803d', color: '#fff', border: 'none', borderRadius: 6, padding: '12px 16px', cursor: 'pointer', textAlign: 'left' }}>
+                <div style={{ fontWeight: 700, fontSize: 13 }}>Adjust against future purchase</div>
+                <div style={{ fontWeight: 400, fontSize: 12, opacity: 0.85, marginTop: 3 }}>
+                  {formatINR(cancelAdvanceCP.paid_paise ?? 0)} credited to vendor advance
+                </div>
+              </button>
+              <button onClick={async () => {
+                const cp = cancelAdvanceCP;
+                setCancelAdvanceCP(null);
+                await cancel.mutateAsync({ id: cp.id, advance_paid: false });
+                notify(`${cp.id} cancelled`, 'success');
+              }} style={{ background: 'transparent', color: '#b91c1c', border: '1px solid #b91c1c', borderRadius: 6, padding: '12px 16px', cursor: 'pointer', textAlign: 'left' }}>
+                <div style={{ fontWeight: 700, fontSize: 13 }}>Write off</div>
+                <div style={{ fontWeight: 400, fontSize: 12, opacity: 0.85, marginTop: 3 }}>
+                  Treat the {formatINR(cancelAdvanceCP.paid_paise ?? 0)} as a loss
+                </div>
+              </button>
+            </div>
+            <button onClick={() => setCancelAdvanceCP(null)} style={{ background: 'transparent', color: 'var(--t2)', border: '1px solid var(--bd)', borderRadius: 5, padding: '7px 16px', cursor: 'pointer', fontSize: 12, fontWeight: 600, width: '100%' }}>
+              Go Back
+            </button>
           </div>
         </div>
       )}
