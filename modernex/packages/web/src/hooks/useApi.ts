@@ -1072,3 +1072,112 @@ export function useDeleteBudget() {
 export function useBudgetVsActual(params?: { fy?: string; month?: string }) {
   return useQuery({ queryKey: ['budgets', 'vs-actual', params], queryFn: () => api.get<any>('/budgets/vs-actual', { params }), enabled: !!params?.fy });
 }
+
+// ─── BLOCK INSPECTIONS ───────────────────────────────────────────────────────
+export function useBlockInspections(filters?: { status?: string; vendor_id?: string; from?: string; to?: string }) {
+  return useQuery({
+    queryKey: ['block-inspections', 'list', filters],
+    queryFn: () => api.get<any>('/block-inspections', { params: filters }),
+  });
+}
+
+export function useBlockInspection(id: string) {
+  return useQuery({
+    queryKey: ['block-inspections', 'detail', id],
+    queryFn: () => api.get<any>(`/block-inspections/${pid(id)}`),
+    enabled: !!id,
+  });
+}
+
+export function useBlockInspectionPhoto(inspId: string, photoId: number | null) {
+  return useQuery({
+    queryKey: ['block-inspections', 'photo', inspId, photoId],
+    queryFn: () => api.get<any>(`/block-inspections/${pid(inspId)}/photos/${photoId}`),
+    enabled: !!inspId && !!photoId,
+  });
+}
+
+export function useCreateBlockInspection() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (d: any) => api.post<any>('/block-inspections', d),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['block-inspections'] }),
+  });
+}
+
+export function useUpdateBlockInspection() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...d }: any) => api.patch<any>(`/block-inspections/${pid(id)}`, d),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ['block-inspections', 'list'] });
+      qc.invalidateQueries({ queryKey: ['block-inspections', 'detail', vars.id] });
+    },
+  });
+}
+
+export function useRejectBlockInspection() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.patch<any>(`/block-inspections/${pid(id)}/reject`, {}),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['block-inspections'] }),
+  });
+}
+
+export function useAddInspectionPhoto() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data_url, caption }: { id: string; data_url: string; caption?: string }) =>
+      api.post<any>(`/block-inspections/${pid(id)}/photos`, { data_url, caption }),
+    onSuccess: (_d, vars) => qc.invalidateQueries({ queryKey: ['block-inspections', 'detail', vars.id] }),
+  });
+}
+
+export function useDeleteInspectionPhoto() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, photoId }: { id: string; photoId: number }) =>
+      api.delete<any>(`/block-inspections/${pid(id)}/photos/${photoId}`),
+    onSuccess: (_d, vars) => qc.invalidateQueries({ queryKey: ['block-inspections', 'detail', vars.id] }),
+  });
+}
+
+export function useRaiseInspectionPO() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, rate_per_cft_paise, transport_paise, notes, date }: any) =>
+      api.post<any>(`/block-inspections/${pid(id)}/raise-po`, { rate_per_cft_paise, transport_paise, notes, date }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['block-inspections'] });
+      qc.invalidateQueries({ queryKey: ['purchase'] });
+    },
+  });
+}
+
+export function useDeleteBlockInspection() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete<any>(`/block-inspections/${pid(id)}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['block-inspections'] }),
+  });
+}
+
+// ─── BLOCK PRICE MASTER ──────────────────────────────────────────────────────
+export function useBlockPriceMaster() {
+  return useQuery({ queryKey: ['block-price-master'], queryFn: () => api.get<any>('/block-price-master') });
+}
+export function useUpsertBlockPrice() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (d: { variety: string; grade: string; rate_per_cft_paise: number; notes?: string }) =>
+      api.put<any>('/block-price-master', d),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['block-price-master'] }),
+  });
+}
+export function useDeleteBlockPrice() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => api.delete<any>(`/block-price-master/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['block-price-master'] }),
+  });
+}

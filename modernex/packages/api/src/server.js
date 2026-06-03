@@ -51,6 +51,8 @@ import { bankReconRouter } from './routes/bankRecon.js';
 import { budgetsRouter } from './routes/budgets.js';
 import { msmeRouter } from './routes/msme.js';
 import { adminSampleTxRouter } from './routes/adminSampleTx.js';
+import { blockInspectionsRouter } from './routes/blockInspections.js';
+import { blockPriceMasterRouter } from './routes/blockPriceMaster.js';
 
 export function createApp() {
   const app = express();
@@ -131,6 +133,8 @@ export function createApp() {
   app.use('/api/variety-master', varietyMasterRouter);
   app.use('/api/dcn', dcnRouter);
   app.use('/api/grn', grnRouter);
+  app.use('/api/block-inspections', blockInspectionsRouter);
+  app.use('/api/block-price-master', blockPriceMasterRouter);
   mountTransportUpdate(purchaseRouter);  // adds PATCH /api/purchase/:id/transport
   app.use('/api/tds', tdsRouter);
   app.use('/api/fixed-assets', fixedAssetsRouter);

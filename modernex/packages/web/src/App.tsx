@@ -19,6 +19,8 @@ import { SystemPage } from '@/pages/SystemPage';
 import { VarietyPhotosPage } from '@/pages/VarietyPhotosPage';
 import { InvoiceReceiptPage } from '@/pages/InvoiceReceiptPage';
 import { PurchaseOrderReceiptPage } from '@/pages/PurchaseOrderReceiptPage';
+import BlockInspectionListPage from '@/pages/BlockInspectionListPage';
+import BlockInspectionDetailPage from '@/pages/BlockInspectionDetailPage';
 import { CompliancePage } from '@/pages/CompliancePage';
 import { PayrollPage } from '@/pages/PayrollPage';
 import { TdsPage } from '@/pages/TdsPage';
@@ -68,6 +70,7 @@ const NAV: NavSection[] = [
 
   { sec: 'Purchase' },
   { id: 'purchase',    path: '/purchase',     lbl: 'Purchase Orders',     icon: '▼' },
+  { id: 'inspections', path: '/inspections',  lbl: 'Block Inspections',   icon: '◎' },
 
   { sec: 'Finance' },
   { id: 'accounts',    path: '/accounts',     lbl: 'Accounts',            icon: '₹' },
@@ -306,6 +309,8 @@ export function App() {
               <Route path="/budget" element={<BudgetPage />} />
               <Route path="/invoice/:id" element={<InvoiceReceiptPage />} />
               <Route path="/purchase/:id" element={<PurchaseOrderReceiptPage />} />
+              <Route path="/inspections" element={<BlockInspectionListPage />} />
+              <Route path="/inspections/:id" element={<BlockInspectionDetailPage />} />
               <Route path="*" element={<Navigate to="/pos" />} />
             </Routes>
           </div>

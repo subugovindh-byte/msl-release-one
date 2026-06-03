@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import QRCode from 'qrcode';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { CGST_RATE_LABEL, SGST_RATE_LABEL, GST_RATE_LABEL, PAYMENT_MODES } from '@modernex/shared'; // CGST/SGST used in totals
 import { usePurchaseOrder, useCompany, useCreatePayment, useGRNList, useCreateGRN, useUpdatePOTransport, useVendors, useUpdatePOStatus } from '@/hooks/useApi';
 import { formatINR, formatDate, selectOnFocus } from '@/utils/format';
@@ -608,6 +608,13 @@ export function PurchaseOrderReceiptPage() {
             <POInfoRow label="Rate / CFT" value={formatINR(po.rate_per_cft_paise ?? 0)} />
             {transport > 0 && <POInfoRow label="Transport" value={formatINR(transport)} />}
             <POInfoRow label="HSN Code"   value={HSN} />
+            {po.inspection_id && (
+              <div style={{ marginTop: 8, paddingTop: 6, borderTop: '1px solid rgba(26,22,18,.1)', fontSize: 10, color: 'rgba(26,22,18,.55)' }}>
+                Raised from:{' '}
+                <Link to={`/inspections/${po.inspection_id.replace(/\//g, '~')}`}
+                  style={{ color: '#2563eb', fontWeight: 600 }}>{po.inspection_id}</Link>
+              </div>
+            )}
           </div>
         </div>
 

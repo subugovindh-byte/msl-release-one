@@ -414,3 +414,21 @@ export const journalVoucherSchema = z.object({
     narration: z.string().max(200).optional(),
   })).min(2),
 });
+
+// ─── BLOCK INSPECTION (pre-PO quarry site inspection) ───
+export const blockInspectionCreateSchema = z.object({
+  date:             z.string().optional(),
+  vendor_id:        z.string().optional(),
+  quarry_location:  z.string().max(200).optional(),
+  variety:          z.string().min(1),
+  block_count:      z.number().int().positive().default(1),
+  est_cft:          z.number().nonnegative().default(0),
+  grade:            z.enum(['A+', 'A', 'B']).default('A'),
+  defect_note:      z.string().max(500).optional(),
+  notes:            z.string().max(500).optional(),
+});
+
+export const blockInspectionPhotoSchema = z.object({
+  data_url:  z.string().min(10),   // base64 data: URI
+  caption:   z.string().max(200).optional(),
+});

@@ -219,3 +219,14 @@ export function nextEmployeeId() {
 export function nextPayrollRunId(month) {
   return `PR/${month}`;
 }
+
+export function nextInspectionId() {
+  const db = getDb();
+  const prefix = `BLK/${fyPrefix()}/`;
+  const row = db.prepare(
+    `SELECT id FROM block_inspections WHERE id LIKE ? ORDER BY id DESC LIMIT 1`
+  ).get(prefix + '%');
+  let seq = 1;
+  if (row) seq = parseInt(row.id.slice(prefix.length), 10) + 1;
+  return prefix + String(seq).padStart(4, '0');
+}

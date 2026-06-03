@@ -1,0 +1,8 @@
+<step title="Incoming Request" date="2026-05-23T02:41:10.937" instance="b131c1" url="/api/deployments/latest?deployer=OneDeploy&amp;time=2026-05-23_02-39-55Z" method="GET" type="request" pid="835,1,16" Host="modernex-prod.scm.azurewebsites.net" User-Agent="GITHUBACTIONS_DeployWebAppToAzure_c516015f20b0926e2713df74fce2d8550ff6cf138e19a36030983fa5784f879c_v3.0.8" Authorization="Bea..." Content-Type="application/json; charset=utf-8" Cookie="ARRAffinity=b131c1161515b0f07fe27325a16adfb3dab9931698e9bfe139ca212d91de9409; ARRAffinitySameSite=b131c1161515b0f07fe27325a16adfb3dab9931698e9bfe139ca212d91de9409" Content-Length="0" X-ARR-LOG-ID="06710dab-1c37-49fe-bf9d-5d741cb54fdd" CLIENT-IP="172.215.209.177:59395" X-SITE-DEPLOYMENT-ID="modernex-prod" WAS-DEFAULT-HOSTNAME="modernex-prod.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/api/deployments/latest?deployer=OneDeploy&amp;time=2026-05-23_02-39-55Z" X-Client-IP="172.215.209.177" X-Client-Port="59395" >
+  <step title="DeploymentService.GetResult" date="2026-05-23T02:41:11.106" >
+    <step title="DeploymentService.GetLatestDeployment" date="2026-05-23T02:41:11.187" >
+      <step title="DeploymentManager.GetResults" date="2026-05-23T02:41:11.308" /><!-- duration: 5240ms -->
+    </step><!-- duration: 5516ms -->
+  </step><!-- duration: 5629ms -->
+  <step title="Outgoing response" date="2026-05-23T02:41:16.763" type="response" statusCode="202" statusText="Accepted" /><!-- duration: 46ms -->
+</step><!-- duration: 5960ms -->
