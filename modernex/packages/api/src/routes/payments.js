@@ -11,6 +11,13 @@ export const paymentsRouter = Router();
 
 paymentsRouter.use(authenticate);
 
+// Payment IDs are FY-format with slashes (PMT/2026/001). The frontend swaps
+// / with ~ to survive Azure's IIS proxy; decode it back here.
+paymentsRouter.param('id', (req, _res, next, id) => {
+  req.params.id = id.replace(/~/g, '/');
+  next();
+});
+
 paymentsRouter.get('/', requireRole('admin', 'accounts', 'sales'), (req, res) => {
   const { type, from, to } = req.query;
   const db = getDb();
