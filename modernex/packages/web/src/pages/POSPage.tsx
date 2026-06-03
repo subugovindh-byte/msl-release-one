@@ -567,19 +567,11 @@ export function POSPage() {
                     <div className="ci-bot">
                       <div className="qty">
                         <button className="qb" onClick={() => adjustQuantity(item.product.id, -1)} title="Decrease">−</button>
-                        <input
-                          className="qn"
-                          type="number"
-                          min={1}
+                        <CartQtyInput
+                          quantity={item.quantity}
                           max={item.product.stock ?? 99}
-                          value={item.quantity}
-                          onChange={(e) => setQuantity(item.product.id, parseInt(e.target.value, 10))}
-                          onFocus={(e) => e.target.select()}
-                          style={{
-                            width: 48, textAlign: 'center', border: '1px solid var(--bd)',
-                            borderRadius: 5, background: 'var(--bg1)', color: 'var(--t1)',
-                            fontSize: 13, fontWeight: 700, padding: '4px 2px', MozAppearance: 'textfield',
-                          }}
+                          productId={item.product.id}
+                          onCommit={setQuantity}
                         />
                         <button className="qb" onClick={() => adjustQuantity(item.product.id, 1)} title="Increase">+</button>
                       </div>
@@ -717,6 +709,45 @@ export function POSPage() {
         </div>
       )}
     </div>
+  );
+}
+
+// Local-draft qty input so typing multi-digit numbers isn't clamped on every
+// keystroke (commits to the cart on blur / Enter).
+function CartQtyInput({ quantity, max, productId, onCommit }: {
+  quantity: number; max: number; productId: string; onCommit: (id: string, q: number) => void;
+}) {
+  const [draft, setDraft] = useState(String(quantity));
+  const ref = useRef<HTMLInputElement>(null);
+
+  // Keep in sync when changed externally (the −/+ buttons) but not while typing.
+  useEffect(() => {
+    if (document.activeElement !== ref.current) setDraft(String(quantity));
+  }, [quantity]);
+
+  const commit = () => {
+    const v = parseInt(draft, 10);
+    const q = Number.isFinite(v) ? Math.max(1, Math.min(max, v)) : 1;
+    onCommit(productId, q);
+    setDraft(String(q));
+  };
+
+  return (
+    <input
+      ref={ref}
+      type="number"
+      min={1}
+      max={max}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onFocus={(e) => e.target.select()}
+      onBlur={commit}
+      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commit(); ref.current?.blur(); } }}
+      style={{
+        width: 48, textAlign: 'center', border: '1px solid var(--bd)', borderRadius: 5,
+        background: 'var(--bg1)', color: 'var(--t1)', fontSize: 13, fontWeight: 700, padding: '4px 2px',
+      }}
+    />
   );
 }
 
