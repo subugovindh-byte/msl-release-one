@@ -216,13 +216,14 @@ purchaseRouter.delete('/:id',
 
 // ─── PATCH /purchase/:id/status ───
 // Enforced flow: new → received (GRN) → approved → [production ready]
-// Cancellation is allowed from any non-approved/non-received state.
+// Cancellation is allowed from any non-cancelled state.
+// Unapprove: approved → new (rolls back approval, clears approved_at)
 // Flow A (simple): new → approved → cancelled
 // Flow B (with GRN): new → received → approved → cancelled
 const ALLOWED_TRANSITIONS = {
   new:      ['received', 'approved', 'cancelled'],
   received: ['approved', 'cancelled'],
-  approved: ['cancelled'],
+  approved: ['new', 'cancelled'],
   cancelled: [],
 };
 
@@ -262,14 +263,19 @@ purchaseRouter.patch('/:id/status',
       }
 
       const tx = db.transaction(() => {
-        // Set status and the corresponding timestamp column
+        // Set status, recording or clearing the relevant timestamp
         const tsCol = status === 'received' ? 'received_at'
                     : status === 'approved'  ? 'approved_at'
                     : status === 'cancelled' ? 'cancelled_at' : null;
+        // Unapprove (approved → new): clear approved_at
+        const clearCol = status === 'new' && existing.status === 'approved' ? 'approved_at' : null;
         const nowISO = new Date().toISOString();
         if (tsCol) {
           db.prepare(`UPDATE purchase_orders SET status = ?, ${tsCol} = ?, updated_by = ? WHERE id = ?`)
             .run(status, nowISO, req.user.username, req.params.id);
+        } else if (clearCol) {
+          db.prepare(`UPDATE purchase_orders SET status = ?, ${clearCol} = NULL, updated_by = ? WHERE id = ?`)
+            .run(status, req.user.username, req.params.id);
         } else {
           db.prepare('UPDATE purchase_orders SET status = ?, updated_by = ? WHERE id = ?')
             .run(status, req.user.username, req.params.id);

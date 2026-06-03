@@ -198,6 +198,19 @@ export function PurchaseOrderReceiptPage() {
               style={{ padding: '6px 14px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
             >✓ Approve PO</button>
           )}
+          {po.status === 'approved' && (
+            <button
+              onClick={() => {
+                if (window.confirm(`Unapprove PO ${po.id} and move it back to New? This will remove the approval.`))
+                  updateStatus.mutate({ id: po.id, status: 'new' }, {
+                    onSuccess: () => notify('PO unapproved — moved back to New', 'success'),
+                    onError: (e: any) => notify(e.message || 'Failed', 'error'),
+                  });
+              }}
+              disabled={updateStatus.isPending}
+              style={{ padding: '6px 14px', background: 'transparent', color: '#92400e', border: '1px solid #92400e', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+            >↩ Unapprove</button>
+          )}
           {po.status !== 'cancelled' && (
             <button
               onClick={() => {
