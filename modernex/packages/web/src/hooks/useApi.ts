@@ -555,9 +555,31 @@ export function useUpdatePOStatus(options?: UseMutationOptions<{ po: any }, Erro
   });
 }
 
+export function usePOMatch(id: string, options?: Partial<UseQueryOptions<any, Error>>) {
+  return useQuery({
+    queryKey: [...queryKeys.purchase.detail(id), 'match'],
+    queryFn: () => api.get<any>(`/purchase/${pid(id)}/match`),
+    enabled: !!id,
+    ...options,
+  });
+}
+
+export function useRecordPOMatch(options?: UseMutationOptions<any, Error, { id: string; final_invoice_no?: string; final_invoice_paise: number; force?: boolean }>) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }) => api.post<any>(`/purchase/${pid(id)}/match`, body),
+    onSuccess: (_d, v) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchase.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchase.detail(v.id) });
+      queryClient.invalidateQueries({ queryKey: [...queryKeys.purchase.detail(v.id), 'match'] });
+    },
+    ...options,
+  });
+}
+
 export function useCreatePurchaseOrder(options?: UseMutationOptions<{ po: PurchaseOrder }, Error, any>) {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: (data: any) => api.post<{ po: PurchaseOrder }>('/purchase', data),
     onSuccess: () => {

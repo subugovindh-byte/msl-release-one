@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import QRCode from 'qrcode';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { CGST_RATE_LABEL, SGST_RATE_LABEL, GST_RATE_LABEL, PAYMENT_MODES } from '@modernex/shared'; // CGST/SGST used in totals
-import { usePurchaseOrder, useCompany, useCreatePayment, useGRNList, useCreateGRN, useUpdatePOTransport, useVendors, useUpdatePOStatus } from '@/hooks/useApi';
+import { usePurchaseOrder, useCompany, useCreatePayment, useGRNList, useCreateGRN, useUpdatePOTransport, useVendors, useUpdatePOStatus, usePOMatch, useRecordPOMatch } from '@/hooks/useApi';
 import { formatINR, formatDate, selectOnFocus } from '@/utils/format';
 import { useToastStore } from '@/store';
 
@@ -27,10 +27,11 @@ function amountInWords(paise: number): string {
 }
 
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
-  new:       { label: 'New',       color: '#2563eb' },
-  approved:  { label: 'Approved',  color: '#16a34a' },
-  received:  { label: 'Received',  color: '#64748b' },
-  cancelled: { label: 'Cancelled', color: '#dc2626' },
+  new:       { label: 'New',       color: 'var(--blue)' },
+  approved:  { label: 'Approved',  color: 'var(--sage)' },
+  received:  { label: 'Received',  color: 'var(--amber)' },
+  closed:    { label: 'Closed',    color: 'var(--t2)' },
+  cancelled: { label: 'Cancelled', color: 'var(--red)' },
 };
 
 const PAY_STATUS: Record<string, { label: string; bg: string; color: string }> = {
@@ -61,7 +62,12 @@ export function PurchaseOrderReceiptPage() {
   const createGRN = useCreateGRN();
   const updateTransport = useUpdatePOTransport(decodedId);
   const updateStatus = useUpdatePOStatus();
+  const { data: matchData } = usePOMatch(decodedId);
+  const recordMatch = useRecordPOMatch();
 
+  const [showMatchForm, setShowMatchForm] = useState(false);
+  const [matchInvNo, setMatchInvNo] = useState('');
+  const [matchInvAmount, setMatchInvAmount] = useState('');
   const [showPayForm, setShowPayForm] = useState(false);
   const [payForm, setPayForm] = useState({ ...BLANK_FORM });
   const [payAmountMode, setPayAmountMode] = useState<'full' | 'custom'>('full');
@@ -329,6 +335,25 @@ export function PurchaseOrderReceiptPage() {
     } catch (err: any) { notify(err.message || 'Failed to create GRN', 'error'); }
   }
 
+  function handleRecordMatch(force: boolean) {
+    const amount = Math.round((parseFloat(matchInvAmount) || 0) * 100);
+    if (amount <= 0) { notify('Enter the quarry invoice amount', 'error'); return; }
+    recordMatch.mutate(
+      { id: po.id, final_invoice_no: matchInvNo || undefined, final_invoice_paise: amount, force },
+      {
+        onSuccess: (res: any) => {
+          if (res?.match?.matched) {
+            notify('Three-way match confirmed ✓', 'success');
+            setShowMatchForm(false);
+          } else {
+            notify(`Variance ${formatINR(Math.abs(res?.match?.variance_paise || 0))} exceeds tolerance — review and override if correct`, 'error');
+          }
+        },
+        onError: (e: any) => notify(e.message || 'Failed to record match', 'error'),
+      },
+    );
+  }
+
   async function handleSaveTransport(e: React.FormEvent) {
     e.preventDefault();
     try {
@@ -392,7 +417,21 @@ export function PurchaseOrderReceiptPage() {
               style={{ padding: '6px 14px', background: 'transparent', color: '#92400e', border: '1px solid #92400e', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
             >↩ Unapprove</button>
           )}
-          {po.status !== 'cancelled' && (
+          {/* Close PO (step 8) — only when matched + fully paid */}
+          {po.status === 'approved' && po.matched_at && paidPaise >= total && (
+            <button
+              onClick={() => {
+                if (window.confirm(`Close PO ${po.id}? It is matched and fully paid. This locks the order.`))
+                  updateStatus.mutate({ id: po.id, status: 'closed' }, {
+                    onSuccess: () => notify('PO closed', 'success'),
+                    onError: (e: any) => notify(e.message || 'Failed', 'error'),
+                  });
+              }}
+              disabled={updateStatus.isPending}
+              style={{ padding: '6px 14px', background: 'var(--sage)', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+            >🔒 Close PO</button>
+          )}
+          {po.status !== 'cancelled' && po.status !== 'closed' && (
             <button
               onClick={() => {
                 if (window.confirm(`Cancel PO ${po.id}? This cannot be undone.`))
@@ -519,6 +558,99 @@ export function PurchaseOrderReceiptPage() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* ── Three-Way Match panel (spec step 7) ── */}
+      {po.status !== 'cancelled' && matchData && (
+        <div className="no-print" style={{ background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8, padding: '16px 20px', marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
+            <h3 style={{ margin: 0, fontSize: 14, color: 'var(--t1)' }}>
+              Three-Way Match
+              {po.matched_at && <span style={{ marginLeft: 10, fontSize: 11, fontWeight: 700, color: 'var(--sage)' }}>✓ Matched</span>}
+            </h3>
+            {!po.matched_at && (
+              <button onClick={() => { setShowMatchForm(v => !v); setMatchInvNo(po.final_invoice_no || ''); setMatchInvAmount(po.final_invoice_paise ? String((po.final_invoice_paise / 100).toFixed(2)) : ''); }}
+                style={{ padding: '6px 14px', background: showMatchForm ? 'var(--bg3)' : 'var(--rust)', color: showMatchForm ? 'var(--t1)' : '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+                {showMatchForm ? 'Cancel' : 'Record Invoice & Match'}
+              </button>
+            )}
+          </div>
+
+          {/* Three columns: Ordered / Received / Invoiced */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <div style={{ background: 'var(--bg1)', border: '1px solid var(--bd)', borderRadius: 6, padding: '10px 12px' }}>
+              <div className="receipt-label" style={{ marginBottom: 6 }}>1 · Ordered (PO)</div>
+              <div style={{ fontSize: 12, color: 'var(--t2)' }}>{matchData.ordered.blocks} blocks · {matchData.ordered.cft} CFT</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--t1)', marginTop: 4 }}>{formatINR(matchData.ordered.total_paise)}</div>
+            </div>
+            <div style={{ background: 'var(--bg1)', border: '1px solid var(--bd)', borderRadius: 6, padding: '10px 12px' }}>
+              <div className="receipt-label" style={{ marginBottom: 6 }}>2 · Received (weighbridge)</div>
+              <div style={{ fontSize: 12, color: 'var(--t2)' }}>
+                {matchData.received.blocks_received} blocks · {matchData.received.cft_received} CFT
+                {matchData.received.net_weight_kg > 0 && <> · <strong style={{ color: 'var(--gold)' }}>{(matchData.received.net_weight_kg / 1000).toFixed(3)} t</strong></>}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 4 }}>
+                Expected: {formatINR(matchData.received.expected_paise)}
+                {matchData.received.allowance_pct > 0 && ` (${matchData.received.allowance_pct}% allowance applied)`}
+              </div>
+            </div>
+            <div style={{ background: 'var(--bg1)', border: '1px solid var(--bd)', borderRadius: 6, padding: '10px 12px' }}>
+              <div className="receipt-label" style={{ marginBottom: 6 }}>3 · Invoiced (quarry)</div>
+              {matchData.invoiced.final_invoice_paise != null ? (
+                <>
+                  <div style={{ fontSize: 12, color: 'var(--t2)' }}>{matchData.invoiced.final_invoice_no || '—'}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--t1)', marginTop: 4 }}>{formatINR(matchData.invoiced.final_invoice_paise)}</div>
+                </>
+              ) : (
+                <div style={{ fontSize: 12, color: 'var(--t3)', fontStyle: 'italic' }}>not recorded yet</div>
+              )}
+            </div>
+          </div>
+
+          {/* Variance banner */}
+          {matchData.variance_paise != null && (
+            <div style={{
+              padding: '8px 12px', borderRadius: 6, fontSize: 13, fontWeight: 600,
+              background: matchData.within_tolerance ? 'var(--sageW)' : 'var(--redW)',
+              color: matchData.within_tolerance ? 'var(--sage)' : 'var(--red)',
+              border: `1px solid ${matchData.within_tolerance ? 'var(--sage)' : 'var(--red)'}`,
+            }}>
+              {matchData.within_tolerance ? '✓ Within tolerance' : '⚠ Over tolerance'}: invoiced
+              {matchData.variance_paise >= 0 ? ' exceeds ' : ' below '}
+              expected by {formatINR(Math.abs(matchData.variance_paise))}
+              <span style={{ fontWeight: 400, opacity: 0.8 }}> (tolerance {formatINR(matchData.tolerance_paise)})</span>
+            </div>
+          )}
+
+          {/* Record invoice form */}
+          {showMatchForm && !po.matched_at && (
+            <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 12, alignItems: 'flex-end' }}>
+              <div>
+                <label className="fl">Quarry Invoice No</label>
+                <input type="text" className="fi" value={matchInvNo} onChange={e => setMatchInvNo(e.target.value)} placeholder="e.g. QRY-2291" />
+              </div>
+              <div>
+                <label className="fl">Invoice Amount (₹) *</label>
+                <input type="number" className="fi" step="0.01" min="0" value={matchInvAmount} onChange={e => setMatchInvAmount(e.target.value)} onFocus={selectOnFocus} placeholder="actual billed amount" />
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => handleRecordMatch(false)} disabled={recordMatch.isPending}
+                  style={{ padding: '8px 16px', background: 'var(--rust)', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+                  {recordMatch.isPending ? 'Matching…' : 'Match'}
+                </button>
+                <button onClick={() => handleRecordMatch(true)} disabled={recordMatch.isPending} title="Confirm match despite variance (admin override)"
+                  style={{ padding: '8px 12px', background: 'transparent', color: 'var(--amber)', border: '1px solid var(--amber)', borderRadius: 4, cursor: 'pointer', fontWeight: 600, fontSize: 12 }}>
+                  Override
+                </button>
+              </div>
+            </div>
+          )}
+          {po.matched_at && po.status === 'approved' && paidPaise < total && (
+            <div style={{ marginTop: 10, fontSize: 12, color: 'var(--t3)' }}>
+              Matched — pay the balance {formatINR(balance)} in full, then the <strong>Close PO</strong> action unlocks.
+            </div>
+          )}
         </div>
       )}
 

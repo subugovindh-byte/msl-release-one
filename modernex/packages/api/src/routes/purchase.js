@@ -226,16 +226,135 @@ purchaseRouter.delete('/:id',
 const ALLOWED_TRANSITIONS = {
   new:      ['received', 'approved', 'cancelled'],
   received: ['approved', 'cancelled'],
-  approved: ['new', 'cancelled'],
+  approved: ['new', 'closed', 'cancelled'],
+  closed:   [],
   cancelled: [],
 };
+
+// Three-way match tolerance: invoice may differ from expected by up to the
+// larger of 1% or ₹100 before it's flagged as a mismatch.
+function matchTolerance(expectedPaise) {
+  return Math.max(10000, Math.round(expectedPaise * 0.01));
+}
+
+// Compute the expected payable from ACTUAL delivered quantity (spec step 7):
+//   rate × CFT received, less commercial allowance, plus transport, plus GST.
+function computeExpectedFromReceipts(db, po) {
+  const grn = db.prepare(
+    `SELECT COALESCE(SUM(cft_received),0) AS cft, COALESCE(SUM(blocks_received),0) AS blocks,
+            COALESCE(SUM(net_weight_kg),0) AS kg
+     FROM purchase_order_receipts WHERE po_id = ? AND qc_pass = 1`
+  ).get(po.id);
+  const cftReceived = grn.cft || 0;
+  // Fall back to ordered CFT if nothing received yet
+  const cftBasis = cftReceived > 0 ? cftReceived : po.cft;
+  const allowancePct = po.allowance_pct || 0;
+  const billableCft = cftBasis * (1 - allowancePct / 100);
+  const material = Math.round(billableCft * po.rate_per_cft_paise);
+  const taxable = material + (po.transport_paise || 0);
+  const gst = Math.round(taxable * GST_RATE);
+  return {
+    cft_received: cftReceived,
+    blocks_received: grn.blocks || 0,
+    net_weight_kg: grn.kg || 0,
+    billable_cft: Math.round(billableCft * 100) / 100,
+    allowance_pct: allowancePct,
+    material_paise: material,
+    transport_paise: po.transport_paise || 0,
+    gst_paise: gst,
+    expected_paise: taxable + gst,
+  };
+}
+
+// ─── GET /purchase/:id/match — three-way match breakdown ───
+purchaseRouter.get('/:id/match',
+  requireRole('admin', 'accounts', 'yard'),
+  (req, res, next) => {
+    try {
+      const db = getDb();
+      const po = db.prepare('SELECT * FROM purchase_orders WHERE id = ?').get(req.params.id);
+      if (!po) throw new NotFoundError('PO not found');
+      const paidRow = db.prepare(
+        `SELECT COALESCE(SUM(amount_paise),0) AS v FROM payments WHERE po_id = ? AND type = 'payment'`
+      ).get(req.params.id);
+      const expected = computeExpectedFromReceipts(db, po);
+      const invoiced = po.final_invoice_paise ?? null;
+      const variance = invoiced != null ? invoiced - expected.expected_paise : null;
+      const tol = matchTolerance(expected.expected_paise);
+      res.json({
+        po_id: po.id,
+        ordered: { cft: po.cft, blocks: po.blocks, total_paise: po.total_paise },
+        received: expected,
+        invoiced: { final_invoice_no: po.final_invoice_no, final_invoice_paise: invoiced },
+        variance_paise: variance,
+        within_tolerance: variance != null ? Math.abs(variance) <= tol : null,
+        tolerance_paise: tol,
+        matched_at: po.matched_at,
+        paid_paise: paidRow?.v ?? 0,
+      });
+    } catch (err) { next(err); }
+  }
+);
+
+// ─── POST /purchase/:id/match — record quarry's final invoice + confirm match ───
+purchaseRouter.post('/:id/match',
+  requireRole('admin', 'accounts'),
+  (req, res, next) => {
+    try {
+      const db = getDb();
+      const po = db.prepare('SELECT * FROM purchase_orders WHERE id = ?').get(req.params.id);
+      if (!po) throw new NotFoundError('PO not found');
+      if (po.status === 'cancelled') throw new AppError('Cannot match a cancelled PO', 400);
+
+      const finalNo = (req.body.final_invoice_no || '').toString().slice(0, 50) || null;
+      const finalPaise = Number(req.body.final_invoice_paise);
+      if (!Number.isFinite(finalPaise) || finalPaise <= 0) {
+        throw new AppError('final_invoice_paise must be a positive number', 400);
+      }
+      const force = req.body.force === true;
+
+      const expected = computeExpectedFromReceipts(db, po);
+      const variance = finalPaise - expected.expected_paise;
+      const tol = matchTolerance(expected.expected_paise);
+      const withinTol = Math.abs(variance) <= tol;
+
+      // Store the invoice regardless; only set matched_at if reconciled (or forced)
+      const matched = withinTol || force;
+      const nowISO = new Date().toISOString();
+      db.prepare(
+        `UPDATE purchase_orders
+         SET final_invoice_no = ?, final_invoice_paise = ?,
+             matched_at = ?, matched_by = ?, updated_by = ?
+         WHERE id = ?`
+      ).run(finalNo, finalPaise, matched ? nowISO : null, matched ? req.user.username : null,
+            req.user.username, req.params.id);
+
+      audit(req, 'PO_MATCH', 'purchase_orders', req.params.id, null,
+            { final_invoice_no: finalNo, final_invoice_paise: finalPaise, variance, matched, force });
+
+      const updated = db.prepare('SELECT * FROM purchase_orders WHERE id = ?').get(req.params.id);
+      res.json({
+        po: updated,
+        match: {
+          expected_paise: expected.expected_paise,
+          invoiced_paise: finalPaise,
+          variance_paise: variance,
+          within_tolerance: withinTol,
+          tolerance_paise: tol,
+          matched,
+          breakdown: expected,
+        },
+      });
+    } catch (err) { next(err); }
+  }
+);
 
 purchaseRouter.patch('/:id/status',
   requireRole('admin', 'accounts'),
   (req, res, next) => {
     try {
       const { status } = req.body;
-      if (!['new', 'approved', 'received', 'cancelled'].includes(status)) {
+      if (!['new', 'approved', 'received', 'closed', 'cancelled'].includes(status)) {
         throw new AppError('Invalid status', 400);
       }
       const db = getDb();
@@ -249,6 +368,23 @@ purchaseRouter.patch('/:id/status',
           `Allowed: ${allowed.join(', ') || 'none'}.`,
           400
         );
+      }
+
+      // Closeout (spec step 8) requires a confirmed three-way match AND full payment
+      if (status === 'closed') {
+        if (!existing.matched_at) {
+          throw new AppError(`Cannot close PO ${req.params.id} — three-way match not confirmed yet.`, 400);
+        }
+        const paidRow = db.prepare(
+          `SELECT COALESCE(SUM(amount_paise),0) AS v FROM payments WHERE po_id = ? AND type = 'payment'`
+        ).get(req.params.id);
+        const paid = paidRow?.v ?? 0;
+        if (paid < existing.total_paise) {
+          throw new AppError(
+            `Cannot close PO ${req.params.id} — outstanding balance ${((existing.total_paise - paid) / 100).toFixed(2)}. Pay in full first.`,
+            400
+          );
+        }
       }
 
       // If approving from 'received', a QC-passed GRN must exist
@@ -269,6 +405,7 @@ purchaseRouter.patch('/:id/status',
         // Set status, recording or clearing the relevant timestamp
         const tsCol = status === 'received' ? 'received_at'
                     : status === 'approved'  ? 'approved_at'
+                    : status === 'closed'    ? 'closed_at'
                     : status === 'cancelled' ? 'cancelled_at' : null;
         // Unapprove (approved → new): clear approved_at
         const clearCol = status === 'new' && existing.status === 'approved' ? 'approved_at' : null;

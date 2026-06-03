@@ -11,12 +11,13 @@ import { useToastStore, useAuthStore } from '@/store';
 // ── Status metadata ──────────────────────────────────────────────────────────
 type StatusMeta = { label: string; color: string; bg: string; next: string | null; nextLabel: string };
 const STATUS: Record<string, StatusMeta> = {
-  new:       { label: 'New',       color: '#2563eb', bg: '#eff6ff', next: 'approved', nextLabel: 'Approve' },
-  received:  { label: 'Received',  color: '#92400e', bg: '#fefce8', next: 'approved', nextLabel: 'Approve' },
-  approved:  { label: 'Approved',  color: '#15803d', bg: '#f0fdf4', next: null,       nextLabel: '' },
-  cancelled: { label: 'Cancelled', color: '#6b7280', bg: '#f3f4f6', next: null,       nextLabel: '' },
+  new:       { label: 'New',       color: 'var(--blue)',  bg: 'var(--blueW)',  next: 'approved', nextLabel: 'Approve' },
+  received:  { label: 'Received',  color: 'var(--amber)', bg: 'var(--amberW)', next: 'approved', nextLabel: 'Approve' },
+  approved:  { label: 'Approved',  color: 'var(--sage)',  bg: 'var(--sageW)',  next: 'closed',   nextLabel: 'Close' },
+  closed:    { label: 'Closed',    color: 'var(--t2)',    bg: 'var(--bg3)',    next: null,       nextLabel: '' },
+  cancelled: { label: 'Cancelled', color: 'var(--t3)',    bg: 'var(--bg3)',    next: null,       nextLabel: '' },
 };
-const STATUS_FALLBACK: StatusMeta = { label: 'Unknown', color: '#6b7280', bg: '#f3f4f6', next: null, nextLabel: '' };
+const STATUS_FALLBACK: StatusMeta = { label: 'Unknown', color: 'var(--t3)', bg: 'var(--bg3)', next: null, nextLabel: '' };
 
 // ── Shared micro-styles ──────────────────────────────────────────────────────
 const inp: React.CSSProperties = {
@@ -178,11 +179,11 @@ function POForm({ vendors, form, setForm, onSubmit, isPending, onCancel, title }
 }
 
 // ── PO Card ──────────────────────────────────────────────────────────────────
-function POCard({ po, canManage, onApprove, onCancel, onDelete, onPay, onEdit, navigate, isSelected, onToggle }: {
+function POCard({ po, canManage, onApprove, onCancel, onDelete, onPay, onEdit, onClose, navigate, isSelected, onToggle }: {
   po: any; canManage: boolean;
   onApprove: (id: string) => void; onCancel: (id: string) => void;
   onDelete: (id: string) => void; onPay: (po: any) => void;
-  onEdit: (po: any) => void; navigate: (to: string) => void;
+  onEdit: (po: any) => void; onClose: (id: string) => void; navigate: (to: string) => void;
   isSelected: boolean; onToggle: (id: string) => void;
 }) {
   const [confirmAction, setConfirmAction] = useState<'cancel' | 'delete' | null>(null);
@@ -193,8 +194,9 @@ function POCard({ po, canManage, onApprove, onCancel, onDelete, onPay, onEdit, n
   const canEdit = canManage && (po.status === 'new');
   const canDel = canManage && (po.status === 'new' || po.status === 'cancelled') && (po.paid_paise ?? 0) === 0;
   const canApprove = canManage && (po.status === 'new' || po.status === 'received');
-  const canCancel = canManage && po.status !== 'cancelled';
+  const canCancel = canManage && po.status !== 'cancelled' && po.status !== 'closed';
   const canPay = po.status === 'approved' && !isPaid;
+  const canClose = canManage && po.status === 'approved' && po.matched_at && isPaid;
 
   return (
     <div style={{
@@ -299,6 +301,14 @@ function POCard({ po, canManage, onApprove, onCancel, onDelete, onPay, onEdit, n
             </button>
           )}
 
+          {/* Primary: Close (matched + fully paid) */}
+          {canClose && (
+            <button onClick={() => onClose(po.id)}
+              style={{ ...btn('var(--sage)'), display: 'flex', alignItems: 'center', gap: 5 }}>
+              🔒 Close PO
+            </button>
+          )}
+
           {/* Secondary: View full receipt */}
           <button onClick={() => navigate(`/purchase/${(po.id || '').replace(/\//g, '~')}`)}
             style={btn('var(--bg1)', 'var(--t1)', '1px solid var(--bd)')}>
@@ -337,12 +347,12 @@ function POCard({ po, canManage, onApprove, onCancel, onDelete, onPay, onEdit, n
 }
 
 // ── PO Table (compact list view) ─────────────────────────────────────────────
-function POTable({ pos, canManage, selectedIds, onToggle, onSelectAll, onApprove, onCancel, onDelete, onPay, onEdit, navigate }: {
+function POTable({ pos, canManage, selectedIds, onToggle, onSelectAll, onApprove, onCancel, onDelete, onPay, onEdit, onClose, navigate }: {
   pos: any[]; canManage: boolean; selectedIds: Set<string>;
   onToggle: (id: string) => void; onSelectAll: (ids: string[]) => void;
   onApprove: (id: string) => void; onCancel: (id: string) => void;
   onDelete: (id: string) => void; onPay: (po: any) => void;
-  onEdit: (po: any) => void; navigate: (to: string) => void;
+  onEdit: (po: any) => void; onClose: (id: string) => void; navigate: (to: string) => void;
 }) {
   const th: React.CSSProperties = {
     textAlign: 'left', padding: '8px 10px', fontSize: 11, fontWeight: 700,
@@ -383,7 +393,8 @@ function POTable({ pos, canManage, selectedIds, onToggle, onSelectAll, onApprove
             const canPay = po.status === 'approved' && !isPaid;
             const canEdit = canManage && po.status === 'new';
             const canDel = canManage && (po.status === 'new' || po.status === 'cancelled') && (po.paid_paise ?? 0) === 0;
-            const canCancel = canManage && po.status !== 'cancelled';
+            const canCancel = canManage && po.status !== 'cancelled' && po.status !== 'closed';
+            const canClose = canManage && po.status === 'approved' && po.matched_at && isPaid;
             const sel = selectedIds.has(po.id);
             return (
               <tr key={po.id} style={{ background: sel ? 'var(--rustW, rgba(180,80,40,0.06))' : 'var(--bg1)' }}>
@@ -407,6 +418,7 @@ function POTable({ pos, canManage, selectedIds, onToggle, onSelectAll, onApprove
                   <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
                     {canApprove && <button onClick={() => onApprove(po.id)} title="Approve" style={{ ...btn('#15803d'), padding: '3px 8px', fontSize: 10 }}>✓</button>}
                     {canPay && <button onClick={() => onPay(po)} title="Record Payment" style={{ ...btn('var(--rust)'), padding: '3px 8px', fontSize: 10 }}>₹</button>}
+                    {canClose && <button onClick={() => onClose(po.id)} title="Close PO" style={{ ...btn('var(--sage)'), padding: '3px 8px', fontSize: 10 }}>🔒</button>}
                     <button onClick={() => navigate(`/purchase/${(po.id || '').replace(/\//g, '~')}`)} title="View" style={{ ...btn('var(--bg2)', 'var(--t1)', '1px solid var(--bd)'), padding: '3px 8px', fontSize: 10 }}>↗</button>
                     {canEdit && <button onClick={() => onEdit(po)} title="Edit" style={{ ...btn('transparent', 'var(--t2)', '1px solid var(--bd)'), padding: '3px 8px', fontSize: 10 }}>✎</button>}
                     {canCancel && <button onClick={() => onCancel(po.id)} title="Cancel PO" style={{ ...btn('transparent', '#b91c1c', '1px solid #b91c1c'), padding: '3px 8px', fontSize: 10 }}>✕</button>}
@@ -503,6 +515,13 @@ export function PurchasePage() {
       onError: (e: any) => notify(e.message || 'Failed to delete', 'error'),
     });
   }, [deletePO, notify]);
+
+  const handleClose = useCallback((id: string) => {
+    updateStatus.mutate({ id, status: 'closed' }, {
+      onSuccess: () => notify(`PO ${id} closed`, 'success'),
+      onError: (e: any) => notify(e.message || 'Failed to close', 'error'),
+    });
+  }, [updateStatus, notify]);
 
   const handlePay = useCallback((po: any) => {
     setPayingPO(po);
@@ -648,6 +667,7 @@ export function PurchasePage() {
     { key: 'new', label: 'New' },
     { key: 'received', label: 'Received' },
     { key: 'approved', label: 'Approved' },
+    { key: 'closed', label: 'Closed' },
     { key: 'cancelled', label: 'Cancelled' },
   ];
 
@@ -684,7 +704,7 @@ export function PurchasePage() {
 
       {/* Workflow pipeline indicator */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 20, background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8, padding: '10px 16px', overflowX: 'auto' }}>
-        {(['new', 'received', 'approved'] as const).map((s, i) => {
+        {(['new', 'received', 'approved', 'closed'] as const).map((s, i) => {
           const m: StatusMeta = STATUS[s] ?? STATUS_FALLBACK;
           const cnt = counts[s] || 0;
           return (
@@ -763,7 +783,7 @@ export function PurchasePage() {
                 <POCard key={po.id} po={po} canManage={canManage}
                   onApprove={handleApprove} onCancel={handleCancel}
                   onDelete={handleDelete} onPay={handlePay}
-                  onEdit={handleEdit} navigate={navigate}
+                  onEdit={handleEdit} onClose={handleClose} navigate={navigate}
                   isSelected={selectedIds.has(po.id)} onToggle={handleToggleSelect} />
               ))}
             </div>
@@ -772,7 +792,7 @@ export function PurchasePage() {
               onToggle={handleToggleSelect} onSelectAll={handleSelectAll}
               onApprove={handleApprove} onCancel={handleCancel}
               onDelete={(id) => { if (window.confirm(`Delete PO ${id}? This cannot be undone.`)) handleDelete(id); }}
-              onPay={handlePay} onEdit={handleEdit} navigate={navigate} />
+              onPay={handlePay} onEdit={handleEdit} onClose={handleClose} navigate={navigate} />
           )}
         </>
       )}
