@@ -153,7 +153,7 @@ export function POSPage() {
         name: newCust.name.trim(),
         gstin: newCust.gstin.trim().toUpperCase() || undefined,
         state: newCust.state,
-        contact: newCust.contact.trim() || undefined,
+        contact: newCust.contact.trim() ? `+91 ${newCust.contact.trim()}` : undefined,
         credit_days: Number(newCust.credit_days) || 0,
       } as any);
       const cust = (created?.customer ?? created) as Customer;
@@ -532,13 +532,23 @@ export function POSPage() {
                   >
                     {INDIAN_STATES.map((s: string) => <option key={s} value={s}>{s}</option>)}
                   </select>
-                  <input
-                    className="fi"
-                    placeholder="Phone (optional)"
-                    value={newCust.contact}
-                    onChange={e => setNewCust(c => ({ ...c, contact: e.target.value }))}
-                    style={{ fontSize: 11 }}
-                  />
+                  <div style={{ display: 'flex', alignItems: 'stretch' }}>
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', padding: '0 8px', fontSize: 11, fontWeight: 700,
+                      color: 'var(--t2)', background: 'var(--bg3)', border: '1px solid var(--bd)',
+                      borderRight: 'none', borderRadius: '4px 0 0 4px',
+                    }}>+91</span>
+                    <input
+                      className="fi"
+                      type="tel"
+                      inputMode="numeric"
+                      maxLength={10}
+                      placeholder="10-digit mobile (optional)"
+                      value={newCust.contact}
+                      onChange={e => setNewCust(c => ({ ...c, contact: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
+                      style={{ fontSize: 11, flex: 1, borderRadius: '0 4px 4px 0' }}
+                    />
+                  </div>
                   <div style={{ display: 'flex', gap: 4 }}>
                     <input
                       className="fi"
