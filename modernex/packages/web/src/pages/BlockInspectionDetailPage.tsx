@@ -29,9 +29,9 @@ const card: React.CSSProperties = {
 };
 
 const GRADE_COLORS: Record<string, { color: string; bg: string }> = {
-  'A+': { color: '#15803d', bg: '#dcfce7' },
-  'A':  { color: '#1d4ed8', bg: '#dbeafe' },
-  'B':  { color: '#92400e', bg: '#fef9c3' },
+  'A+': { color: 'var(--sage)', bg: 'var(--sageW)' },
+  'A':  { color: 'var(--blue)', bg: 'var(--blueW)' },
+  'B':  { color: 'var(--amber)', bg: 'var(--amberW)' },
 };
 const STATUS_LABELS: Record<string, string> = {
   pending: 'Pending', po_raised: 'PO Raised', rejected: 'Rejected',
@@ -55,7 +55,7 @@ function PhotoThumb({ inspId, photoId, caption, canDelete, onDelete }:
       {canDelete && (
         <button onClick={onDelete} style={{
           position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: '50%',
-          background: '#ef4444', color: '#fff', border: 'none', fontSize: 12, cursor: 'pointer',
+          background: 'var(--red)', color: '#fff', border: 'none', fontSize: 12, cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1,
         }}>×</button>
       )}
@@ -125,7 +125,7 @@ function RaisePOModal({ insp, onClose }: { insp: any; onClose: () => void }) {
                   Master price: {formatINR(masterRate)}/CFT
                   {userEditedRate && rate !== masterRate && (
                     <button type="button" onClick={() => { setRate(masterRate); setUserEditedRate(false); }}
-                      style={{ marginLeft: 6, fontSize: 11, color: '#2563eb', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                      style={{ marginLeft: 6, fontSize: 11, color: 'var(--blue)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                       ↺ restore
                     </button>
                   )}
@@ -145,8 +145,8 @@ function RaisePOModal({ insp, onClose }: { insp: any; onClose: () => void }) {
           <div style={{ marginTop:12 }}><label style={lbl}>Notes</label>
             <textarea style={{ ...inp, height:64, resize:'none' }} value={notes} onChange={e => setNotes(e.target.value)} /></div>
           <div style={{ display:'flex', gap:10, marginTop:18 }}>
-            <button type="button" style={{ ...btn('#f3f4f6','#374151','1px solid #d1d5db'), flex:1 }} onClick={onClose}>Cancel</button>
-            <button type="submit" style={{ ...btn('#16a34a'), flex:2 }} disabled={raise.isPending}>
+            <button type="button" style={{ ...btn('var(--bg3)','var(--t2)','1px solid var(--bd)'), flex:1 }} onClick={onClose}>Cancel</button>
+            <button type="submit" style={{ ...btn('var(--sage)'), flex:2 }} disabled={raise.isPending}>
               {raise.isPending ? 'Creating PO…' : '✓ Create PO'}
             </button>
           </div>
@@ -228,9 +228,9 @@ export default function BlockInspectionDetailPage() {
   };
 
   if (isLoading) return <p style={{ padding: 24, color: 'var(--t3)' }}>Loading…</p>;
-  if (isError || !insp) return <p style={{ padding: 24, color: '#dc2626' }}>Inspection not found.</p>;
+  if (isError || !insp) return <p style={{ padding: 24, color: 'var(--red)' }}>Inspection not found.</p>;
 
-  const gradeMeta = GRADE_COLORS[insp.grade] ?? { color: '#374151', bg: '#f3f4f6' };
+  const gradeMeta = GRADE_COLORS[insp.grade] ?? { color: 'var(--t2)', bg: 'var(--bg3)' };
   const isPending = insp.status === 'pending';
 
   return (
@@ -254,13 +254,13 @@ export default function BlockInspectionDetailPage() {
         </div>
         <div>
           <span style={{ fontSize: 12, padding: '4px 10px', borderRadius: 20, fontWeight: 700,
-            background: insp.status === 'po_raised' ? '#dcfce7' : insp.status === 'rejected' ? '#fee2e2' : '#fef9c3',
-            color: insp.status === 'po_raised' ? '#15803d' : insp.status === 'rejected' ? '#dc2626' : '#92400e' }}>
+            background: insp.status === 'po_raised' ? 'var(--sageW)' : insp.status === 'rejected' ? 'var(--redW)' : 'var(--amberW)',
+            color: insp.status === 'po_raised' ? 'var(--sage)' : insp.status === 'rejected' ? 'var(--red)' : 'var(--amber)' }}>
             {STATUS_LABELS[insp.status] ?? insp.status}
           </span>
           {insp.po_id && (
             <div style={{ marginTop: 6, fontSize: 12, color: 'var(--t3)' }}>
-              PO: <Link to={`/purchase/${insp.po_id.replace(/\//g, '~')}`} style={{ color: '#2563eb' }}>{insp.po_id}</Link>
+              PO: <Link to={`/purchase/${insp.po_id.replace(/\//g, '~')}`} style={{ color: 'var(--blue)' }}>{insp.po_id}</Link>
             </div>
           )}
         </div>
@@ -271,7 +271,7 @@ export default function BlockInspectionDetailPage() {
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 14 }}>
           <h3 style={{ margin: 0, fontSize: 15, flex: 1 }}>Details</h3>
           {canWrite && isPending && !editing && (
-            <button style={btn('#f3f4f6','#374151','1px solid #d1d5db')} onClick={startEdit}>Edit</button>
+            <button style={btn('var(--bg3)','var(--t2)','1px solid var(--bd)')} onClick={startEdit}>Edit</button>
           )}
         </div>
         {editing ? (
@@ -306,8 +306,8 @@ export default function BlockInspectionDetailPage() {
             <div><label style={lbl}>Notes</label>
               <textarea style={{ ...inp, height: 64, resize: 'none' }} value={editForm.notes} onChange={e => setEditForm((f: any) => ({ ...f, notes: e.target.value }))} /></div>
             <div style={{ display: 'flex', gap: 10 }}>
-              <button style={{ ...btn('#f3f4f6','#374151','1px solid #d1d5db'), flex: 1 }} onClick={() => setEditing(false)}>Cancel</button>
-              <button style={{ ...btn('#2563eb'), flex: 2 }} onClick={saveEdit} disabled={updateInsp.isPending}>
+              <button style={{ ...btn('var(--bg3)','var(--t2)','1px solid var(--bd)'), flex: 1 }} onClick={() => setEditing(false)}>Cancel</button>
+              <button style={{ ...btn('var(--blue)'), flex: 2 }} onClick={saveEdit} disabled={updateInsp.isPending}>
                 {updateInsp.isPending ? 'Saving…' : 'Save Changes'}
               </button>
             </div>
@@ -322,7 +322,7 @@ export default function BlockInspectionDetailPage() {
             <div><span style={{ color: 'var(--t3)' }}>Blocks</span><br /><strong>{insp.block_count}</strong></div>
             <div><span style={{ color: 'var(--t3)' }}>Est. CFT</span><br /><strong>{insp.est_cft}</strong></div>
             {insp.quarry_location && <div style={{ gridColumn: '1/-1' }}><span style={{ color: 'var(--t3)' }}>Quarry</span><br /><strong>{insp.quarry_location}</strong></div>}
-            {insp.defect_note && <div style={{ gridColumn: '1/-1' }}><span style={{ color: 'var(--t3)' }}>Defect note</span><br /><strong style={{ color: '#92400e' }}>{insp.defect_note}</strong></div>}
+            {insp.defect_note && <div style={{ gridColumn: '1/-1' }}><span style={{ color: 'var(--t3)' }}>Defect note</span><br /><strong style={{ color: 'var(--amber)' }}>{insp.defect_note}</strong></div>}
             {insp.notes && <div style={{ gridColumn: '1/-1' }}><span style={{ color: 'var(--t3)' }}>Notes</span><br /><strong>{insp.notes}</strong></div>}
           </div>
         )}
@@ -352,7 +352,7 @@ export default function BlockInspectionDetailPage() {
             {/* Camera-first file input for mobile */}
             <input ref={fileRef} type="file" accept="image/*" capture="environment"
               style={{ display: 'none' }} onChange={handlePhotoFile} />
-            <button style={{ ...btn('#7c3aed'), width: '100%' }} onClick={() => fileRef.current?.click()}
+            <button style={{ ...btn('var(--rust)'), width: '100%' }} onClick={() => fileRef.current?.click()}
               disabled={addPhoto.isPending}>
               {addPhoto.isPending ? 'Uploading…' : '📷 Add Photo'}
             </button>
@@ -366,12 +366,12 @@ export default function BlockInspectionDetailPage() {
           paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
           background: 'var(--bg0)', borderTop: '1px solid var(--bd)', display: 'flex', gap: 10, maxWidth: 600, margin: '0 auto' }}>
           {canAdmin && (
-            <button style={{ ...btn('#fee2e2','#dc2626','1px solid #fca5a5'), flex: 1 }} onClick={handleReject}>
+            <button style={{ ...btn('var(--redW)','var(--red)','1px solid var(--redB)'), flex: 1 }} onClick={handleReject}>
               ✕ Reject
             </button>
           )}
           {canAdmin && (
-            <button style={{ ...btn('#16a34a'), flex: 2, fontSize: 15 }} onClick={() => setShowRaisePO(true)}>
+            <button style={{ ...btn('var(--sage)'), flex: 2, fontSize: 15 }} onClick={() => setShowRaisePO(true)}>
               ✓ Raise PO
             </button>
           )}

@@ -22,14 +22,14 @@ const btn = (bg: string, color = '#fff', border = 'none'): React.CSSProperties =
 });
 
 const GRADE_COLORS: Record<string, { color: string; bg: string }> = {
-  'A+': { color: '#15803d', bg: '#dcfce7' },
-  'A':  { color: '#1d4ed8', bg: '#dbeafe' },
-  'B':  { color: '#92400e', bg: '#fef9c3' },
+  'A+': { color: 'var(--sage)',  bg: 'var(--sageW)' },
+  'A':  { color: 'var(--blue)',  bg: 'var(--blueW)' },
+  'B':  { color: 'var(--amber)', bg: 'var(--amberW)' },
 };
 const STATUS_COLORS: Record<string, { color: string; bg: string }> = {
-  pending:   { color: '#92400e', bg: '#fef9c3' },
-  po_raised: { color: '#15803d', bg: '#dcfce7' },
-  rejected:  { color: '#dc2626', bg: '#fee2e2' },
+  pending:   { color: 'var(--amber)', bg: 'var(--amberW)' },
+  po_raised: { color: 'var(--sage)',  bg: 'var(--sageW)' },
+  rejected:  { color: 'var(--red)',   bg: 'var(--redW)' },
 };
 
 // Pre-defined quarry locations (quick-pick)
@@ -157,7 +157,7 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
         <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:16 }}>
           {VARIETIES.map(v => (
             <button key={v} type="button" onClick={() => set('variety', v)}
-              style={chip(form.variety === v, '#2563eb', '#dbeafe')}>
+              style={chip(form.variety === v, 'var(--blue)', 'var(--blueW)')}>
               {v}
             </button>
           ))}
@@ -168,12 +168,12 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
           <label style={lbl}>Vendor</label>
           <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:16 }}>
             <button type="button" onClick={() => set('vendor_id', '')}
-              style={chip(form.vendor_id === '', '#6b7280', '#f3f4f6')}>
+              style={chip(form.vendor_id === '', 'var(--t3)', 'var(--bg3)')}>
               None
             </button>
             {vendors.map(v => (
               <button key={v.id} type="button" onClick={() => set('vendor_id', v.id)}
-                style={chip(form.vendor_id === v.id, '#7c3aed', '#f5f3ff')}>
+                style={chip(form.vendor_id === v.id, 'var(--rust)', 'var(--rustW)')}>
                 {v.name}
               </button>
             ))}
@@ -195,7 +195,7 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
             <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:6 }}>
               {[20,30,40,50,60,80,100].map(n => (
                 <button key={n} type="button" onClick={() => set('est_cft', n)}
-                  style={{ ...chip(form.est_cft === n, '#0891b2', '#cffafe'), padding:'6px 10px', fontSize:12 }}>
+                  style={{ ...chip(form.est_cft === n, 'var(--blue)', 'var(--blueW)'), padding:'6px 10px', fontSize:12 }}>
                   {n}
                 </button>
               ))}
@@ -211,7 +211,7 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
         <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:8 }}>
           {QUARRY_LOCATIONS.map(q => (
             <button key={q} type="button" onClick={() => set('quarry_location', q)}
-              style={{ ...chip(form.quarry_location === q, '#059669', '#d1fae5'), padding:'7px 11px', fontSize:12 }}>
+              style={{ ...chip(form.quarry_location === q, 'var(--sage)', 'var(--sageW)'), padding:'7px 11px', fontSize:12 }}>
               {q.split(',')[0]}
             </button>
           ))}
@@ -224,13 +224,13 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
         <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:8 }}>
           {DEFECT_CHIPS.map(d => (
             <button key={d} type="button" onClick={() => toggleDefect(d)}
-              style={{ ...chip(activeDefects.includes(d), '#dc2626', '#fee2e2'), padding:'7px 12px', fontSize:12 }}>
+              style={{ ...chip(activeDefects.includes(d), 'var(--red)', 'var(--redW)'), padding:'7px 12px', fontSize:12 }}>
               {d}
             </button>
           ))}
         </div>
         {activeDefects.length > 0 && (
-          <input style={{ ...inp, marginBottom:16, color:'#dc2626' }} type="text"
+          <input style={{ ...inp, marginBottom:16, color:'var(--red)' }} type="text"
             value={form.defect_note} onChange={e => set('defect_note', e.target.value)} />
         )}
 
@@ -249,7 +249,7 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
                 <img src={ph.data_url} alt="" style={{ width:72, height:72, objectFit:'cover', borderRadius:8, border:'2px solid var(--bd)' }} />
                 <button type="button" onClick={() => removePhoto(i)} style={{
                   position:'absolute', top:-6, right:-6, width:20, height:20, borderRadius:'50%',
-                  background:'#ef4444', color:'#fff', border:'none', fontSize:13, lineHeight:1,
+                  background:'var(--red)', color:'#fff', border:'none', fontSize:13, lineHeight:1,
                   cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
                 }}>×</button>
               </div>
@@ -264,11 +264,11 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
         {photos.length < 10 && (
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:18 }}>
             <button type="button" onClick={() => photoRef.current?.click()}
-              style={{ ...btn('#7c3aed'), fontSize:13, padding:'11px 0' }}>
+              style={{ ...btn('var(--rust)'), fontSize:13, padding:'11px 0' }}>
               📷 Camera
             </button>
             <button type="button" onClick={() => galleryRef.current?.click()}
-              style={{ ...btn('#0891b2'), fontSize:13, padding:'11px 0' }}>
+              style={{ ...btn('var(--blue)'), fontSize:13, padding:'11px 0' }}>
               🖼 Gallery
             </button>
           </div>
@@ -276,8 +276,8 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
 
         {/* ── Actions ── */}
         <div style={{ display:'grid', gridTemplateColumns:'1fr 2fr', gap:10 }}>
-          <button type="button" style={btn('#f3f4f6','#374151','1px solid #d1d5db')} onClick={onClose} disabled={uploading}>Cancel</button>
-          <button type="button" style={{ ...btn('#2563eb'), fontSize:15, padding:'13px 0' }}
+          <button type="button" style={btn('var(--bg3)','var(--t2)','1px solid var(--bd)')} onClick={onClose} disabled={uploading}>Cancel</button>
+          <button type="button" style={{ ...btn('var(--blue)'), fontSize:15, padding:'13px 0' }}
             onClick={submit} disabled={uploading}>
             {uploading
               ? `Saving${photos.length > 0 ? ` + ${photos.length} photo${photos.length > 1 ? 's' : ''}` : ''}…`
@@ -335,7 +335,7 @@ export default function BlockInspectionListPage() {
           <option value="rejected">Rejected</option>
         </select>
         {canWrite && (
-          <button style={btn('#2563eb')} onClick={() => setShowNew(true)}>+ New Inspection</button>
+          <button style={btn('var(--blue)')} onClick={() => setShowNew(true)}>+ New Inspection</button>
         )}
       </div>
 
@@ -346,13 +346,13 @@ export default function BlockInspectionListPage() {
         <div style={{ textAlign: 'center', color: 'var(--t3)', padding: '60px 0' }}>
           <div style={{ fontSize: 40 }}>◎</div>
           <p style={{ marginTop: 12 }}>No block inspections{statusFilter ? ` with status "${statusFilter}"` : ''}.</p>
-          {canWrite && <button style={btn('#2563eb')} onClick={() => setShowNew(true)}>Record First Inspection</button>}
+          {canWrite && <button style={btn('var(--blue)')} onClick={() => setShowNew(true)}>Record First Inspection</button>}
         </div>
       ) : (
         <div style={{ display: 'grid', gap: 10 }}>
           {inspections.map((insp: any) => {
-            const gradeMeta = GRADE_COLORS[insp.grade] ?? { color: '#374151', bg: '#f3f4f6' };
-            const statusMeta = STATUS_COLORS[insp.status] ?? { color: '#374151', bg: '#f3f4f6' };
+            const gradeMeta = GRADE_COLORS[insp.grade] ?? { color: 'var(--t2)', bg: 'var(--bg3)' };
+            const statusMeta = STATUS_COLORS[insp.status] ?? { color: 'var(--t2)', bg: 'var(--bg3)' };
             return (
               <div key={insp.id} style={{
                 background: 'var(--bg1)', border: '1px solid var(--bd)', borderRadius: 8,
@@ -382,25 +382,25 @@ export default function BlockInspectionListPage() {
                       {insp.status === 'po_raised' ? 'PO Raised' : insp.status.charAt(0).toUpperCase() + insp.status.slice(1)}
                     </span>
                     {insp.photo_count > 0 && (
-                      <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, fontWeight: 600, color: '#6b21a8', background: '#f5f3ff' }}>
+                      <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, fontWeight: 600, color: 'var(--rust)', background: 'var(--rustW)' }}>
                         📷 {insp.photo_count}
                       </span>
                     )}
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--t3)' }}>{insp.date}</div>
                   <div style={{ display: 'flex', gap: 6 }}>
-                    <button style={btn('#e0e7ff', '#3730a3', '1px solid #c7d2fe')}
+                    <button style={btn('var(--rustW)', 'var(--rust)', '1px solid var(--rustW)')}
                       onClick={() => navigate(`/inspections/${insp.id.replace(/\//g, '~')}`)}>
                       View ↗
                     </button>
                     {canAdmin && insp.status === 'pending' && (
-                      <button style={btn('#fee2e2', '#dc2626', '1px solid #fca5a5')}
+                      <button style={btn('var(--redW)', 'var(--red)', '1px solid var(--redB)')}
                         onClick={() => handleReject(insp.id)}>
                         Reject
                       </button>
                     )}
                     {canAdmin && insp.status !== 'po_raised' && (
-                      <button style={btn('#f3f4f6', '#374151', '1px solid #d1d5db')}
+                      <button style={btn('var(--bg3)', 'var(--t2)', '1px solid var(--bd)')}
                         onClick={() => handleDelete(insp.id)}>
                         ✕
                       </button>
