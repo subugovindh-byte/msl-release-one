@@ -163,6 +163,11 @@ export function UsersPage() {
     { headerName: 'Email',     field: 'email',     minWidth: 190, flex: 1, valueFormatter: p => p.value || '—' },
     {
       headerName: 'Roles', field: 'roles', minWidth: 160, flex: 1,
+      cellDataType: false,
+      valueFormatter: (p: any) => {
+        const roles: any[] = p.value ?? [];
+        return roles.length ? roles.map((r: any) => r.name).join(', ') : (p.data?.role ?? '—');
+      },
       cellRenderer: (p: any) => {
         const roles: any[] = p.value ?? [];
         if (!roles.length) {
