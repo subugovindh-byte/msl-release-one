@@ -655,6 +655,23 @@ export function useCreatePayment(options?: UseMutationOptions<{ payment: Payment
   });
 }
 
+export function useReversePayment(options?: UseMutationOptions<{ ok: boolean }, Error, string>) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.post<{ ok: boolean }>(`/payments/${pid(id)}/reverse`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.payments.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.invoices.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchase.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.customers.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.vendors.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.consumables.all });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+    },
+    ...options,
+  });
+}
+
 // ─── Variety Master ───
 export function useVarietyMaster(filters?: Record<string, string | number | boolean | undefined>) {
   return useQuery({

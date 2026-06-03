@@ -2,11 +2,11 @@ import { useMemo, useState } from 'react';
 import type { ColDef } from 'ag-grid-community';
 import {
   useInvoices, usePayments, useDebitCreditNotes, useCreateDCN, useConfirmDCN, useCancelDCN,
-  useCustomerLedger, useVendorLedger, useCustomers, useVendors,
+  useCustomerLedger, useVendorLedger, useCustomers, useVendors, useReversePayment,
 } from '@/hooks/useApi';
 import { DataGridTable } from '@/components/DataGridTable';
 import { formatINR } from '@/utils/format';
-import { useToastStore } from '@/store';
+import { useToastStore, useAuthStore } from '@/store';
 
 type Tab = 'receivable' | 'payments' | 'dcn' | 'ledger';
 
@@ -31,6 +31,18 @@ export function AccountsPage() {
   const createDCN = useCreateDCN();
   const confirmDCN = useConfirmDCN();
   const cancelDCN = useCancelDCN();
+  const reversePayment = useReversePayment();
+  const { user } = useAuthStore();
+  const canManage = user?.role === 'admin' || user?.role === 'accounts';
+
+  const handleReversePayment = (p: any) => {
+    const link = p.invoice_id ? `invoice ${p.invoice_id}` : p.po_id ? `PO ${p.po_id}` : p.cp_id ? `purchase ${p.cp_id}` : 'general';
+    if (!window.confirm(`Reverse payment ${p.id} (${formatINR(p.amount_paise)}, ${link})?\n\nThis removes the entry and restores the balance.`)) return;
+    reversePayment.mutate(p.id, {
+      onSuccess: () => notify(`Payment ${p.id} reversed`, 'success'),
+      onError: (e: any) => notify(e.message || 'Failed to reverse', 'error'),
+    });
+  };
 
   const invoices: any[] = invoicesData?.invoices || [];
   const payments: any[] = paymentsData?.payments || [];
@@ -220,7 +232,24 @@ export function AccountsPage() {
       flex: 1,
       valueFormatter: (p) => p.value || '—',
     },
-  ], []);
+    ...(canManage ? [{
+      headerName: '',
+      colId: 'reverse',
+      minWidth: 100,
+      maxWidth: 100,
+      sortable: false,
+      filter: false,
+      floatingFilter: false,
+      cellRenderer: (p: any) => (
+        <button
+          onClick={() => handleReversePayment(p.data)}
+          disabled={reversePayment.isPending}
+          title="Reverse this payment and restore the balance"
+          style={{ fontSize: 11, color: 'var(--red)', background: 'none', border: '1px solid var(--bd)', borderRadius: 4, cursor: 'pointer', padding: '2px 9px', fontWeight: 600 }}
+        >↩ Reverse</button>
+      ),
+    }] as ColDef[] : []),
+  ], [canManage, reversePayment.isPending]);
 
   const TAB_LABELS: Record<Tab, string> = {
     receivable: `Receivables (${unpaidInvoices.length})`,
