@@ -248,8 +248,9 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
         {/* ── PHOTOS ── */}
         <label style={lbl}>Photos <span style={{ fontWeight:400, textTransform:'none' }}>({photos.length}/10)</span></label>
 
-        {/* Hidden inputs — one for camera, one for gallery */}
-        <input ref={photoRef} type="file" accept="image/*" capture="environment" multiple
+        {/* Hidden inputs — camera must NOT be `multiple` (mobile browsers ignore
+            `capture` when multiple is set, falling back to the gallery picker) */}
+        <input ref={photoRef} type="file" accept="image/*" capture="environment"
           style={{ display:'none' }} onChange={handlePhotoCapture} />
         <input ref={galleryRef} type="file" accept="image/*" multiple
           style={{ display:'none' }} onChange={handlePhotoCapture} />
