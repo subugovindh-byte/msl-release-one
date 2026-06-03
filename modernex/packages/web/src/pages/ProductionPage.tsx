@@ -12,7 +12,7 @@ import { useToastStore, useAuthStore } from '@/store';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 function sqftFromSize(sizeStr: string) {
-  const [l, w] = sizeStr.split('×').map(Number);
+  const [l, w] = String(sizeStr).split(/[×xX*]/).map(s => Number(String(s).trim()));
   if (!l || !w) return 0;
   return +((l * w) / 92903.04).toFixed(2);
 }
@@ -785,20 +785,32 @@ function CutSlabs({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; notify
         </Fld>
 
         {isSlab ? (
-          <Fld label="Slab Size">
-            <Sel value={form.slab_size} onChange={e => set('slab_size', e.target.value)}>
+          <Fld label="Slab Size" hint={!SLAB_SIZES.includes(form.slab_size) && form.slab_size ? `${sqftFromSize(form.slab_size)} sqft` : undefined}>
+            <Sel value={SLAB_SIZES.includes(form.slab_size) ? form.slab_size : '__custom__'}
+              onChange={e => set('slab_size', e.target.value === '__custom__' ? '' : e.target.value)}>
               {SLAB_SIZES.map(s => (
                 <option key={s} value={s}>{s} ({sqftFromSize(s)} sqft)</option>
               ))}
+              <option value="__custom__">Custom size…</option>
             </Sel>
+            {!SLAB_SIZES.includes(form.slab_size) && (
+              <Inp style={{ ...inputStyle, marginTop: 4 }} value={form.slab_size}
+                onChange={e => set('slab_size', e.target.value)} placeholder="L×W mm e.g. 3200×1500" autoFocus />
+            )}
           </Fld>
         ) : (
-          <Fld label="Tile Size">
-            <Sel value={form.tile_size} onChange={e => set('tile_size', e.target.value)}>
+          <Fld label="Tile Size" hint={!TILE_SIZES.includes(form.tile_size) && form.tile_size ? `${sqftFromSize(form.tile_size)} sqft/tile` : undefined}>
+            <Sel value={TILE_SIZES.includes(form.tile_size) ? form.tile_size : '__custom__'}
+              onChange={e => set('tile_size', e.target.value === '__custom__' ? '' : e.target.value)}>
               {TILE_SIZES.map(s => (
                 <option key={s} value={s}>{s} ({sqftFromSize(s)} sqft/tile)</option>
               ))}
+              <option value="__custom__">Custom size…</option>
             </Sel>
+            {!TILE_SIZES.includes(form.tile_size) && (
+              <Inp style={{ ...inputStyle, marginTop: 4 }} value={form.tile_size}
+                onChange={e => set('tile_size', e.target.value)} placeholder="L×W mm e.g. 450×450" autoFocus />
+            )}
           </Fld>
         )}
       </div>
