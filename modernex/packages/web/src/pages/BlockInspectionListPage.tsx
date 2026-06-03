@@ -59,7 +59,8 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
   const [form, setForm] = useState<FormState>(BLANK());
   const [photos, setPhotos] = useState<{ data_url: string; caption: string }[]>([]);
   const [uploading, setUploading] = useState(false);
-  const photoRef = useRef<HTMLInputElement>(null);
+  const photoRef = useRef<HTMLInputElement>(null);    // camera
+  const galleryRef = useRef<HTMLInputElement>(null);  // gallery
   const create = useCreateBlockInspection();
   const addPhoto = useAddInspectionPhoto();
   const toast = useToastStore(s => s.notify);
@@ -255,14 +256,22 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
             ))}
           </div>
         )}
-        {/* Hidden file input — camera first on mobile */}
+        {/* Hidden inputs — one for camera, one for gallery */}
         <input ref={photoRef} type="file" accept="image/*" capture="environment" multiple
           style={{ display:'none' }} onChange={handlePhotoCapture} />
+        <input ref={galleryRef} type="file" accept="image/*" multiple
+          style={{ display:'none' }} onChange={handlePhotoCapture} />
         {photos.length < 10 && (
-          <button type="button" onClick={() => photoRef.current?.click()}
-            style={{ ...btn('#7c3aed'), width:'100%', fontSize:14, padding:'12px 0', marginBottom:18 }}>
-            📷 Take / Add Photo
-          </button>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:18 }}>
+            <button type="button" onClick={() => photoRef.current?.click()}
+              style={{ ...btn('#7c3aed'), fontSize:13, padding:'11px 0' }}>
+              📷 Camera
+            </button>
+            <button type="button" onClick={() => galleryRef.current?.click()}
+              style={{ ...btn('#0891b2'), fontSize:13, padding:'11px 0' }}>
+              🖼 Gallery
+            </button>
+          </div>
         )}
 
         {/* ── Actions ── */}
