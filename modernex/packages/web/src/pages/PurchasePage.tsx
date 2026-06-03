@@ -36,11 +36,14 @@ const btn = (bg: string, color = '#fff', border = 'none'): React.CSSProperties =
 interface POFormState {
   vendor_id: string; variety: string; blocks: number; cft: number;
   rate_per_cft_paise: number; transport_paise: number; notes: string; date: string;
+  block_number: string; incoterm: string; defect_clause: string; allowance_pct: number;
 }
 const BLANK_FORM = (): POFormState => ({
   vendor_id: '', variety: '', blocks: 1, cft: 0, rate_per_cft_paise: 0,
   transport_paise: 0, notes: '', date: new Date().toISOString().slice(0, 10),
+  block_number: '', incoterm: '', defect_clause: '', allowance_pct: 0,
 });
+const INCOTERMS = ['', 'EXW', 'FOB', 'CIF', 'DAP', 'DDP', 'FCA'];
 
 function POForm({ vendors, form, setForm, onSubmit, isPending, onCancel, title }: {
   vendors: any[]; form: POFormState; setForm: (f: POFormState) => void;
@@ -121,6 +124,42 @@ function POForm({ vendors, form, setForm, onSubmit, isPending, onCancel, title }
           <span style={{ color: 'var(--t3)' }}>Total: <strong style={{ color: 'var(--rust)', fontSize: 15 }}>{formatINR(total)}</strong></span>
         </div>
       )}
+
+      {/* Contract terms (variable-weight procurement) */}
+      <details style={{ border: '1px solid var(--bd)', borderRadius: 6, padding: '10px 14px' }}>
+        <summary style={{ cursor: 'pointer', fontSize: 12, fontWeight: 700, color: 'var(--t2)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          Contract Terms (Incoterm · block # · allowance · defect clause)
+        </summary>
+        <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={lbl}>Block #</label>
+              <input type="text" style={inp} value={form.block_number}
+                onChange={e => setForm({ ...form, block_number: e.target.value })} placeholder="e.g. QB-1842" />
+            </div>
+            <div>
+              <label style={lbl}>Incoterm</label>
+              <select style={{ ...inp, cursor: 'pointer' }} value={form.incoterm}
+                onChange={e => setForm({ ...form, incoterm: e.target.value })}>
+                {INCOTERMS.map(t => <option key={t} value={t}>{t || '— none —'}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={lbl}>Allowance %</label>
+              <input type="number" style={inp} min="0" max="100" step="0.5" value={form.allowance_pct}
+                onChange={e => setForm({ ...form, allowance_pct: parseFloat(e.target.value) || 0 })}
+                onFocus={selectOnFocus} />
+              <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 3 }}>deductible rough-edge weight</div>
+            </div>
+          </div>
+          <div>
+            <label style={lbl}>Defect / Rejection Clause</label>
+            <textarea style={{ ...inp, resize: 'vertical' }} rows={2} value={form.defect_clause}
+              onChange={e => setForm({ ...form, defect_clause: e.target.value })}
+              placeholder="e.g. Buyer may reject if hidden cracks appear on water-spray inspection within 7 days of delivery." />
+          </div>
+        </div>
+      </details>
 
       <div>
         <label style={lbl}>Notes</label>
@@ -488,6 +527,10 @@ export function PurchasePage() {
       transport_paise: po.transport_paise || 0,
       notes: po.notes || '',
       date: po.date || new Date().toISOString().slice(0, 10),
+      block_number: po.block_number || '',
+      incoterm: po.incoterm || '',
+      defect_clause: po.defect_clause || '',
+      allowance_pct: po.allowance_pct || 0,
     });
     setModal('edit');
   }, []);

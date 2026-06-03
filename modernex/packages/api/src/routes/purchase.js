@@ -125,11 +125,14 @@ purchaseRouter.post('/',
       db.prepare(`
         INSERT INTO purchase_orders (
           id, date, vendor_id, variety, blocks, cft, rate_per_cft_paise,
-          transport_paise, taxable_paise, gst_paise, total_paise, notes, created_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          transport_paise, taxable_paise, gst_paise, total_paise, notes,
+          block_number, incoterm, defect_clause, allowance_pct, created_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         id, date, p.vendor_id, p.variety, p.blocks, p.cft, p.rate_per_cft_paise,
-        p.transport_paise || 0, taxable, gst, total, p.notes || null, req.user.username
+        p.transport_paise || 0, taxable, gst, total, p.notes || null,
+        p.block_number || null, p.incoterm || null, p.defect_clause || null, p.allowance_pct || 0,
+        req.user.username
       );
 
       const po = db.prepare('SELECT * FROM purchase_orders WHERE id = ?').get(id);
@@ -152,7 +155,7 @@ purchaseRouter.patch('/:id',
         throw new AppError(`Cannot edit PO ${req.params.id} — status is '${existing.status}'. Only 'new' POs can be edited.`, 409);
       }
       const p = req.body;
-      const editable = ['vendor_id', 'variety', 'blocks', 'cft', 'rate_per_cft_paise', 'transport_paise', 'notes'];
+      const editable = ['vendor_id', 'variety', 'blocks', 'cft', 'rate_per_cft_paise', 'transport_paise', 'notes', 'block_number', 'incoterm', 'defect_clause', 'allowance_pct'];
       const updates = [];
       const params = [];
       for (const k of editable) {

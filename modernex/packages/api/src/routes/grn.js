@@ -61,10 +61,12 @@ grnRouter.post('/',
         db.prepare(`
           INSERT INTO purchase_order_receipts
             (id, po_id, date, received_by, blocks_received, cft_received,
+             net_weight_kg, scale_ticket_no,
              condition_note, qc_pass, qc_notes, vehicle_no, lr_no, created_by)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(id, g.po_id, date, req.user.username,
                g.blocks_received, g.cft_received,
+               g.net_weight_kg ?? null, g.scale_ticket_no || null,
                g.condition_note || null, g.qc_pass ? 1 : 0,
                g.qc_notes || null, g.vehicle_no || null,
                g.lr_no || null, req.user.username);

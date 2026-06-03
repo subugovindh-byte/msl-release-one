@@ -40,7 +40,7 @@ const PAY_STATUS: Record<string, { label: string; bg: string; color: string }> =
 };
 
 const BLANK_FORM = { amount_paise: 0, mode: 'NEFT', utr: '', date: '', notes: '' };
-const BLANK_GRN = { blocks_received: 0, cft_received: 0, condition_note: '', qc_pass: true, qc_notes: '', vehicle_no: '', lr_no: '' };
+const BLANK_GRN = { blocks_received: 0, cft_received: 0, net_weight_kg: 0, scale_ticket_no: '', condition_note: '', qc_pass: true, qc_notes: '', vehicle_no: '', lr_no: '' };
 const BLANK_TRANSPORT = { transport_vendor_id: '', transport_bill_no: '', transport_bill_date: '', transport_paise: 0, vehicle_no: '', lr_no: '', delivered_at_site: false, delivered_date: '' };
 
 export function PurchaseOrderReceiptPage() {
@@ -602,12 +602,20 @@ export function PurchaseOrderReceiptPage() {
 
           <div style={{ padding: '12px 14px', background: '#f7f5f2', borderRadius: 4, border: '1px solid rgba(26,22,18,.1)' }}>
             <div className="receipt-label" style={{ marginBottom: 6 }}>Order Details</div>
+            {po.block_number && <POInfoRow label="Block #" value={po.block_number} />}
             <POInfoRow label="Variety"    value={po.variety ?? '—'} />
             <POInfoRow label="Blocks"     value={String(po.blocks ?? '—')} />
             <POInfoRow label="Volume"     value={`${po.cft ?? 0} CFT`} />
             <POInfoRow label="Rate / CFT" value={formatINR(po.rate_per_cft_paise ?? 0)} />
+            {po.incoterm && <POInfoRow label="Incoterm" value={po.incoterm} />}
+            {po.allowance_pct > 0 && <POInfoRow label="Allowance" value={`${po.allowance_pct}% (rough-edge)`} />}
             {transport > 0 && <POInfoRow label="Transport" value={formatINR(transport)} />}
             <POInfoRow label="HSN Code"   value={HSN} />
+            {po.defect_clause && (
+              <div style={{ marginTop: 8, paddingTop: 6, borderTop: '1px solid rgba(26,22,18,.1)', fontSize: 10, color: 'rgba(26,22,18,.6)' }}>
+                <strong>Defect clause:</strong> {po.defect_clause}
+              </div>
+            )}
             {po.inspection_id && (
               <div style={{ marginTop: 8, paddingTop: 6, borderTop: '1px solid rgba(26,22,18,.1)', fontSize: 10, color: 'rgba(26,22,18,.55)' }}>
                 Raised from:{' '}
@@ -780,9 +788,19 @@ export function PurchaseOrderReceiptPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
                 <div><label className="fl">Blocks Received *</label><input type="number" value={grnForm.blocks_received || ''} onChange={e => setGrnForm({ ...grnForm, blocks_received: parseInt(e.target.value) || 0 })} required className="fi" min="1" /></div>
                 <div><label className="fl">CFT Received *</label><input type="number" step="0.01" value={grnForm.cft_received || ''} onChange={e => setGrnForm({ ...grnForm, cft_received: parseFloat(e.target.value) || 0 })} required className="fi" min="0" /></div>
+                <div>
+                  <label className="fl">Net Weight (kg) — weighbridge</label>
+                  <input type="number" step="0.1" value={grnForm.net_weight_kg || ''} onChange={e => setGrnForm({ ...grnForm, net_weight_kg: parseFloat(e.target.value) || 0 })} className="fi" min="0" placeholder="certified scale" />
+                  {grnForm.net_weight_kg > 0 && (
+                    <div style={{ fontSize: 10, color: 'var(--gold)', marginTop: 3 }}>
+                      = {(grnForm.net_weight_kg / 1000).toFixed(3)} tonnes
+                    </div>
+                  )}
+                </div>
+                <div><label className="fl">Scale Ticket No</label><input type="text" value={grnForm.scale_ticket_no} onChange={e => setGrnForm({ ...grnForm, scale_ticket_no: e.target.value })} className="fi" placeholder="weighbridge ref" /></div>
                 <div><label className="fl">Vehicle No</label><input type="text" value={grnForm.vehicle_no} onChange={e => setGrnForm({ ...grnForm, vehicle_no: e.target.value })} className="fi" /></div>
                 <div><label className="fl">LR No</label><input type="text" value={grnForm.lr_no} onChange={e => setGrnForm({ ...grnForm, lr_no: e.target.value })} className="fi" /></div>
-                <div><label className="fl">Condition Note</label><input type="text" value={grnForm.condition_note} onChange={e => setGrnForm({ ...grnForm, condition_note: e.target.value })} className="fi" placeholder="Any damage / short delivery" /></div>
+                <div style={{ gridColumn: '1/-1' }}><label className="fl">Condition Note</label><input type="text" value={grnForm.condition_note} onChange={e => setGrnForm({ ...grnForm, condition_note: e.target.value })} className="fi" placeholder="Any damage / short delivery / water-spray crack check" /></div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 20 }}>
                   <input type="checkbox" id="qcpass" checked={grnForm.qc_pass} onChange={e => setGrnForm({ ...grnForm, qc_pass: e.target.checked })} />
                   <label htmlFor="qcpass" style={{ cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>QC Pass</label>
@@ -801,6 +819,12 @@ export function PurchaseOrderReceiptPage() {
                   <span style={{ fontFamily: 'monospace', fontWeight: 700, minWidth: 120 }}>{g.id}</span>
                   <span style={{ color: 'var(--t3)' }}>{g.date}</span>
                   <span>{g.blocks_received} blocks · {g.cft_received} CFT</span>
+                  {g.net_weight_kg > 0 && (
+                    <span style={{ fontWeight: 700, color: 'var(--gold)' }}>
+                      ⚖ {(g.net_weight_kg / 1000).toFixed(3)} t
+                      {g.scale_ticket_no && <span style={{ fontWeight: 400, color: 'var(--t3)' }}> (#{g.scale_ticket_no})</span>}
+                    </span>
+                  )}
                   {g.vehicle_no && <span style={{ color: 'var(--t3)' }}>🚛 {g.vehicle_no}</span>}
                   {g.lr_no && <span style={{ color: 'var(--t3)' }}>LR: {g.lr_no}</span>}
                   <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600, backgroundColor: g.qc_pass ? '#dcfce7' : '#fee2e2', color: g.qc_pass ? '#15803d' : '#b91c1c' }}>

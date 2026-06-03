@@ -220,6 +220,11 @@ export const poCreateSchema = z.object({
   rate_per_cft_paise: z.number().int().positive(),
   transport_paise: z.number().int().nonnegative().default(0),
   notes: z.string().max(500).optional(),
+  // ── Variable-weight contract terms (spec step 3) ──
+  block_number: z.string().max(50).optional(),
+  incoterm: z.enum(['EXW', 'FOB', 'CIF', 'DAP', 'DDP', 'FCA']).optional(),
+  defect_clause: z.string().max(500).optional(),
+  allowance_pct: z.number().min(0).max(100).default(0),
 });
 
 // ─── PRODUCTION JOB (transformation) ───
@@ -316,6 +321,9 @@ export const grnSchema = z.object({
   date: z.string().optional(),
   blocks_received: z.number().int().positive(),
   cft_received: z.number().positive(),
+  // ── Certified weighbridge scale ticket (spec step 6) ──
+  net_weight_kg: z.number().positive().optional(),
+  scale_ticket_no: z.string().max(50).optional(),
   condition_note: z.string().max(500).optional(),
   qc_pass: z.boolean().default(true),
   qc_notes: z.string().max(500).optional(),
