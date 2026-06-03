@@ -511,7 +511,9 @@ function SplitBlock({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; noti
     }
   }
 
-  function DimCard({ label, n, dims }: { label: string; n: 1 | 2; dims: typeof emptyDims }) {
+  // Render helper (called, not mounted) — a nested <Component/> would remount
+  // the inputs on every keystroke and drop focus. Calling it inlines the JSX.
+  const renderDimCard = (label: string, n: 1 | 2, dims: typeof emptyDims) => {
     const cft = cftFromM(toM(dims.length_m), toM(dims.width_m), toM(dims.height_m));
     const cbm = cbmFromM(toM(dims.length_m), toM(dims.width_m), toM(dims.height_m));
     const oversize = parentCft > 0 && cft > parentCft * 1.03;
@@ -596,8 +598,8 @@ function SplitBlock({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; noti
 
       {/* Output dimension cards */}
       <div style={{ display: 'flex', gap: 12 }}>
-        <DimCard label={mode === 'split' ? 'Sub-block 1A' : 'Trimmed block (output)'} n={1} dims={form.sub1} />
-        {mode === 'split' && <DimCard label="Sub-block 1B" n={2} dims={form.sub2} />}
+        {renderDimCard(mode === 'split' ? 'Sub-block 1A' : 'Trimmed block (output)', 1, form.sub1)}
+        {mode === 'split' && renderDimCard('Sub-block 1B', 2, form.sub2)}
       </div>
 
       {/* Volume balance warning */}
