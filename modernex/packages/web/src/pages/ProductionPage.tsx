@@ -534,7 +534,7 @@ function SplitBlock({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; noti
         </div>
         {cft > 0 && (
           <div style={{ fontSize: 12, color: oversize ? 'var(--red)' : 'var(--gold)', fontWeight: oversize ? 700 : 400 }}>
-            ≈ {volLabel(cft, cbm)}{oversize ? '  ⚠ exceeds parent' : ''}
+            ≈ {volLabel(cft, cbm)}{oversize ? '  △ exceeds parent' : ''}
           </div>
         )}
       </div>
@@ -1457,7 +1457,7 @@ function PipelineInventory({ groups, onAction, onDelete }: { groups: Record<stri
                               background: 'transparent', border: '1px solid var(--bd)',
                               color: 'var(--t3)', borderRadius: 4, padding: '2px 7px',
                               fontSize: 11, cursor: 'pointer',
-                            }}>🏷</button>
+                            }}>▤</button>
                           </td>
                           {/* Damage / Wastage write-off */}
                           <td style={{ ...tdStyle, textAlign: 'center' }}>
@@ -1480,7 +1480,7 @@ function PipelineInventory({ groups, onAction, onDelete }: { groups: Record<stri
                               </div>
                             ) : (
                               <button onClick={() => { setDamageId(p.id); setDamageForm({ qty: '1', reason: 'damage', notes: '' }); }}
-                                title="Record damage or wastage" style={{ background: 'transparent', border: '1px solid var(--amber)', color: 'var(--amber)', borderRadius: 4, padding: '2px 7px', fontSize: 10, cursor: 'pointer', opacity: 0.8 }}>⚠</button>
+                                title="Record damage or wastage" style={{ background: 'transparent', border: '1px solid var(--amber)', color: 'var(--amber)', borderRadius: 4, padding: '2px 7px', fontSize: 10, cursor: 'pointer', opacity: 0.8 }}>△</button>
                             )}
                           </td>
                           {canEdit && (

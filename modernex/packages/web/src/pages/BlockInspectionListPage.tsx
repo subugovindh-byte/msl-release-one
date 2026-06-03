@@ -294,7 +294,7 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
         {photos.length < 10 && (
           <button type="button" onClick={() => photoRef.current?.click()}
             style={{ ...btn('transparent', 'var(--t2)', '1px solid var(--bd)'), width:'100%', fontSize:13, padding:'10px 0', marginBottom:18, display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
-            <span style={{ fontSize:15 }}>📷</span> Take a photo
+            <span style={{ fontSize:15 }}>⊙</span> Take a photo
           </button>
         )}
 
@@ -305,7 +305,7 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
             onClick={submit} disabled={uploading}>
             {uploading
               ? `Saving${photos.length > 0 ? ` + ${photos.length} photo${photos.length > 1 ? 's' : ''}` : ''}…`
-              : `✓ Create${photos.length > 0 ? ` + ${photos.length} 📷` : ''}`}
+              : `✓ Create${photos.length > 0 ? ` + ${photos.length} ⊙` : ''}`}
           </button>
         </div>
       </div>
@@ -407,7 +407,7 @@ export default function BlockInspectionListPage() {
                     </span>
                     {insp.photo_count > 0 && (
                       <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, fontWeight: 600, color: 'var(--rust)', background: 'var(--rustW)' }}>
-                        📷 {insp.photo_count}
+                        ⊙ {insp.photo_count}
                       </span>
                     )}
                   </div>

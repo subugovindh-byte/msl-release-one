@@ -50,7 +50,7 @@ function PhotoThumb({ inspId, photoId, caption, canDelete, onDelete }:
         onClick={() => setShow(s => !s)}>
         {show && data?.photo?.data_url
           ? <img src={data.photo.data_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt={caption ?? ''} />
-          : <span style={{ fontSize: 28 }}>🖼️</span>}
+          : <span style={{ fontSize: 28 }}>⊡️</span>}
       </div>
       {canDelete && (
         <button onClick={onDelete} style={{
@@ -354,7 +354,7 @@ export default function BlockInspectionDetailPage() {
               style={{ display: 'none' }} onChange={handlePhotoFile} />
             <button style={{ ...btn('var(--rust)'), width: '100%' }} onClick={() => fileRef.current?.click()}
               disabled={addPhoto.isPending}>
-              {addPhoto.isPending ? 'Uploading…' : '📷 Add Photo'}
+              {addPhoto.isPending ? 'Uploading…' : '⊙ Add Photo'}
             </button>
           </div>
         )}

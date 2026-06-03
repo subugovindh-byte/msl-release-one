@@ -305,7 +305,7 @@ function POCard({ po, canManage, onApprove, onCancel, onDelete, onPay, onEdit, o
           {canClose && (
             <button onClick={() => onClose(po.id)}
               style={{ ...btn('var(--sage)'), display: 'flex', alignItems: 'center', gap: 5 }}>
-              🔒 Close PO
+              ◼ Close PO
             </button>
           )}
 
@@ -337,7 +337,7 @@ function POCard({ po, canManage, onApprove, onCancel, onDelete, onPay, onEdit, o
           {canDel && (
             <button onClick={() => setConfirmAction('delete')}
               style={{ ...btn('transparent', '#b91c1c', '1px solid #b91c1c'), fontSize: 11 }}>
-              🗑 Delete
+              ⊗ Delete
             </button>
           )}
         </div>
@@ -418,11 +418,11 @@ function POTable({ pos, canManage, selectedIds, onToggle, onSelectAll, onApprove
                   <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
                     {canApprove && <button onClick={() => onApprove(po.id)} title="Approve" style={{ ...btn('#15803d'), padding: '3px 8px', fontSize: 10 }}>✓</button>}
                     {canPay && <button onClick={() => onPay(po)} title="Record Payment" style={{ ...btn('var(--rust)'), padding: '3px 8px', fontSize: 10 }}>₹</button>}
-                    {canClose && <button onClick={() => onClose(po.id)} title="Close PO" style={{ ...btn('var(--sage)'), padding: '3px 8px', fontSize: 10 }}>🔒</button>}
+                    {canClose && <button onClick={() => onClose(po.id)} title="Close PO" style={{ ...btn('var(--sage)'), padding: '3px 8px', fontSize: 10 }}>◼</button>}
                     <button onClick={() => navigate(`/purchase/${(po.id || '').replace(/\//g, '~')}`)} title="View" style={{ ...btn('var(--bg2)', 'var(--t1)', '1px solid var(--bd)'), padding: '3px 8px', fontSize: 10 }}>↗</button>
                     {canEdit && <button onClick={() => onEdit(po)} title="Edit" style={{ ...btn('transparent', 'var(--t2)', '1px solid var(--bd)'), padding: '3px 8px', fontSize: 10 }}>✎</button>}
                     {canCancel && <button onClick={() => onCancel(po.id)} title="Cancel PO" style={{ ...btn('transparent', '#b91c1c', '1px solid #b91c1c'), padding: '3px 8px', fontSize: 10 }}>✕</button>}
-                    {canDel && <button onClick={() => onDelete(po.id)} title="Delete" style={{ ...btn('transparent', '#b91c1c', '1px solid #b91c1c'), padding: '3px 8px', fontSize: 10 }}>🗑</button>}
+                    {canDel && <button onClick={() => onDelete(po.id)} title="Delete" style={{ ...btn('transparent', '#b91c1c', '1px solid #b91c1c'), padding: '3px 8px', fontSize: 10 }}>⊗</button>}
                   </div>
                 </td>
               </tr>
@@ -773,7 +773,7 @@ export function PurchasePage() {
               <>
                 <button onClick={() => handleBulkAction('approve')} style={{ ...btn('#15803d'), fontSize: 11, padding: '5px 12px' }}>✓ Approve All</button>
                 <button onClick={() => handleBulkAction('cancel')} style={{ ...btn('transparent', '#b91c1c', '1px solid #b91c1c'), fontSize: 11, padding: '5px 12px' }}>Cancel All</button>
-                <button onClick={() => handleBulkAction('delete')} style={{ ...btn('transparent', '#b91c1c', '1px solid #b91c1c'), fontSize: 11, padding: '5px 12px' }}>🗑 Delete All</button>
+                <button onClick={() => handleBulkAction('delete')} style={{ ...btn('transparent', '#b91c1c', '1px solid #b91c1c'), fontSize: 11, padding: '5px 12px' }}>⊗ Delete All</button>
               </>
             )}
           </div>

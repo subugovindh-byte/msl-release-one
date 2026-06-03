@@ -429,7 +429,7 @@ export function PurchaseOrderReceiptPage() {
               }}
               disabled={updateStatus.isPending}
               style={{ padding: '6px 14px', background: 'var(--sage)', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
-            >🔒 Close PO</button>
+            >◼ Close PO</button>
           )}
           {po.status !== 'cancelled' && po.status !== 'closed' && (
             <button
@@ -465,7 +465,7 @@ export function PurchaseOrderReceiptPage() {
             title={`Print ${po.blocks ?? 1} QR sticker${(po.blocks ?? 1) !== 1 ? 's' : ''} — one per block`}
             style={{ padding: '8px 16px', background: '#0f172a', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
           >
-            🏷 Sticker{(po.blocks ?? 1) > 1 ? ` ×${po.blocks}` : ''}
+            ▤ Sticker{(po.blocks ?? 1) > 1 ? ` ×${po.blocks}` : ''}
           </button>
           {/* Print size group */}
           <div style={{ display: 'flex', border: '1px solid var(--t1)', borderRadius: 4, overflow: 'hidden' }}>
@@ -616,7 +616,7 @@ export function PurchaseOrderReceiptPage() {
               color: matchData.within_tolerance ? 'var(--sage)' : 'var(--red)',
               border: `1px solid ${matchData.within_tolerance ? 'var(--sage)' : 'var(--red)'}`,
             }}>
-              {matchData.within_tolerance ? '✓ Within tolerance' : '⚠ Over tolerance'}: invoiced
+              {matchData.within_tolerance ? '✓ Within tolerance' : '△ Over tolerance'}: invoiced
               {matchData.variance_paise >= 0 ? ' exceeds ' : ' below '}
               expected by {formatINR(Math.abs(matchData.variance_paise))}
               <span style={{ fontWeight: 400, opacity: 0.8 }}> (tolerance {formatINR(matchData.tolerance_paise)})</span>
@@ -953,11 +953,11 @@ export function PurchaseOrderReceiptPage() {
                   <span>{g.blocks_received} blocks · {g.cft_received} CFT</span>
                   {g.net_weight_kg > 0 && (
                     <span style={{ fontWeight: 700, color: 'var(--gold)' }}>
-                      ⚖ {(g.net_weight_kg / 1000).toFixed(3)} t
+                      ⊜ {(g.net_weight_kg / 1000).toFixed(3)} t
                       {g.scale_ticket_no && <span style={{ fontWeight: 400, color: 'var(--t3)' }}> (#{g.scale_ticket_no})</span>}
                     </span>
                   )}
-                  {g.vehicle_no && <span style={{ color: 'var(--t3)' }}>🚛 {g.vehicle_no}</span>}
+                  {g.vehicle_no && <span style={{ color: 'var(--t3)' }}>⊟ {g.vehicle_no}</span>}
                   {g.lr_no && <span style={{ color: 'var(--t3)' }}>LR: {g.lr_no}</span>}
                   <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600, backgroundColor: g.qc_pass ? '#dcfce7' : '#fee2e2', color: g.qc_pass ? '#15803d' : '#b91c1c' }}>
                     {g.qc_pass ? 'QC ✓' : 'QC Hold'}
