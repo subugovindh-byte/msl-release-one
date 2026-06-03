@@ -242,13 +242,13 @@ function POCard({ po, canManage, onApprove, onCancel, onDelete, onPay, onEdit, o
         <div style={{ textAlign: 'right', flexShrink: 0 }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--t1)' }}>{formatINR(po.total_paise)}</div>
           {isPaid ? (
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#15803d', marginTop: 2 }}>✓ Fully Paid</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--sage)', marginTop: 2 }}>✓ Fully Paid</div>
           ) : isPartial ? (
             <div style={{ fontSize: 11, color: 'var(--amber)', marginTop: 2 }}>
               Partial · Due <strong>{formatINR(balance)}</strong>
             </div>
           ) : (
-            <div style={{ fontSize: 11, color: '#b91c1c', marginTop: 2 }}>
+            <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 2 }}>
               Unpaid · Due <strong>{formatINR(balance)}</strong>
             </div>
           )}
@@ -269,7 +269,7 @@ function POCard({ po, canManage, onApprove, onCancel, onDelete, onPay, onEdit, o
             if (confirmAction === 'delete') onDelete(po.id);
             else onCancel(po.id);
             setConfirmAction(null);
-          }} style={btn(confirmAction === 'delete' ? 'var(--red)' : '#374151')}>
+          }} style={btn(confirmAction === 'delete' ? 'var(--red)' : 'var(--t2)')}>
             Confirm
           </button>
           <button onClick={() => setConfirmAction(null)}
@@ -288,7 +288,7 @@ function POCard({ po, canManage, onApprove, onCancel, onDelete, onPay, onEdit, o
           {/* Primary: Approve */}
           {canApprove && (
             <button onClick={() => onApprove(po.id)}
-              style={{ ...btn('#15803d'), display: 'flex', alignItems: 'center', gap: 5 }}>
+              style={{ ...btn('var(--rust)'), display: 'flex', alignItems: 'center', gap: 5 }}>
               ✓ Approve
             </button>
           )}
@@ -304,7 +304,7 @@ function POCard({ po, canManage, onApprove, onCancel, onDelete, onPay, onEdit, o
           {/* Primary: Close (matched + fully paid) */}
           {canClose && (
             <button onClick={() => onClose(po.id)}
-              style={{ ...btn('var(--sage)'), display: 'flex', alignItems: 'center', gap: 5 }}>
+              style={{ ...btn('var(--rust)'), display: 'flex', alignItems: 'center', gap: 5 }}>
               ◼ Close PO
             </button>
           )}
@@ -328,7 +328,7 @@ function POCard({ po, canManage, onApprove, onCancel, onDelete, onPay, onEdit, o
           {/* Danger: Cancel */}
           {canCancel && (
             <button onClick={() => setConfirmAction('cancel')}
-              style={{ ...btn('transparent', '#b91c1c', '1px solid #b91c1c'), fontSize: 11 }}>
+              style={{ ...btn('transparent', 'var(--red)', '1px solid var(--bd)'), fontSize: 11 }}>
               Cancel PO
             </button>
           )}
@@ -336,7 +336,7 @@ function POCard({ po, canManage, onApprove, onCancel, onDelete, onPay, onEdit, o
           {/* Danger: Delete */}
           {canDel && (
             <button onClick={() => setConfirmAction('delete')}
-              style={{ ...btn('transparent', '#b91c1c', '1px solid #b91c1c'), fontSize: 11 }}>
+              style={{ ...btn('transparent', 'var(--red)', '1px solid var(--bd)'), fontSize: 11 }}>
               ⊗ Delete
             </button>
           )}
@@ -408,7 +408,7 @@ function POTable({ pos, canManage, selectedIds, onToggle, onSelectAll, onApprove
                 <td style={td}>{po.variety}</td>
                 <td style={{ ...td, textAlign: 'right' }}>{po.blocks}</td>
                 <td style={{ ...td, textAlign: 'right', fontWeight: 600, color: 'var(--t1)' }}>{formatINR(po.total_paise)}</td>
-                <td style={{ ...td, textAlign: 'right', fontWeight: 600, color: isPaid ? '#15803d' : '#b91c1c' }}>
+                <td style={{ ...td, textAlign: 'right', fontWeight: 600, color: isPaid ? 'var(--sage)' : 'var(--red)' }}>
                   {isPaid ? '✓ Paid' : formatINR(balance)}
                 </td>
                 <td style={{ ...td, textAlign: 'center' }}>
@@ -416,13 +416,13 @@ function POTable({ pos, canManage, selectedIds, onToggle, onSelectAll, onApprove
                 </td>
                 <td style={{ ...td, textAlign: 'right' }}>
                   <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
-                    {canApprove && <button onClick={() => onApprove(po.id)} title="Approve" style={{ ...btn('#15803d'), padding: '3px 8px', fontSize: 10 }}>✓</button>}
+                    {canApprove && <button onClick={() => onApprove(po.id)} title="Approve" style={{ ...btn('var(--rust)'), padding: '3px 8px', fontSize: 10 }}>✓</button>}
                     {canPay && <button onClick={() => onPay(po)} title="Record Payment" style={{ ...btn('var(--rust)'), padding: '3px 8px', fontSize: 10 }}>₹</button>}
-                    {canClose && <button onClick={() => onClose(po.id)} title="Close PO" style={{ ...btn('var(--sage)'), padding: '3px 8px', fontSize: 10 }}>◼</button>}
+                    {canClose && <button onClick={() => onClose(po.id)} title="Close PO" style={{ ...btn('var(--rust)'), padding: '3px 8px', fontSize: 10 }}>◼</button>}
                     <button onClick={() => navigate(`/purchase/${(po.id || '').replace(/\//g, '~')}`)} title="View" style={{ ...btn('var(--bg2)', 'var(--t1)', '1px solid var(--bd)'), padding: '3px 8px', fontSize: 10 }}>↗</button>
                     {canEdit && <button onClick={() => onEdit(po)} title="Edit" style={{ ...btn('transparent', 'var(--t2)', '1px solid var(--bd)'), padding: '3px 8px', fontSize: 10 }}>✎</button>}
-                    {canCancel && <button onClick={() => onCancel(po.id)} title="Cancel PO" style={{ ...btn('transparent', '#b91c1c', '1px solid #b91c1c'), padding: '3px 8px', fontSize: 10 }}>✕</button>}
-                    {canDel && <button onClick={() => onDelete(po.id)} title="Delete" style={{ ...btn('transparent', '#b91c1c', '1px solid #b91c1c'), padding: '3px 8px', fontSize: 10 }}>⊗</button>}
+                    {canCancel && <button onClick={() => onCancel(po.id)} title="Cancel PO" style={{ ...btn('transparent', 'var(--red)', '1px solid var(--bd)'), padding: '3px 8px', fontSize: 10 }}>✕</button>}
+                    {canDel && <button onClick={() => onDelete(po.id)} title="Delete" style={{ ...btn('transparent', 'var(--red)', '1px solid var(--bd)'), padding: '3px 8px', fontSize: 10 }}>⊗</button>}
                   </div>
                 </td>
               </tr>
@@ -721,7 +721,7 @@ export function PurchasePage() {
         {stats.totalDue > 0 && (
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
             <div style={{ fontSize: 11, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 600 }}>Total Outstanding</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#b91c1c' }}>{formatINR(stats.totalDue)}</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--red)' }}>{formatINR(stats.totalDue)}</div>
           </div>
         )}
       </div>
@@ -771,9 +771,9 @@ export function PurchasePage() {
             </span>
             {selectedIds.size > 0 && canManage && (
               <>
-                <button onClick={() => handleBulkAction('approve')} style={{ ...btn('#15803d'), fontSize: 11, padding: '5px 12px' }}>✓ Approve All</button>
-                <button onClick={() => handleBulkAction('cancel')} style={{ ...btn('transparent', '#b91c1c', '1px solid #b91c1c'), fontSize: 11, padding: '5px 12px' }}>Cancel All</button>
-                <button onClick={() => handleBulkAction('delete')} style={{ ...btn('transparent', '#b91c1c', '1px solid #b91c1c'), fontSize: 11, padding: '5px 12px' }}>⊗ Delete All</button>
+                <button onClick={() => handleBulkAction('approve')} style={{ ...btn('var(--rust)'), fontSize: 11, padding: '5px 12px' }}>✓ Approve All</button>
+                <button onClick={() => handleBulkAction('cancel')} style={{ ...btn('transparent', 'var(--red)', '1px solid var(--bd)'), fontSize: 11, padding: '5px 12px' }}>Cancel All</button>
+                <button onClick={() => handleBulkAction('delete')} style={{ ...btn('transparent', 'var(--red)', '1px solid var(--bd)'), fontSize: 11, padding: '5px 12px' }}>⊗ Delete All</button>
               </>
             )}
           </div>
@@ -812,7 +812,7 @@ export function PurchasePage() {
             {/* Bulk Confirm */}
             {modal === 'bulk-confirm' && bulkAction && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: bulkAction === 'delete' ? '#b91c1c' : 'var(--t1)' }}>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: bulkAction === 'delete' ? 'var(--red)' : 'var(--t1)' }}>
                   {bulkAction === 'approve' ? 'Approve' : bulkAction === 'cancel' ? 'Cancel' : 'Delete'}{' '}
                   {selectedIds.size} PO{selectedIds.size !== 1 ? 's' : ''}?
                 </h3>
@@ -830,7 +830,7 @@ export function PurchasePage() {
                   <button type="button" onClick={() => { setModal(null); setBulkAction(null); }}
                     style={btn('transparent', 'var(--t2)', '1px solid var(--bd)')}>Back</button>
                   <button type="button" onClick={executeBulk}
-                    style={btn(bulkAction === 'approve' ? '#15803d' : '#b91c1c')}>
+                    style={btn(bulkAction === 'approve' ? 'var(--sage)' : 'var(--red)')}>
                     Confirm {bulkAction === 'approve' ? 'Approve' : bulkAction === 'cancel' ? 'Cancel' : 'Delete'}
                   </button>
                 </div>
@@ -853,7 +853,7 @@ export function PurchasePage() {
                 <div style={{ display: 'flex', gap: 16, background: 'var(--bg2)', padding: '10px 14px', borderRadius: 6, fontSize: 13 }}>
                   <span style={{ color: 'var(--t3)' }}>Total <strong style={{ color: 'var(--t1)' }}>{formatINR(payingPO.total_paise)}</strong></span>
                   <span style={{ color: 'var(--t3)' }}>Paid <strong style={{ color: 'var(--t1)' }}>{formatINR(payingPO.paid_paise ?? 0)}</strong></span>
-                  <span style={{ color: 'var(--t3)' }}>Due <strong style={{ color: '#b91c1c' }}>{formatINR(payingPO.balance_paise ?? (payingPO.total_paise - (payingPO.paid_paise ?? 0)))}</strong></span>
+                  <span style={{ color: 'var(--t3)' }}>Due <strong style={{ color: 'var(--red)' }}>{formatINR(payingPO.balance_paise ?? (payingPO.total_paise - (payingPO.paid_paise ?? 0)))}</strong></span>
                 </div>
                 {/* Vendor advance banner */}
                 {(() => {
@@ -861,10 +861,10 @@ export function PurchasePage() {
                   const adv = vendor?.advance_paise ?? 0;
                   if (adv <= 0) return null;
                   return (
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 6, padding: '10px 14px', cursor: 'pointer' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--sageW)', border: '1px solid var(--sage)', borderRadius: 6, padding: '10px 14px', cursor: 'pointer' }}>
                       <input type="checkbox" checked={payApplyAdvance} onChange={e => setPayApplyAdvance(e.target.checked)} />
                       <span style={{ fontSize: 13 }}>
-                        Apply vendor advance <strong style={{ color: '#15803d' }}>{formatINR(adv)}</strong> towards this payment
+                        Apply vendor advance <strong style={{ color: 'var(--sage)' }}>{formatINR(adv)}</strong> towards this payment
                       </span>
                     </label>
                   );
@@ -946,7 +946,7 @@ export function PurchasePage() {
                   onSuccess: () => notify(`PO ${id} cancelled — ${formatINR(cancelAdvancePO.paid_paise)} added to vendor advance`, 'success'),
                   onError: (e: any) => notify(e.message || 'Failed to cancel', 'error'),
                 });
-              }} style={{ ...btn('#15803d'), textAlign: 'left', padding: '12px 16px' }}>
+              }} style={{ ...btn('var(--rust)'), textAlign: 'left', padding: '12px 16px' }}>
                 <div style={{ fontWeight: 700, fontSize: 13 }}>Adjust against future purchase</div>
                 <div style={{ fontWeight: 400, fontSize: 12, opacity: 0.85, marginTop: 3 }}>
                   {formatINR(cancelAdvancePO.paid_paise)} credited to vendor advance — apply when paying next PO
@@ -959,7 +959,7 @@ export function PurchasePage() {
                   onSuccess: () => notify(`PO ${id} cancelled`, 'success'),
                   onError: (e: any) => notify(e.message || 'Failed to cancel', 'error'),
                 });
-              }} style={{ ...btn('transparent', '#b91c1c', '1px solid #b91c1c'), textAlign: 'left', padding: '12px 16px' }}>
+              }} style={{ ...btn('transparent', 'var(--red)', '1px solid var(--bd)'), textAlign: 'left', padding: '12px 16px' }}>
                 <div style={{ fontWeight: 700, fontSize: 13 }}>Write off</div>
                 <div style={{ fontWeight: 400, fontSize: 12, opacity: 0.85, marginTop: 3 }}>
                   Treat the {formatINR(cancelAdvancePO.paid_paise)} as a loss — no adjustment

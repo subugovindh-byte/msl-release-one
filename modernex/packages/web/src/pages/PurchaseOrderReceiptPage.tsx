@@ -369,28 +369,34 @@ export function PurchaseOrderReceiptPage() {
 
   const statusMeta = STATUS_LABEL[po.status] ?? STATUS_LABEL.new;
 
+  // Calm, unified button language: one rust primary, neutral ghosts elsewhere.
+  const ghost: React.CSSProperties = {
+    padding: '7px 14px', background: 'transparent', color: 'var(--t2)',
+    border: '1px solid var(--bd)', borderRadius: 5, cursor: 'pointer', fontSize: 12, fontWeight: 600,
+  };
+  const primary: React.CSSProperties = {
+    padding: '7px 16px', background: 'var(--rust)', color: '#fff',
+    border: 'none', borderRadius: 5, cursor: 'pointer', fontSize: 12, fontWeight: 700,
+  };
+  const softChip: React.CSSProperties = {
+    display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 12px', borderRadius: 20,
+    fontSize: 11, fontWeight: 700, background: 'var(--bg2)', color: 'var(--t2)', border: '1px solid var(--bd)',
+  };
+
   return (
     <div className="receipt-wrap">
       {/* Toolbar */}
       <div className="receipt-toolbar no-print">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <button
-            onClick={() => navigate('/purchase')}
-            style={{ padding: '8px 16px', border: '1px solid var(--bd)', borderRadius: 4, cursor: 'pointer', fontSize: 12, background: 'var(--bg2)', color: 'var(--t1)' }}
-          >
-            ← Back
-          </button>
+          <button onClick={() => navigate('/purchase')} style={ghost}>← Back</button>
 
-          {/* PO Status badge + action buttons */}
-          <span style={{
-            padding: '4px 12px', borderRadius: 10, fontSize: 11, fontWeight: 700,
-            background: `${statusMeta?.color}22`, color: statusMeta?.color,
-            border: `1px solid ${statusMeta?.color}`,
-          }}>
+          {/* Status — soft tint chip with a coloured dot */}
+          <span style={softChip}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: statusMeta?.color }} />
             {statusMeta?.label}
           </span>
 
-          {/* Status actions based on current status */}
+          {/* Forward action (primary rust) — Approve, or Close when eligible */}
           {(po.status === 'new' || po.status === 'received') && (
             <button
               onClick={() => {
@@ -401,23 +407,9 @@ export function PurchaseOrderReceiptPage() {
                   });
               }}
               disabled={updateStatus.isPending}
-              style={{ padding: '6px 14px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+              style={primary}
             >✓ Approve PO</button>
           )}
-          {po.status === 'approved' && (
-            <button
-              onClick={() => {
-                if (window.confirm(`Unapprove PO ${po.id} and move it back to New? This will remove the approval.`))
-                  updateStatus.mutate({ id: po.id, status: 'new' }, {
-                    onSuccess: () => notify('PO unapproved — moved back to New', 'success'),
-                    onError: (e: any) => notify(e.message || 'Failed', 'error'),
-                  });
-              }}
-              disabled={updateStatus.isPending}
-              style={{ padding: '6px 14px', background: 'transparent', color: '#92400e', border: '1px solid #92400e', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
-            >↩ Unapprove</button>
-          )}
-          {/* Close PO (step 8) — only when matched + fully paid */}
           {po.status === 'approved' && po.matched_at && paidPaise >= total && (
             <button
               onClick={() => {
@@ -428,8 +420,23 @@ export function PurchaseOrderReceiptPage() {
                   });
               }}
               disabled={updateStatus.isPending}
-              style={{ padding: '6px 14px', background: 'var(--sage)', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+              style={primary}
             >◼ Close PO</button>
+          )}
+
+          {/* Secondary actions — neutral ghosts */}
+          {po.status === 'approved' && (
+            <button
+              onClick={() => {
+                if (window.confirm(`Unapprove PO ${po.id} and move it back to New? This will remove the approval.`))
+                  updateStatus.mutate({ id: po.id, status: 'new' }, {
+                    onSuccess: () => notify('PO unapproved — moved back to New', 'success'),
+                    onError: (e: any) => notify(e.message || 'Failed', 'error'),
+                  });
+              }}
+              disabled={updateStatus.isPending}
+              style={ghost}
+            >↩ Unapprove</button>
           )}
           {po.status !== 'cancelled' && po.status !== 'closed' && (
             <button
@@ -441,48 +448,36 @@ export function PurchaseOrderReceiptPage() {
                   });
               }}
               disabled={updateStatus.isPending}
-              style={{ padding: '6px 14px', background: 'transparent', color: 'var(--red)', border: '1px solid var(--red)', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
-            >✕ Cancel PO</button>
+              style={{ ...ghost, color: 'var(--red)' }}
+            >✕ Cancel</button>
           )}
 
-          <span style={{ padding: '4px 12px', borderRadius: 10, fontSize: 11, fontWeight: 700, background: payMeta?.bg, color: payMeta?.color }}>
+          {/* Payment status — soft tint chip with a coloured dot */}
+          <span style={softChip}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: payMeta?.color }} />
             {payMeta?.label}
-            {paidPaise > 0 && paidPaise < total && ` — Paid ${formatINR(paidPaise)} · Due ${formatINR(balance)}`}
-            {paidPaise === 0 && ` — Due ${formatINR(total)}`}
+            {paidPaise > 0 && paidPaise < total && ` · Due ${formatINR(balance)}`}
+            {paidPaise === 0 && ` · Due ${formatINR(total)}`}
           </span>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           {payStatus !== 'paid' && po.status !== 'cancelled' && (
-            <button
-              onClick={() => setShowPayForm(v => !v)}
-              style={{ padding: '8px 16px', background: showPayForm ? 'var(--bg3)' : 'var(--rust)', color: showPayForm ? 'var(--t1)' : 'white', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
-            >
+            <button onClick={() => setShowPayForm(v => !v)}
+              style={showPayForm ? ghost : primary}>
               {showPayForm ? 'Cancel' : '+ Record Payment'}
             </button>
           )}
-          <button
-            onClick={printBlockStickers}
+          <button onClick={printBlockStickers}
             title={`Print ${po.blocks ?? 1} QR sticker${(po.blocks ?? 1) !== 1 ? 's' : ''} — one per block`}
-            style={{ padding: '8px 16px', background: '#0f172a', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
-          >
+            style={ghost}>
             ▤ Sticker{(po.blocks ?? 1) > 1 ? ` ×${po.blocks}` : ''}
           </button>
-          {/* Print size group */}
-          <div style={{ display: 'flex', border: '1px solid var(--t1)', borderRadius: 4, overflow: 'hidden' }}>
-            <button
-              onClick={() => window.print()}
-              title="Print full A4 purchase order"
-              style={{ padding: '8px 14px', background: 'var(--t1)', color: 'var(--bg1)', border: 'none', borderRight: '1px solid rgba(255,255,255,.25)', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
-            >
-              ⎙ A4
-            </button>
-            <button
-              onClick={printRibbon}
-              title="Print condensed 80mm ribbon / thermal receipt"
-              style={{ padding: '8px 14px', background: 'var(--t1)', color: 'var(--bg1)', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
-            >
-              ≡ 80mm
-            </button>
+          {/* Print size group — neutral */}
+          <div style={{ display: 'flex', border: '1px solid var(--bd)', borderRadius: 5, overflow: 'hidden' }}>
+            <button onClick={() => window.print()} title="Print full A4 purchase order"
+              style={{ ...ghost, border: 'none', borderRight: '1px solid var(--bd)', borderRadius: 0 }}>⎙ A4</button>
+            <button onClick={printRibbon} title="Print condensed 80mm ribbon / thermal receipt"
+              style={{ ...ghost, border: 'none', borderRadius: 0 }}>≡ 80mm</button>
           </div>
         </div>
       </div>
