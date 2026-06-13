@@ -42,14 +42,16 @@ const SECTIONS: Section[] = [
         ['MSME', '45-day payment tracking, Form I', 'Accounts'],
         ['Compliance', 'GST, GSTR-1/3B/9', 'Accounts'],
         ['Masters', 'Customers, vendors, varieties', 'Admin'],
+        ['Roles & Permissions', 'Define roles and per-module access', 'Admin'],
+        ['Variety Photos', 'Manage product / variety images', 'Admin, Yard'],
+        ['Bank / UPI Accounts', 'Bank & UPI details for invoices and receipts', 'Admin, Accounts'],
       ]},
       { type: 'h3', text: 'User Roles' },
       { type: 'table', headers: ['Role', 'Access'], rows: [
-        ['admin', 'Full access including user management'],
-        ['accounts', 'All financial modules, no user admin'],
-        ['sales', 'POS, Customers, Invoices (read)'],
-        ['yard', 'Inventory, Production only'],
-        ['viewer', 'Read-only across all modules'],
+        ['admin', 'Full system access — all modules and settings, incl. user management'],
+        ['accounts', 'Invoices, payments, payroll, GST, reports; POS (read)'],
+        ['sales', 'POS, invoices, customers, payments (read)'],
+        ['yard', 'Inventory, production, slabs, purchase orders (read)'],
       ]},
     ],
   },
@@ -58,9 +60,9 @@ const SECTIONS: Section[] = [
     title: '2. First-Time Setup',
     content: [
       { type: 'h3', text: '2.1 Initial Login' },
-      { type: 'p', text: 'On first start, the system creates a default admin user:' },
-      { type: 'ul', items: ['Username: admin', 'Password: admin123 ← Change immediately'] },
-      { type: 'warn', text: 'Set a secure password via System → Security → Change Password before entering any data.' },
+      { type: 'p', text: 'On first start with an empty database, the system creates a single admin user from the ADMIN_USERNAME and ADMIN_PASSWORD set by the administrator (Azure App Settings). Login is case-sensitive.' },
+      { type: 'ul', items: ['Username: as set in ADMIN_USERNAME (e.g. "Admin" — note the capital A)', 'Password: as set in ADMIN_PASSWORD'] },
+      { type: 'warn', text: 'Change your password via System → Security → Change Password after first login. Never leave a default/placeholder password in production.' },
       { type: 'h3', text: '2.2 Company Setup (Day 1)' },
       { type: 'p', text: 'Path: System → Company Details' },
       { type: 'ul', items: [
@@ -137,12 +139,13 @@ const SECTIONS: Section[] = [
       { type: 'h3', text: '3.2 Sales Invoice (POS)' },
       { type: 'p', text: 'Path: POS' },
       { type: 'ol', items: [
-        'Select customer (or "Walk-in")',
+        'Select customer (or "Walk-in"). New walk-in: phone takes a 10-digit number (auto +91 prefix); GSTIN is validated if entered',
         'Add slabs from inventory (search by variety/grade/lot)',
+        'Adjust quantity inline in the cart if needed',
         'System auto-calculates: CGST+SGST for TN customers, IGST for out-of-state',
         'Apply discount if applicable',
         'Review total → Create Invoice',
-        'Print / WhatsApp / Email receipt to customer',
+        'Print (A4 tax invoice or 80 mm thermal) / WhatsApp / Email receipt to customer',
       ]},
       { type: 'warn', text: 'E-way bill required if goods value > ₹50,000 (inter-state). Walk-in sales: collect full payment before goods leave yard.' },
       { type: 'h3', text: '3.3 Payment Collection Entry' },
@@ -505,23 +508,24 @@ const SECTIONS: Section[] = [
     title: '11. Backup & Recovery',
     content: [
       { type: 'h3', text: 'Automated Backups' },
-      { type: 'p', text: 'The system performs nightly automatic backup at 2:00 AM IST:' },
-      { type: 'ul', items: [
-        'Saves to local ./backups/ directory — retains last 30 days',
-        'If Azure Blob Storage is configured, also uploads to cloud',
-      ]},
+      { type: 'p', text: 'A backup runs automatically every night at 2:00 AM IST. Each backup is a gzip-compressed, SHA-256-verified snapshot of the database uploaded to Azure Blob Storage (container "backups", path modernex/daily/…). Additional snapshots are taken on key events and after migrations.' },
+      { type: 'warn', text: 'Backups upload only when AZURE_STORAGE_CONNECTION_STRING is set in Azure App Settings. If it is unset, the nightly job runs as a dry-run and NOTHING is saved — confirm this setting exists in production.' },
       { type: 'h3', text: 'Manual Backup' },
-      { type: 'p', text: 'UI: System → Backup → Create Backup Now' },
-      { type: 'code', text: 'cd modernex/packages/api\nnpm run backup' },
+      { type: 'p', text: 'UI: System → Backup → Create Backup Now. Each run is recorded in the backup registry with its status and blob path.' },
       { type: 'h3', text: 'Backup Verification (Weekly — Every Monday)' },
       { type: 'checklist', items: [
-        'Check ./packages/api/backups/ for recent files',
-        'Verify file size is not zero',
-        'Spot-check by restoring to test environment',
+        'System → Backup: confirm a recent successful (non dry-run) entry',
+        'Azure Portal → Storage account → Containers → backups → modernex/daily: confirm a fresh .db.gz of non-zero size',
+        'Periodically restore the latest snapshot to a test environment to verify integrity',
       ]},
-      { type: 'h3', text: 'Recovery Procedure' },
-      { type: 'code', text: '# Stop API server\npm2 stop modernex-api\n\n# Replace database\ncp backups/modernex-2025-05-21.db data/modernex.db\n\n# Restart\npm2 start modernex-api' },
-      { type: 'warn', text: 'Demo Reset destroys ALL data. Never run in production: npm run demo:reset' },
+      { type: 'h3', text: 'Recovery Procedure (Azure App Service)' },
+      { type: 'ol', items: [
+        'Stop the app: az webapp stop --name modernex-prod -g modernex-rg',
+        'Download the chosen snapshot from the backups container and gunzip it',
+        'Upload it as /home/data/modernex.db via Kudu, replacing the existing file',
+        'Start the app: az webapp start --name modernex-prod -g modernex-rg',
+      ]},
+      { type: 'warn', text: 'Demo / Clean Reset destroys ALL data. Never run in production: npm run demo:reset' },
     ],
   },
   {
@@ -541,8 +545,8 @@ const SECTIONS: Section[] = [
         ['accounts', 'Accountant, accounts executive'],
         ['sales', 'Sales staff, front desk'],
         ['yard', 'Yard supervisor, store keeper'],
-        ['viewer', 'Auditors, bankers (read-only)'],
       ]},
+      { type: 'tip', text: 'Fine-grained access is configured under System → Roles & Permissions, where each role maps to per-module read/write permissions.' },
       { type: 'h3', text: 'Password Policy' },
       { type: 'ul', items: [
         'Minimum 8 characters',
@@ -597,9 +601,9 @@ const SECTIONS: Section[] = [
       { type: 'code', text: '# Optimize SQLite database\ncd packages/api\nnode -e "import(\'./src/db/connection.js\').then(({getDb}) => { const db = getDb(); db.exec(\'VACUUM; ANALYZE;\'); console.log(\'Done\'); })"' },
       { type: 'h3', text: 'Getting Support' },
       { type: 'ol', items: [
-        'Check server logs: packages/api/logs/',
+        'Health check (production): https://modernex-prod.azurewebsites.net/api/health',
+        'Server logs: Azure Portal → modernex-prod → Log stream (or Kudu → LogFiles)',
         'Browser console: F12 → Console tab',
-        'Health check: http://localhost:8080/api/health',
         'Raise issue with: screenshot, steps to reproduce, server log excerpt',
       ]},
       { type: 'h3', text: 'Key Statutory Reference Dates' },
@@ -808,7 +812,7 @@ export function HelpPage() {
           )}
         </div>
         <div style={{ padding: '8px 12px', borderTop: '1px solid var(--border)', color: 'var(--t3)', fontSize: 10 }}>
-          FY 2025-26 · v1.0
+          FY 2026-27 · v1.1
         </div>
       </div>
 
