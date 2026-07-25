@@ -95,13 +95,31 @@ function POForm({ vendors, form, setForm, onSubmit, isPending, onCancel, title }
             onChange={e => setForm({ ...form, blocks: parseInt(e.target.value) || 1 })}
             onFocus={selectOnFocus} required />
         </div>
-        <div>
+        <div style={{ gridColumn: 'span 3' }}>
           <label style={lbl}>cbmt *</label>
-          <input type="number" style={inp} min="0" step="0.01" value={numericInputValue(form.cft)}
-            onChange={e => setForm({ ...form, cft: parseFloat(e.target.value) || 0 })}
-            onFocus={selectOnFocus} required />
-          {form.cft > 0 && <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 3 }}>= {(form.cft * 0.0283168).toFixed(3)} CBM</div>}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
+            {[80, 100, 120, 160, 200, 250, 300, 350].map(n => (
+              <button key={n} type="button"
+                onClick={() => setForm({ ...form, cft: n })}
+                style={{
+                  padding: '5px 10px', fontSize: 12, borderRadius: 6, cursor: 'pointer', border: '1px solid',
+                  borderColor: form.cft === n ? 'var(--blue)' : 'var(--bd)',
+                  background: form.cft === n ? 'var(--blueW)' : 'var(--bg2)',
+                  color: form.cft === n ? 'var(--blue)' : 'var(--t2)', fontWeight: form.cft === n ? 700 : 400,
+                }}>
+                {n}
+              </button>
+            ))}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input type="number" style={{ ...inp, flex: 1 }} min="0" step="0.01" value={numericInputValue(form.cft)}
+              onChange={e => setForm({ ...form, cft: parseFloat(e.target.value) || 0 })}
+              onFocus={selectOnFocus} required />
+            {form.cft > 0 && <div style={{ fontSize: 11, color: 'var(--t3)', whiteSpace: 'nowrap' }}>= {(form.cft * 0.0283168).toFixed(3)} CBM</div>}
+          </div>
         </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div>
           <label style={lbl}>Rate/cbmt (₹) *</label>
           <input type="number" style={inp} min="0" step="0.01"
