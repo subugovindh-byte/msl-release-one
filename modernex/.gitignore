@@ -18,3 +18,6 @@ playwright-report/
 .vscode/settings.json
 .idea/
 *.tsbuildinfo
+*.db
+*.db-wal
+*.db-shm
