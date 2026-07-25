@@ -70,3 +70,12 @@ varietyDefaultsRouter.patch('/:variety', authenticate, requireRole('admin', 'sal
   logger.info({ variety, user: req.user.username }, 'Variety photo updated');
   res.json({ ok: true, variety });
 });
+
+// Admin: clear (delete) a variety's reference photo
+varietyDefaultsRouter.delete('/:variety/photo', authenticate, requireRole('admin'), (req, res) => {
+  const { variety } = req.params;
+  const db = getDb();
+  db.prepare(`UPDATE variety_defaults SET photo_url = NULL, updated_at = datetime('now') WHERE variety = ?`).run(variety);
+  logger.info({ variety, user: req.user.username }, 'Variety photo deleted');
+  res.json({ ok: true, variety });
+});

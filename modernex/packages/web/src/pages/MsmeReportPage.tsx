@@ -8,7 +8,7 @@ type Tab = 'vendors' | 'outstanding' | 'interest' | 'form-i' | 'register';
 
 const TODAY = new Date().toISOString().slice(0, 10);
 const THIS_YEAR = new Date().getFullYear();
-const MSME_RATE = 27; // 3× RBI repo rate per MSMED Act Sec 16
+const MSME_RATE = 19.5; // 3× RBI repo rate (~6.5%) per MSMED Act Sec 16
 
 // ── API hooks ─────────────────────────────────────────────────────────────────
 function useMsmeVendors() {
@@ -184,7 +184,7 @@ function OutstandingTab() {
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
         <SummaryCard label="Total Outstanding" value={P(summary.totalOutstanding || 0)} />
         <SummaryCard label="Overdue (>45 days)" value={P(summary.totalOverdue || 0)} color="#ef4444" />
-        <SummaryCard label="Accrued Interest" value={P(summary.totalAccruedInterest || 0)} color="#f59e0b" sub="27% p.a. on overdue" />
+          <SummaryCard label="Accrued Interest" value={P(summary.totalAccruedInterest || 0)} color="#f59e0b" sub={`${MSME_RATE}% p.a. on overdue`} />
         <SummaryCard label="Overdue POs" value={String(summary.overdueCount || 0)} color="#ef4444" />
       </div>
 
@@ -278,7 +278,7 @@ function InterestTab() {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
           <thead>
             <tr style={{ background: 'var(--bg2)' }}>
-              {['Vendor', 'MSME No.', 'PO Date', 'Due Date', 'Principal', 'Overdue Days', 'Interest (27% p.a.)', 'Total Payable'].map(h => (
+              {['#', 'Vendor', 'MSME No.', 'PO Date', 'Due Date', 'Principal', 'Overdue Days', `Interest (${MSME_RATE}% p.a.)`, 'Total Payable'].map(h => (
                 <th key={h} style={{ padding: '8px 12px', textAlign: 'left', color: 'var(--t3)', fontWeight: 600, borderBottom: '1px solid var(--border)' }}>{h}</th>
               ))}
             </tr>
@@ -370,7 +370,7 @@ function FormITab() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
                 <tr style={{ background: 'var(--bg2)' }}>
-                  {['#', 'Supplier Name', 'MSME No.', 'GSTIN', 'No. of POs', 'Principal Overdue', 'Interest @ 27% p.a.'].map(h => (
+                  {['#', 'Supplier Name', 'MSME No.', 'GSTIN', 'No. of POs', 'Principal Overdue', `Interest @ ${MSME_RATE}% p.a.`].map(h => (
                     <th key={h} style={{ padding: '8px 12px', textAlign: 'left', color: 'var(--t3)', fontWeight: 600, borderBottom: '1px solid var(--border)' }}>{h}</th>
                   ))}
                 </tr>

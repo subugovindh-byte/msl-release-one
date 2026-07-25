@@ -73,6 +73,17 @@ export function VarietyPhotosPage() {
     }
   };
 
+  const handleDeletePhoto = async (variety: string) => {
+    if (!confirm(`Remove reference photo for "${variety}"?`)) return;
+    try {
+      await api.delete(`/variety-defaults/${encodeURIComponent(variety)}/photo`);
+      notify(`Photo removed for ${variety}`, 'success');
+      await loadVarieties();
+    } catch (error: any) {
+      notify(error.message || 'Delete failed', 'error');
+    }
+  };
+
   const filteredVarieties = regionFilter === 'all' 
     ? varieties 
     : varieties.filter(v => v.region === regionFilter);
@@ -248,9 +259,9 @@ export function VarietyPhotosPage() {
               )}
             </div>
 
-            {/* Upload Button */}
+            {/* Upload + Delete Buttons */}
             {canUpload && (
-              <div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <input
                   type="file"
                   accept="image/*"
@@ -282,6 +293,18 @@ export function VarietyPhotosPage() {
                 >
                   {uploading === variety.variety ? 'Uploading...' : '📤 Upload Photo'}
                 </label>
+                {variety.photo_url && user?.role === 'admin' && (
+                  <button
+                    onClick={() => handleDeletePhoto(variety.variety)}
+                    style={{
+                      padding: '6px 16px', fontSize: '11px', fontWeight: 600,
+                      background: 'transparent', color: 'var(--red)',
+                      border: '1px solid var(--red)', borderRadius: '4px', cursor: 'pointer',
+                    }}
+                  >
+                    ✕ Remove Photo
+                  </button>
+                )}
               </div>
             )}
           </div>

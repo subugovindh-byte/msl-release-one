@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useFixedAssets, useCreateFixedAsset, useUpdateFixedAsset, useDisposeAsset, useRunDepreciation, useVendors } from '@/hooks/useApi';
+import { useFixedAssets, useCreateFixedAsset, useUpdateFixedAsset, useDisposeAsset, useRunDepreciation, useVendors, useAccounts } from '@/hooks/useApi';
 import { formatINR, numericInputValue, selectOnFocus } from '@/utils/format';
 import { useToastStore } from '@/store';
 
@@ -23,6 +23,7 @@ export function FixedAssetsPage() {
 
   const { data: assetsData, isLoading } = useFixedAssets({});
   const { data: vendorsData } = useVendors({});
+  const { data: coaData } = useAccounts({ active: true });
   const createAsset = useCreateFixedAsset();
   const updateAsset = useUpdateFixedAsset(editingId || '');
   const disposeAsset = useDisposeAsset(disposeId || '');
@@ -30,6 +31,7 @@ export function FixedAssetsPage() {
 
   const assets: any[] = assetsData?.assets || [];
   const vendors: any[] = (vendorsData as any)?.vendors || [];
+  const glAccounts: any[] = (coaData as any)?.accounts?.filter((a: any) => a.account_type === 'asset') || [];
 
   const totalCost = assets.reduce((s, a) => s + a.purchase_cost_paise, 0);
   const totalWdv  = assets.reduce((s, a) => s + (a.current_wdv_paise ?? a.purchase_cost_paise), 0);
@@ -153,6 +155,13 @@ export function FixedAssetsPage() {
               </div>
               <div><label className="fl">Location</label><input type="text" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} className="fi" placeholder="e.g. Processing Unit 1" /></div>
               <div><label className="fl">Serial No / Tag</label><input type="text" value={form.serial_no} onChange={(e) => setForm({ ...form, serial_no: e.target.value })} className="fi" /></div>
+              <div>
+                <label className="fl">GL Account (Asset Ledger)</label>
+                <select value={form.account_id} onChange={(e) => setForm({ ...form, account_id: e.target.value })} className="fsel">
+                  <option value="">— select GL account —</option>
+                  {glAccounts.map((a: any) => <option key={a.id} value={a.id}>{a.code} · {a.name}</option>)}
+                </select>
+              </div>
               <div style={{ gridColumn: '1 / -1' }}><label className="fl">Description</label><input type="text" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="fi" /></div>
             </div>
             <div style={{ display: 'flex', gap: 10 }}>

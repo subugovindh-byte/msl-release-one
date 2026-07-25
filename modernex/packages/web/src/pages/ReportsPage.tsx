@@ -37,7 +37,7 @@ export function ReportsPage() {
   const [to, setTo] = useState(today);
   const [ledgerAccId, setLedgerAccId] = useState('');
 
-  const { data: invoicesData } = useInvoices({});
+  const { data: invoicesData } = useInvoices({ from, to });
   const invoices: any[] = invoicesData?.invoices || [];
   const { data: stockData } = useStockValuation();
   const { data: depData } = useDepreciationSchedule();

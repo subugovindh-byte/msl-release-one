@@ -266,7 +266,23 @@ export function ConsumablesPage() {
               </div>
               <div>
                 <label className="fl">Vendor / Supplier *</label>
-                <input className="fi" type="text" required value={form.vendor_name} onChange={e => setForm(f => ({ ...f, vendor_name: e.target.value }))} placeholder="Supplier name" />
+                <select className="fi" value={form.vendor_id || '__custom__'}
+                  onChange={e => {
+                    if (e.target.value === '__custom__') {
+                      setForm(f => ({ ...f, vendor_id: '', vendor_name: '' }));
+                    } else {
+                      const v = vendors.find((v: any) => v.id === e.target.value);
+                      setForm(f => ({ ...f, vendor_id: v?.id ?? '', vendor_name: v?.name ?? '' }));
+                    }
+                  }}>
+                  <option value="__custom__">— type below (not in master) —</option>
+                  {vendors.map((v: any) => <option key={v.id} value={v.id}>{v.name}</option>)}
+                </select>
+                {!form.vendor_id && (
+                  <input className="fi" type="text" required value={form.vendor_name}
+                    onChange={e => setForm(f => ({ ...f, vendor_name: e.target.value }))}
+                    placeholder="Supplier name" style={{ marginTop: 4 }} />
+                )}
               </div>
               <div>
                 <label className="fl">Category *</label>
