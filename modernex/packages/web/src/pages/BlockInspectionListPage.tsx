@@ -139,6 +139,7 @@ const BLANK = (): FormState => ({
 
 function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () => void }) {
   const [form, setForm] = useState<FormState>(BLANK());
+  const [dims, setDims] = useState({ l: '', w: '', h: '' });
   const [photos, setPhotos] = useState<{ data_url: string; caption: string }[]>([]);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -149,6 +150,15 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
   const addPhoto = useAddInspectionPhoto();
   const toast = useToastStore(s => s.notify);
   const set = (k: keyof FormState, v: any) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleDim = (k: 'l' | 'w' | 'h', v: string) => {
+    const next = { ...dims, [k]: v };
+    setDims(next);
+    const l = parseFloat(next.l), w = parseFloat(next.w), h = parseFloat(next.h);
+    if (l > 0 && w > 0 && h > 0) {
+      setForm(f => ({ ...f, est_cft: +(l * w * h / 28316.8).toFixed(2) }));
+    }
+  };
 
   // Defect chips — toggling appends/removes from the text
   const toggleDefect = (chip: string) => {
@@ -296,17 +306,29 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
           </div>
           <div>
             <label style={lbl}>Est. cbmt</label>
-            <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:6 }}>
-              {[20,30,40,50,60,80,100].map(n => (
-                <button key={n} type="button" onClick={() => set('est_cft', n)}
-                  style={{ ...chip(form.est_cft === n, 'var(--blue)', 'var(--blueW)'), padding:'6px 10px', fontSize:12 }}>
-                  {n}
-                </button>
+            <datalist id="insp-dim-sizes">
+              {Array.from({ length: 36 }, (_, i) => 50 + i * 10).map(v => <option key={v} value={v} />)}
+            </datalist>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:6, marginBottom:8 }}>
+              {(['l','w','h'] as const).map((k, i) => (
+                <div key={k}>
+                  <div style={{ fontSize:11, color:'var(--t3)', marginBottom:3 }}>{['Length','Width','Height'][i]} (cm)</div>
+                  <input list="insp-dim-sizes" type="number" min={0} step="any"
+                    style={{ ...inp, fontSize:13 }} placeholder={['270','180','160'][i]}
+                    value={dims[k]} onChange={e => handleDim(k, e.target.value)} />
+                </div>
               ))}
             </div>
             <input style={{ ...inp, fontSize:13 }} type="number" min={0} step="0.01"
-              placeholder="custom cbmt" value={numericInputValue(form.est_cft)}
-              onFocus={selectOnFocus} onChange={e => set('est_cft', parseFloat(e.target.value) || 0)} />
+              placeholder="cbmt (auto-filled from L×W×H or enter manually)"
+              value={numericInputValue(form.est_cft)}
+              onFocus={selectOnFocus} onChange={e => { setDims({ l:'', w:'', h:'' }); set('est_cft', parseFloat(e.target.value) || 0); }} />
+            {form.est_cft > 0 && (
+              <div style={{ fontSize:11, color:'var(--t3)', marginTop:4 }}>
+                {form.est_cft} cbmt = {(form.est_cft * 0.0283168).toFixed(3)} CBM
+                {form.block_count > 1 && <span> · total {(form.est_cft * form.block_count).toFixed(2)} cbmt for {form.block_count} blocks</span>}
+              </div>
+            )}
           </div>
         </div>
 
