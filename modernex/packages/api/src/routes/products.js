@@ -248,6 +248,17 @@ productsRouter.post('/:id/move',
       const destination = db.prepare('SELECT * FROM locations WHERE id = ? AND is_active = 1').get(req.body.to_location_id);
       if (!destination) throw new NotFoundError('Location not found');
 
+      // Gate 3: a QA-tracked item (polished good) can't reach a sellable
+      // location until it has passed QA. Non-QA items (qa_status NULL) pass.
+      if (['showroom', 'sales'].includes(destination.location_type)
+          && ['pending', 'failed'].includes(existing.qa_status)) {
+        throw new AppError(
+          `${existing.id} cannot move to ${destination.name} — QA is '${existing.qa_status}'. ` +
+          `It must pass QA before reaching the sales yard.`,
+          409
+        );
+      }
+
       const qty = req.body.qty ?? existing.stock ?? 0;
       if (qty < 0) throw new AppError('Quantity must be non-negative', 400);
 
@@ -276,6 +287,39 @@ productsRouter.post('/:id/move',
 
       const updated = loadProduct(db, req.params.id);
       audit(req, 'PRODUCT_MOVE', 'products', req.params.id, existing, updated);
+      res.json({ product: updated });
+    } catch (err) { next(err); }
+  }
+);
+
+// ─── POST /products/:id/qa ─── finished-goods QA check (Gate 3)
+// pass -> product may move to the sales yard / be invoiced.
+// fail -> stays blocked from sale until reworked and re-QA'd.
+productsRouter.post('/:id/qa',
+  requireRole('admin', 'yard'),
+  validate(z.object({
+    result: z.enum(['pass', 'fail']),
+    notes: z.string().max(500).nullable().optional(),
+  })),
+  (req, res, next) => {
+    try {
+      const db = getDb();
+      const existing = loadProduct(db, req.params.id);
+      if (!existing) throw new NotFoundError('Product not found');
+      if (!existing.qa_status) {
+        throw new AppError(`${req.params.id} is not a QA-tracked item (only polished goods enter QA).`, 400);
+      }
+      if (existing.qa_status === 'passed') {
+        throw new AppError(`${req.params.id} has already passed QA.`, 409);
+      }
+      const status = req.body.result === 'pass' ? 'passed' : 'failed';
+      db.prepare(`
+        UPDATE products
+        SET qa_status = ?, qa_by = ?, qa_at = datetime('now'), qa_notes = ?, updated_at = datetime('now'), updated_by = ?
+        WHERE id = ?
+      `).run(status, req.user.username, req.body.notes || null, req.user.username, req.params.id);
+      const updated = loadProduct(db, req.params.id);
+      audit(req, 'PRODUCT_QA', 'products', req.params.id, existing, updated);
       res.json({ product: updated });
     } catch (err) { next(err); }
   }

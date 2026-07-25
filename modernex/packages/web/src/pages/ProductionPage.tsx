@@ -5,7 +5,7 @@ import { VARIETIES, GRADES, STANDARD_SPECS } from '@modernex/shared';
 import {
   useProducts, useCreateProduct, useCreateProductionJob,
   useProductionJobs, useMoveProduct, usePurchaseOrders,
-  useDeleteProduct, useUpdateProduct, useRecordDamage,
+  useDeleteProduct, useUpdateProduct, useRecordDamage, useQaProduct,
   useDeleteProductionJob,
 } from '@/hooks/useApi';
 import { useToastStore, useAuthStore } from '@/store';
@@ -174,13 +174,14 @@ function StatCard({ label, count, sub, color }: { label: string; count: number; 
 }
 
 // ── tabs ─────────────────────────────────────────────────────────────────────
-type Tab = 'receive' | 'split' | 'cut' | 'polish' | 'route' | 'history';
+type Tab = 'receive' | 'split' | 'cut' | 'polish' | 'qa' | 'route' | 'history';
 const TABS: { id: Tab; label: string; step?: string }[] = [
   { id: 'receive', label: 'Receive Block', step: '1' },
   { id: 'split',   label: 'Split Block',   step: '2' },
   { id: 'cut',     label: 'Cut Slabs',     step: '3' },
   { id: 'polish',  label: 'Polish & Grade',step: '4' },
-  { id: 'route',   label: 'Route to Sale', step: '5' },
+  { id: 'qa',      label: 'QA Check',      step: '5' },
+  { id: 'route',   label: 'Route to Sale', step: '6' },
   { id: 'history', label: 'Job History' },
 ];
 
@@ -1071,7 +1072,74 @@ function PolishGrade({ gangsawSlabs, notify, preselectId }: { gangsawSlabs: any[
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TAB 5 — ROUTE TO SALE
+// TAB 5 — QA CHECK (Gate 3)
+// Polished goods land here as 'pending' and must pass QA before Route to Sale.
+// ─────────────────────────────────────────────────────────────────────────────
+function QACheck({ qaPending, notify }: { qaPending: any[]; notify: any }) {
+  const qa = useQaProduct();
+  const [noteFor, setNoteFor] = useState<string>('');
+  const [noteText, setNoteText] = useState('');
+
+  function runQa(id: string, result: 'pass' | 'fail') {
+    if (result === 'fail' && noteFor !== id) { setNoteFor(id); return; }
+    qa.mutate(
+      { id, result, notes: result === 'fail' ? (noteText || undefined) : undefined },
+      {
+        onSuccess: () => {
+          notify(result === 'pass' ? `QA passed — ${id} cleared for sale` : `QA failed — ${id} held for rework`, result === 'pass' ? 'success' : 'error');
+          setNoteFor(''); setNoteText('');
+        },
+        onError: (e: any) => notify(e.message || 'QA update failed', 'error'),
+      }
+    );
+  }
+
+  if (qaPending.length === 0) {
+    return (
+      <div style={{ ...card, color: 'var(--t3)', fontSize: 13 }}>
+        Nothing awaiting QA. Polished slabs appear here for a pass/fail check before they can be routed to sale.
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <p style={{ margin: 0, fontSize: 13, color: 'var(--t3)' }}>
+        Finished goods pending QA. <strong style={{ color: 'var(--t1)' }}>Pass</strong> clears an item for the sales yard; <strong style={{ color: 'var(--t1)' }}>Fail</strong> holds it for rework — it cannot be moved to sale or invoiced until it passes.
+      </p>
+      {qaPending.map((p: any) => {
+        const d = p.dimensions || {};
+        return (
+          <div key={p.id} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <div style={{ fontWeight: 700, color: 'var(--t1)' }}>{p.variety} <span style={{ color: 'var(--t3)', fontWeight: 400 }}>· {p.id}</span></div>
+                <div style={{ fontSize: 12, color: 'var(--t3)' }}>
+                  {d.size_lw || ''}{d.thickness_mm ? ` · ${d.thickness_mm}mm` : ''}{p.grade ? ` · Gr.${p.grade}` : ''} · stock {p.stock}
+                </div>
+              </div>
+              <button type="button" style={{ ...btnPrimary, background: 'var(--sage)' }}
+                onClick={() => runQa(p.id, 'pass')} disabled={qa.isPending}>✓ Pass</button>
+              <button type="button" style={{ ...btnPrimary, background: 'var(--red)' }}
+                onClick={() => runQa(p.id, 'fail')} disabled={qa.isPending}>✕ Fail</button>
+            </div>
+            {noteFor === p.id && (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <input value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="Reason for failure (optional)"
+                  style={{ ...inputStyle, flex: 1 }} />
+                <button type="button" style={{ ...btnPrimary, background: 'var(--red)' }}
+                  onClick={() => runQa(p.id, 'fail')} disabled={qa.isPending}>Confirm Fail</button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB 6 — ROUTE TO SALE
 // ─────────────────────────────────────────────────────────────────────────────
 function RouteToSale({ finishedSlabs, notify, preselectId }: { finishedSlabs: any[]; notify: any; preselectId?: string }) {
   const moveProduct = useMoveProduct();
@@ -1719,6 +1787,11 @@ export function ProductionPage() {
   const showroomSlabs = [...(showroomSlabsData?.products || []), ...(showroomTilesData?.products || [])];
   const jobs          = jobsData?.jobs          || [];
 
+  // Gate 3 split: polished goods awaiting QA vs those cleared for the sales yard.
+  // Only qa_status === 'pending'/'failed' are withheld; passed or untracked flow on.
+  const qaPending  = finishedSlabs.filter((p: any) => p.qa_status === 'pending' || p.qa_status === 'failed');
+  const saleReady  = finishedSlabs.filter((p: any) => p.qa_status !== 'pending' && p.qa_status !== 'failed');
+
   // Approved-PO gate (mirrors the API): only blocks whose source PO is approved
   // (or closed), or that have no PO at all, may be consumed into job work. The
   // API rejects the rest — we hide them from the Split/Cut pickers so operators
@@ -1784,8 +1857,11 @@ export function ProductionPage() {
           <div style={{ display: tab === 'polish' ? 'block' : 'none' }}>
             <PolishGrade gangsawSlabs={gangsawSlabs} notify={notify} preselectId={preselectId} />
           </div>
+          <div style={{ display: tab === 'qa' ? 'block' : 'none' }}>
+            <QACheck qaPending={qaPending} notify={notify} />
+          </div>
           <div style={{ display: tab === 'route' ? 'block' : 'none' }}>
-            <RouteToSale finishedSlabs={finishedSlabs} notify={notify} preselectId={preselectId} />
+            <RouteToSale finishedSlabs={saleReady} notify={notify} preselectId={preselectId} />
           </div>
           <div style={{ display: tab === 'history' ? 'block' : 'none' }}>
             <JobHistory jobs={jobs} isLoading={jobsLoading} onDeleteJob={canEdit ? (id) => {

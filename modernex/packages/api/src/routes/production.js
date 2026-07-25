@@ -303,17 +303,21 @@ productionRouter.post('/',
           const parentId = (inputs.length === 1 && inputs[0].product.kind === 'block')
             ? inputs[0].product.id : null;
           const currentLocationId = outputLocationForStage(b.stage, o.kind);
+          // Gate 3: polish output enters QA as 'pending' — it can't be sold or
+          // moved to the sales yard until a QA check passes. Other stages don't
+          // stamp QA (qa_status stays NULL = not gated).
+          const qaStatus = b.stage === 'polish' ? 'pending' : null;
 
           db.prepare(`
             INSERT INTO products (
               id, kind, variety, hsn, uom, grade, lot_id, current_location_id, rate_paise, stock,
-              source_job_id, source_product_id, unit_cost_paise,
+              source_job_id, source_product_id, unit_cost_paise, qa_status,
               active, created_by
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
           `).run(
             productId, o.kind, o.variety, hsn, uom,
             o.grade || null, b.lot_id, currentLocationId, o.rate_paise, o.qty,
-            jobId, parentId, unitCost,
+            jobId, parentId, unitCost, qaStatus,
             req.user.username
           );
 

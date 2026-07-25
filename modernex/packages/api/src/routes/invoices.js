@@ -90,6 +90,13 @@ invoicesRouter.post('/',
             400
           );
         }
+        // Gate 3: a QA-tracked item can't be invoiced until it has passed QA.
+        if (['pending', 'failed'].includes(product.qa_status)) {
+          throw new AppError(
+            `${product.variety} (${product.id}) cannot be sold — QA is '${product.qa_status}'. It must pass QA first.`,
+            409
+          );
+        }
 
         return {
           product_id: product.id,

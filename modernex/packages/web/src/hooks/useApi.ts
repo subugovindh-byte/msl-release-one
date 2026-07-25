@@ -152,6 +152,18 @@ export function useRecordDamage(options?: UseMutationOptions<{ ok: boolean; new_
   });
 }
 
+export function useQaProduct(options?: UseMutationOptions<Product, Error, { id: string; result: 'pass' | 'fail'; notes?: string }>) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }) => api.post<{ product: Product }>(`/products/${id}/qa`, data).then((res) => res.product),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.products.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.products.detail(variables.id) });
+    },
+    ...options,
+  });
+}
+
 export function useCreateProduct(options?: UseMutationOptions<Product, Error, Partial<Product>>) {
   const queryClient = useQueryClient();
   
