@@ -101,6 +101,11 @@ function POForm({ vendors, form, setForm, onSubmit, isPending, onCancel, title }
           onChange={e => setForm({ ...form, variety: e.target.value })} />
       </div>
 
+      {/* Datalist with common cm values 50–400 in steps of 10, fractions allowed */}
+      <datalist id="dim-sizes">
+        {Array.from({ length: 36 }, (_, i) => 50 + i * 10).map(v => <option key={v} value={v} />)}
+      </datalist>
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12 }}>
         <div>
           <label style={lbl}>Blocks *</label>
@@ -110,41 +115,27 @@ function POForm({ vendors, form, setForm, onSubmit, isPending, onCancel, title }
         </div>
         <div>
           <label style={lbl}>Length (cm)</label>
-          <input type="number" style={inp} min="0" step="1" placeholder="e.g. 270"
+          <input list="dim-sizes" type="number" style={inp} min="0" step="any" placeholder="e.g. 270"
             value={dims.l} onChange={e => handleDim('l', e.target.value)} onFocus={selectOnFocus} />
         </div>
         <div>
           <label style={lbl}>Width (cm)</label>
-          <input type="number" style={inp} min="0" step="1" placeholder="e.g. 180"
+          <input list="dim-sizes" type="number" style={inp} min="0" step="any" placeholder="e.g. 180"
             value={dims.w} onChange={e => handleDim('w', e.target.value)} onFocus={selectOnFocus} />
         </div>
         <div>
           <label style={lbl}>Height (cm)</label>
-          <input type="number" style={inp} min="0" step="1" placeholder="e.g. 160"
+          <input list="dim-sizes" type="number" style={inp} min="0" step="any" placeholder="e.g. 160"
             value={dims.h} onChange={e => handleDim('h', e.target.value)} onFocus={selectOnFocus} />
         </div>
       </div>
 
       <div>
         <label style={lbl}>cbmt *</label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
-            {[80, 100, 120, 160, 200, 250, 300, 350].map(n => (
-              <button key={n} type="button"
-                onClick={() => { setDims({ l: '', w: '', h: '' }); setForm({ ...form, cft: n }); }}
-                style={{
-                  padding: '5px 10px', fontSize: 12, borderRadius: 6, cursor: 'pointer', border: '1px solid',
-                  borderColor: form.cft === n ? 'var(--blue)' : 'var(--bd)',
-                  background: form.cft === n ? 'var(--blueW)' : 'var(--bg2)',
-                  color: form.cft === n ? 'var(--blue)' : 'var(--t2)', fontWeight: form.cft === n ? 700 : 400,
-                }}>
-                {n}
-              </button>
-            ))}
-          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <input type="number" style={{ ...inp, flex: 1 }} min="0" step="0.01" value={numericInputValue(form.cft)}
               onChange={e => { setDims({ l: '', w: '', h: '' }); setForm({ ...form, cft: parseFloat(e.target.value) || 0 }); }}
-              onFocus={selectOnFocus} required />
+              onFocus={selectOnFocus} placeholder="auto-filled from L×W×H or enter manually" required />
             {form.cft > 0 && <div style={{ fontSize: 11, color: 'var(--t3)', whiteSpace: 'nowrap' }}>= {(form.cft * 0.0283168).toFixed(3)} CBM</div>}
           </div>
       </div>

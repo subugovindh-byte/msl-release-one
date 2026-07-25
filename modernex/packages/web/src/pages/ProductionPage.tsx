@@ -276,8 +276,8 @@ function ReceiveBlock({ notify }: { notify: any }) {
     });
   }
 
-  const cft = cftFromM(+form.length_m / 1000, +form.width_m / 1000, +form.height_m / 1000);
-  const cbm = cbmFromM(+form.length_m / 1000, +form.width_m / 1000, +form.height_m / 1000);
+  const cft = cftFromM(+form.length_m / 100, +form.width_m / 100, +form.height_m / 100);
+  const cbm = cbmFromM(+form.length_m / 100, +form.width_m / 100, +form.height_m / 100);
 
   // Live duplicate detection: same lot_id already has an active block
   const lotDupes = useMemo(() =>
@@ -291,7 +291,7 @@ function ReceiveBlock({ notify }: { notify: any }) {
   // Check exact dimension match against existing active blocks in this lot
   const exactDupe = useMemo(() => {
     if (!form.length_m || !form.width_m || !form.height_m) return null;
-    const lm = +form.length_m / 1000, wm = +form.width_m / 1000, hm = +form.height_m / 1000;
+    const lm = +form.length_m / 100, wm = +form.width_m / 100, hm = +form.height_m / 100;
     return lotDupes.find((p: any) => {
       const d = p.dimensions || {};
       return d.length_m && Math.abs(d.length_m - lm) < 0.001 &&
@@ -324,9 +324,9 @@ function ReceiveBlock({ notify }: { notify: any }) {
         stock: 1,
         notes: form.notes || (form.po_id ? `From PO ${form.po_id}` : undefined),
         dimensions: {
-          length_m: +form.length_m / 1000,
-          width_m: +form.width_m / 1000,
-          height_m: +form.height_m / 1000,
+          length_m: +form.length_m / 100,
+          width_m: +form.width_m / 100,
+          height_m: +form.height_m / 100,
         },
       });
       notify(`Block ${(product as any)?.product?.id ?? ''} registered at Raw Yard`, 'success');
