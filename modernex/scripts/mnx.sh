@@ -8,7 +8,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PROD_URL="${PROD_URL:-https://modernex-prod.azurewebsites.net}"
 LOCAL_URL="${LOCAL_URL:-http://localhost:8080}"
-ADMIN_USER="${ADMIN_USER:-admin}"
+ADMIN_USER="${ADMIN_USER:-Admin}"
 ADMIN_PASS="${ADMIN_PASS:-Admin@123}"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
