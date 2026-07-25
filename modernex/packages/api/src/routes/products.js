@@ -161,12 +161,13 @@ productsRouter.post('/',
 
       const tx = db.transaction(() => {
         db.prepare(`
-          INSERT INTO products (id, kind, variety, hsn, uom, grade, lot_id, current_location_id,
+          INSERT INTO products (id, kind, variety, hsn, uom, grade, lot_id, po_id, current_location_id,
                                 rate_paise, stock, notes, active, created_by)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
         `).run(
           id, b.kind, b.variety, hsn, uom,
-          b.grade || null, b.lot_id || null, b.current_location_id || defaultLocationForKind(b.kind),
+          b.grade || null, b.lot_id || null, b.po_id || null,
+          b.current_location_id || defaultLocationForKind(b.kind),
           b.rate_paise, b.stock ?? 0, b.notes || null, req.user.username
         );
         insertDimensions(db, id, b.kind, b.dimensions);

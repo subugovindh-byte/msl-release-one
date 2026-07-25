@@ -1155,6 +1155,14 @@ export function useUpdateBlockInspection() {
   });
 }
 
+export function useApproveBlockInspection() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.patch<any>(`/block-inspections/${pid(id)}/approve`, {}),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['block-inspections'] }),
+  });
+}
+
 export function useRejectBlockInspection() {
   const qc = useQueryClient();
   return useMutation({

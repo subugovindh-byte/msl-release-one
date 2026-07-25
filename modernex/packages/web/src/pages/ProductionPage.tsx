@@ -31,6 +31,18 @@ function volLabel(cft: number, cbm: number) {
   return `${cft} cbmt · ${cbm} CBM`;
 }
 
+// Shown in Split/Cut when some Raw-Yard blocks are withheld from job work
+// because their source PO isn't approved yet (mirrors the API gate).
+function PendingApprovalNote({ n }: { n: number }) {
+  if (!n) return null;
+  return (
+    <div style={{ background: 'rgba(230,160,0,0.1)', border: '1px solid var(--amber)', borderRadius: 6,
+      padding: '8px 12px', fontSize: 12, color: 'var(--amber)', fontWeight: 600 }}>
+      {n} block{n > 1 ? 's' : ''} hidden — source PO pending approval. Approve the PO in Purchase to make {n > 1 ? 'them' : 'it'} available for job work.
+    </div>
+  );
+}
+
 const LOCATION_LABEL: Record<string, string> = {
   RAW_YARD: 'Raw Yard', GANGSAW_IN: 'Gangsaw In',
   GANGSAW_OUT: 'Gangsaw Out', FINISHED_YARD: 'Finished Yard', SHOWROOM: 'Showroom',
@@ -293,6 +305,7 @@ function ReceiveBlock({ notify }: { notify: any }) {
         kind: 'block',
         variety: form.variety,
         lot_id: form.lot_id,
+        po_id: form.po_id || undefined,   // structured link — gates downstream job work
         rate_paise: form.rate_paise ? Math.round(+form.rate_paise * 100) : 0,
         stock: 1,
         notes: form.notes || (form.po_id ? `From PO ${form.po_id}` : undefined),
@@ -429,7 +442,7 @@ function ReceiveBlock({ notify }: { notify: any }) {
 // Mode A: Split — 1 block → 2 sub-blocks
 // Mode B: Dress/Trim — 1 block → 1 trimmed block (half-block dressing)
 // ─────────────────────────────────────────────────────────────────────────────
-function SplitBlock({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; notify: any; preselectId?: string }) {
+function SplitBlock({ rawBlocks, blockedCount = 0, notify, preselectId }: { rawBlocks: any[]; blockedCount?: number; notify: any; preselectId?: string }) {
   const createJob = useCreateProductionJob();
   const [mode, setMode] = useState<'split' | 'dress'>('split');
 
@@ -544,7 +557,16 @@ function SplitBlock({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; noti
   }
 
   if (rawBlocks.length === 0) {
-    return <div style={{ ...card, color: 'var(--t3)', fontSize: 13 }}>No blocks at Raw Yard. Register one in step 1 first.</div>;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <PendingApprovalNote n={blockedCount} />
+        <div style={{ ...card, color: 'var(--t3)', fontSize: 13 }}>
+          {blockedCount > 0
+            ? 'No approved blocks at Raw Yard. The blocks here are waiting on PO approval.'
+            : 'No blocks at Raw Yard. Register one in step 1 first.'}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -569,6 +591,8 @@ function SplitBlock({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; noti
           ? 'Split a block into two sub-blocks (1A and 1B). Both stay at Raw Yard.'
           : 'Gangsaw-dress a half-block or rough block into a clean rectangular shape. The original block is consumed and one trimmed block is produced.'}
       </p>
+
+      <PendingApprovalNote n={blockedCount} />
 
       {/* Block selector */}
       <Fld label="Select Block">
@@ -652,7 +676,7 @@ function SplitBlock({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; noti
 // ─────────────────────────────────────────────────────────────────────────────
 // TAB 3 — CUT (GANGSAW) — slab or tile output
 // ─────────────────────────────────────────────────────────────────────────────
-function CutSlabs({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; notify: any; preselectId?: string }) {
+function CutSlabs({ rawBlocks, blockedCount = 0, notify, preselectId }: { rawBlocks: any[]; blockedCount?: number; notify: any; preselectId?: string }) {
   const createJob = useCreateProductionJob();
 
   const [outputKind, setOutputKind] = useState<'slab' | 'tile'>('slab');
@@ -734,8 +758,13 @@ function CutSlabs({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; notify
 
   if (rawBlocks.length === 0) {
     return (
-      <div style={{ ...card, color: 'var(--t3)', fontSize: 13 }}>
-        No blocks available at Raw Yard. Register and optionally split a block first.
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <PendingApprovalNote n={blockedCount} />
+        <div style={{ ...card, color: 'var(--t3)', fontSize: 13 }}>
+          {blockedCount > 0
+            ? 'No approved blocks at Raw Yard. The blocks here are waiting on PO approval.'
+            : 'No blocks available at Raw Yard. Register and optionally split a block first.'}
+        </div>
       </div>
     );
   }
@@ -760,6 +789,8 @@ function CutSlabs({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; notify
           >{k === 'slab' ? 'Slab' : 'Tile'}</button>
         ))}
       </div>
+
+      <PendingApprovalNote n={blockedCount} />
 
       <Fld label="Select Block">
         <Sel value={form.block_id} onChange={e => set('block_id', e.target.value)} required>
@@ -1688,6 +1719,23 @@ export function ProductionPage() {
   const showroomSlabs = [...(showroomSlabsData?.products || []), ...(showroomTilesData?.products || [])];
   const jobs          = jobsData?.jobs          || [];
 
+  // Approved-PO gate (mirrors the API): only blocks whose source PO is approved
+  // (or closed), or that have no PO at all, may be consumed into job work. The
+  // API rejects the rest — we hide them from the Split/Cut pickers so operators
+  // never pick a block that would bounce, and surface a count so they're not lost.
+  const { data: prodPosData } = usePurchaseOrders({});
+  const approvedPoIds = useMemo(
+    () => new Set((prodPosData?.purchase_orders || [])
+      .filter((p: any) => p.status === 'approved' || p.status === 'closed')
+      .map((p: any) => p.id)),
+    [prodPosData]
+  );
+  const jobEligibleBlocks = useMemo(
+    () => rawBlocks.filter((b: any) => !b.po_id || approvedPoIds.has(b.po_id)),
+    [rawBlocks, approvedPoIds]
+  );
+  const blockedBlockCount = rawBlocks.length - jobEligibleBlocks.length;
+
   const pipelineGroups = useMemo(() => ({
     RAW_YARD:      rawBlocks,
     GANGSAW_OUT:   gangsawSlabs,
@@ -1728,10 +1776,10 @@ export function ProductionPage() {
             <ReceiveBlock notify={notify} />
           </div>
           <div style={{ display: tab === 'split' ? 'block' : 'none' }}>
-            <SplitBlock rawBlocks={rawBlocks} notify={notify} preselectId={preselectId} />
+            <SplitBlock rawBlocks={jobEligibleBlocks} blockedCount={blockedBlockCount} notify={notify} preselectId={preselectId} />
           </div>
           <div style={{ display: tab === 'cut' ? 'block' : 'none' }}>
-            <CutSlabs rawBlocks={rawBlocks} notify={notify} preselectId={preselectId} />
+            <CutSlabs rawBlocks={jobEligibleBlocks} blockedCount={blockedBlockCount} notify={notify} preselectId={preselectId} />
           </div>
           <div style={{ display: tab === 'polish' ? 'block' : 'none' }}>
             <PolishGrade gangsawSlabs={gangsawSlabs} notify={notify} preselectId={preselectId} />

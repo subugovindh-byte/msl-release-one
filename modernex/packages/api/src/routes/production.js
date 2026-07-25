@@ -202,6 +202,21 @@ productionRouter.post('/',
             400
           );
         }
+        // Approved-PO gate: a block sourced from a purchase order may only be
+        // consumed into job work once that PO is approved. Blocks with no PO
+        // (ad-hoc yard entries) are unaffected. This is the single chokepoint
+        // that keeps unapproved material from ever reaching sale — every
+        // sellable slab descends from a block through a job.
+        if (p.kind === 'block' && p.po_id) {
+          const po = db.prepare('SELECT id, status FROM purchase_orders WHERE id = ?').get(p.po_id);
+          if (po && !['approved', 'closed'].includes(po.status)) {
+            throw new AppError(
+              `Block ${p.id} cannot enter job work — its purchase order ${po.id} is '${po.status}', ` +
+              `not approved. Approve the PO in Purchase before splitting/cutting this block.`,
+              409
+            );
+          }
+        }
         return { product: p, qty_consumed: i.qty_consumed };
       });
 

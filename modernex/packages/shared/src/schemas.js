@@ -118,6 +118,7 @@ const productBaseSchema = z.object({
   uom: z.enum(['cft', 'sqft', 'rft', 'pc', 'tonne', 'bag', 'kg']).optional(),
   grade: z.enum(GRADES).optional().nullable(),
   lot_id: z.string().max(30).optional(),
+  po_id: z.string().max(30).optional().nullable(),   // source purchase order (blocks); gates job work
   current_location_id: z.string().max(30).optional().nullable(),
   rate_paise: z.number().int().nonnegative(),
   stock: z.number().nonnegative().default(0),       // can be fractional for tonnes

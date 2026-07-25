@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   useBlockInspection, useBlockInspectionPhoto,
-  useUpdateBlockInspection, useRejectBlockInspection,
+  useUpdateBlockInspection, useApproveBlockInspection, useRejectBlockInspection,
   useAddInspectionPhoto, useDeleteInspectionPhoto,
   useRaiseInspectionPO, useVendors, useBlockPriceMaster,
 } from '@/hooks/useApi';
@@ -34,7 +34,7 @@ const GRADE_COLORS: Record<string, { color: string; bg: string }> = {
   'B':  { color: 'var(--amber)', bg: 'var(--amberW)' },
 };
 const STATUS_LABELS: Record<string, string> = {
-  pending: 'Pending', po_raised: 'PO Raised', rejected: 'Rejected',
+  pending: 'Pending', approved: 'Approved', po_raised: 'PO Raised', rejected: 'Rejected',
 };
 
 // ── Photo thumbnail component (loads data_url lazily) ────────────────────────
@@ -171,6 +171,7 @@ export default function BlockInspectionDetailPage() {
   const updateInsp = useUpdateBlockInspection();
   const addPhoto = useAddInspectionPhoto();
   const delPhoto = useDeleteInspectionPhoto();
+  const approveInsp = useApproveBlockInspection();
   const rejectInsp = useRejectBlockInspection();
 
   const [editing, setEditing] = useState(false);
@@ -219,6 +220,14 @@ export default function BlockInspectionDetailPage() {
     reader.readAsDataURL(file);
   };
 
+  const handleApprove = () => {
+    if (!confirm(`Approve inspection ${id}? A PO can only be raised once approved.`)) return;
+    approveInsp.mutate(id, {
+      onSuccess: () => toast('Inspection approved', 'success'),
+      onError: (e: any) => toast(e.response?.data?.error || 'Failed', 'error'),
+    });
+  };
+
   const handleReject = () => {
     if (!confirm(`Reject inspection ${id}?`)) return;
     rejectInsp.mutate(id, {
@@ -232,6 +241,7 @@ export default function BlockInspectionDetailPage() {
 
   const gradeMeta = GRADE_COLORS[insp.grade] ?? { color: 'var(--t2)', bg: 'var(--bg3)' };
   const isPending = insp.status === 'pending';
+  const isApproved = insp.status === 'approved';
 
   return (
     <div style={{ maxWidth: 600, margin: '0 auto', padding: '16px', paddingBottom: 120 }}>
@@ -254,8 +264,8 @@ export default function BlockInspectionDetailPage() {
         </div>
         <div>
           <span style={{ fontSize: 12, padding: '4px 10px', borderRadius: 20, fontWeight: 700,
-            background: insp.status === 'po_raised' ? 'var(--sageW)' : insp.status === 'rejected' ? 'var(--redW)' : 'var(--amberW)',
-            color: insp.status === 'po_raised' ? 'var(--sage)' : insp.status === 'rejected' ? 'var(--red)' : 'var(--amber)' }}>
+            background: insp.status === 'po_raised' ? 'var(--sageW)' : insp.status === 'approved' ? 'var(--blueW)' : insp.status === 'rejected' ? 'var(--redW)' : 'var(--amberW)',
+            color: insp.status === 'po_raised' ? 'var(--sage)' : insp.status === 'approved' ? 'var(--blue)' : insp.status === 'rejected' ? 'var(--red)' : 'var(--amber)' }}>
             {STATUS_LABELS[insp.status] ?? insp.status}
           </span>
           {insp.po_id && (
@@ -361,16 +371,22 @@ export default function BlockInspectionDetailPage() {
       </div>
 
       {/* ─── Action buttons ─── */}
-      {isPending && (
+      {/* pending → Approve/Reject · approved → Raise-PO/Reject. A PO can only be
+          raised once the inspection has passed the explicit approval gate. */}
+      {canAdmin && (isPending || isApproved) && (
         <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '12px 16px',
           paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
           background: 'var(--bg0)', borderTop: '1px solid var(--bd)', display: 'flex', gap: 10, maxWidth: 600, margin: '0 auto' }}>
-          {canAdmin && (
-            <button style={{ ...btn('var(--redW)','var(--red)','1px solid var(--redB)'), flex: 1 }} onClick={handleReject}>
-              ✕ Reject
+          <button style={{ ...btn('var(--redW)','var(--red)','1px solid var(--redB)'), flex: 1 }} onClick={handleReject}>
+            ✕ Reject
+          </button>
+          {isPending && (
+            <button style={{ ...btn('var(--blue)'), flex: 2, fontSize: 15 }} onClick={handleApprove}
+              disabled={approveInsp.isPending}>
+              {approveInsp.isPending ? 'Approving…' : '✓ Approve'}
             </button>
           )}
-          {canAdmin && (
+          {isApproved && (
             <button style={{ ...btn('var(--sage)'), flex: 2, fontSize: 15 }} onClick={() => setShowRaisePO(true)}>
               ✓ Raise PO
             </button>
