@@ -152,6 +152,30 @@ export function useRecordDamage(options?: UseMutationOptions<{ ok: boolean; new_
   });
 }
 
+export function useQaProduct(options?: UseMutationOptions<Product, Error, { id: string; result: 'pass' | 'fail'; notes?: string; rate_paise?: number }>) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }) => api.post<{ product: Product }>(`/products/${id}/qa`, data).then((res) => res.product),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.products.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.products.detail(variables.id) });
+    },
+    ...options,
+  });
+}
+
+export function useReworkProduct(options?: UseMutationOptions<Product, Error, { id: string; reason: string }>) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }) => api.post<{ product: Product }>(`/products/${id}/rework`, data).then((res) => res.product),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.products.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.products.detail(variables.id) });
+    },
+    ...options,
+  });
+}
+
 export function useCreateProduct(options?: UseMutationOptions<Product, Error, Partial<Product>>) {
   const queryClient = useQueryClient();
   
@@ -461,11 +485,34 @@ export function useProductionJob(id: string, options?: Omit<UseQueryOptions<Prod
   });
 }
 
+export interface StageStat {
+  stage: string; jobs: number; damage: number; wastage: number;
+  avg_yield_pct: number | null; conversion_cost_paise: number;
+}
+export function useProductionStageStats(days = 30) {
+  return useQuery({
+    queryKey: [...queryKeys.production.all, 'by-stage', days],
+    queryFn: () => api.get<{ days: number; by_stage: StageStat[] }>('/production/stats/by-stage', { params: { days } }),
+  });
+}
+
 export function useCreateProductionJob(options?: UseMutationOptions<{ job: ProductionJob; created_products: string[] }, Error, any>) {
   const queryClient = useQueryClient();
   
   return useMutation({
     mutationFn: (data: any) => api.post<{ job: ProductionJob; created_products: string[] }>('/production', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.production.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.products.all });
+    },
+    ...options,
+  });
+}
+
+export function useChippingJob(options?: UseMutationOptions<{ job: ProductionJob; product: Product }, Error, any>) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: any) => api.post<{ job: ProductionJob; product: Product }>('/production/chipping', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.production.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.products.all });
@@ -1152,6 +1199,14 @@ export function useUpdateBlockInspection() {
       qc.invalidateQueries({ queryKey: ['block-inspections', 'list'] });
       qc.invalidateQueries({ queryKey: ['block-inspections', 'detail', vars.id] });
     },
+  });
+}
+
+export function useApproveBlockInspection() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.patch<any>(`/block-inspections/${pid(id)}/approve`, {}),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['block-inspections'] }),
   });
 }
 

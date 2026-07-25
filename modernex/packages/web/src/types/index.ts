@@ -90,6 +90,8 @@ export interface BaseProduct {
   hsn?: string;
   uom?: string;
   lot_id?: string;
+  po_id?: string | null;
+  qa_status?: 'pending' | 'passed' | 'failed' | null;
   stock?: number;
   notes?: string;
   photoUrl?: string;

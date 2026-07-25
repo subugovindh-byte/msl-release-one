@@ -3,10 +3,10 @@ import React, { useState, useMemo, useEffect } from 'react';
 import QRCode from 'qrcode';
 import { VARIETIES, GRADES, STANDARD_SPECS } from '@modernex/shared';
 import {
-  useProducts, useCreateProduct, useCreateProductionJob,
+  useProducts, useCreateProduct, useCreateProductionJob, useChippingJob,
   useProductionJobs, useMoveProduct, usePurchaseOrders,
-  useDeleteProduct, useUpdateProduct, useRecordDamage,
-  useDeleteProductionJob,
+  useDeleteProduct, useUpdateProduct, useRecordDamage, useQaProduct, useReworkProduct,
+  useDeleteProductionJob, useProductionStageStats,
 } from '@/hooks/useApi';
 import { useToastStore, useAuthStore } from '@/store';
 
@@ -29,6 +29,18 @@ function cbmFromM(l: number, w: number, h: number) {
 
 function volLabel(cft: number, cbm: number) {
   return `${cft} cbmt · ${cbm} CBM`;
+}
+
+// Shown in Split/Cut when some Raw-Yard blocks are withheld from job work
+// because their source PO isn't approved yet (mirrors the API gate).
+function PendingApprovalNote({ n }: { n: number }) {
+  if (!n) return null;
+  return (
+    <div style={{ background: 'rgba(230,160,0,0.1)', border: '1px solid var(--amber)', borderRadius: 6,
+      padding: '8px 12px', fontSize: 12, color: 'var(--amber)', fontWeight: 600 }}>
+      {n} block{n > 1 ? 's' : ''} hidden — source PO pending approval. Approve the PO in Purchase to make {n > 1 ? 'them' : 'it'} available for job work.
+    </div>
+  );
 }
 
 const LOCATION_LABEL: Record<string, string> = {
@@ -162,14 +174,16 @@ function StatCard({ label, count, sub, color }: { label: string; count: number; 
 }
 
 // ── tabs ─────────────────────────────────────────────────────────────────────
-type Tab = 'receive' | 'split' | 'cut' | 'polish' | 'route' | 'history';
+type Tab = 'receive' | 'split' | 'cut' | 'chipping' | 'polish' | 'qa' | 'route' | 'history';
 const TABS: { id: Tab; label: string; step?: string }[] = [
-  { id: 'receive', label: 'Receive Block', step: '1' },
-  { id: 'split',   label: 'Split Block',   step: '2' },
-  { id: 'cut',     label: 'Cut Slabs',     step: '3' },
-  { id: 'polish',  label: 'Polish & Grade',step: '4' },
-  { id: 'route',   label: 'Route to Sale', step: '5' },
-  { id: 'history', label: 'Job History' },
+  { id: 'receive',  label: 'Receive Block', step: '1' },
+  { id: 'split',    label: 'Split Block',   step: '2' },
+  { id: 'cut',      label: 'Cut Slabs',     step: '3' },
+  { id: 'chipping', label: 'Chipping',      step: '4' },
+  { id: 'polish',   label: 'Polish & Grade',step: '5' },
+  { id: 'qa',       label: 'QA Check',      step: '6' },
+  { id: 'route',    label: 'Route to Sale', step: '7' },
+  { id: 'history',  label: 'Job History' },
 ];
 
 function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void }) {
@@ -293,6 +307,7 @@ function ReceiveBlock({ notify }: { notify: any }) {
         kind: 'block',
         variety: form.variety,
         lot_id: form.lot_id,
+        po_id: form.po_id || undefined,   // structured link — gates downstream job work
         rate_paise: form.rate_paise ? Math.round(+form.rate_paise * 100) : 0,
         stock: 1,
         notes: form.notes || (form.po_id ? `From PO ${form.po_id}` : undefined),
@@ -429,7 +444,7 @@ function ReceiveBlock({ notify }: { notify: any }) {
 // Mode A: Split — 1 block → 2 sub-blocks
 // Mode B: Dress/Trim — 1 block → 1 trimmed block (half-block dressing)
 // ─────────────────────────────────────────────────────────────────────────────
-function SplitBlock({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; notify: any; preselectId?: string }) {
+function SplitBlock({ rawBlocks, blockedCount = 0, notify, preselectId }: { rawBlocks: any[]; blockedCount?: number; notify: any; preselectId?: string }) {
   const createJob = useCreateProductionJob();
   const [mode, setMode] = useState<'split' | 'dress'>('split');
 
@@ -544,7 +559,16 @@ function SplitBlock({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; noti
   }
 
   if (rawBlocks.length === 0) {
-    return <div style={{ ...card, color: 'var(--t3)', fontSize: 13 }}>No blocks at Raw Yard. Register one in step 1 first.</div>;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <PendingApprovalNote n={blockedCount} />
+        <div style={{ ...card, color: 'var(--t3)', fontSize: 13 }}>
+          {blockedCount > 0
+            ? 'No approved blocks at Raw Yard. The blocks here are waiting on PO approval.'
+            : 'No blocks at Raw Yard. Register one in step 1 first.'}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -569,6 +593,8 @@ function SplitBlock({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; noti
           ? 'Split a block into two sub-blocks (1A and 1B). Both stay at Raw Yard.'
           : 'Gangsaw-dress a half-block or rough block into a clean rectangular shape. The original block is consumed and one trimmed block is produced.'}
       </p>
+
+      <PendingApprovalNote n={blockedCount} />
 
       {/* Block selector */}
       <Fld label="Select Block">
@@ -652,7 +678,7 @@ function SplitBlock({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; noti
 // ─────────────────────────────────────────────────────────────────────────────
 // TAB 3 — CUT (GANGSAW) — slab or tile output
 // ─────────────────────────────────────────────────────────────────────────────
-function CutSlabs({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; notify: any; preselectId?: string }) {
+function CutSlabs({ rawBlocks, blockedCount = 0, notify, preselectId }: { rawBlocks: any[]; blockedCount?: number; notify: any; preselectId?: string }) {
   const createJob = useCreateProductionJob();
 
   const [outputKind, setOutputKind] = useState<'slab' | 'tile'>('slab');
@@ -734,8 +760,13 @@ function CutSlabs({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; notify
 
   if (rawBlocks.length === 0) {
     return (
-      <div style={{ ...card, color: 'var(--t3)', fontSize: 13 }}>
-        No blocks available at Raw Yard. Register and optionally split a block first.
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <PendingApprovalNote n={blockedCount} />
+        <div style={{ ...card, color: 'var(--t3)', fontSize: 13 }}>
+          {blockedCount > 0
+            ? 'No approved blocks at Raw Yard. The blocks here are waiting on PO approval.'
+            : 'No blocks available at Raw Yard. Register and optionally split a block first.'}
+        </div>
       </div>
     );
   }
@@ -760,6 +791,8 @@ function CutSlabs({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; notify
           >{k === 'slab' ? 'Slab' : 'Tile'}</button>
         ))}
       </div>
+
+      <PendingApprovalNote n={blockedCount} />
 
       <Fld label="Select Block">
         <Sel value={form.block_id} onChange={e => set('block_id', e.target.value)} required>
@@ -885,7 +918,90 @@ function CutSlabs({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; notify
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TAB 4 — POLISH & GRADE
+// TAB 4 — CHIPPING (waste → chips product, side-branch)
+// ─────────────────────────────────────────────────────────────────────────────
+function Chipping({ blocks, notify }: { blocks: any[]; notify: any }) {
+  const chip = useChippingJob();
+  const [form, setForm] = useState({
+    variety: VARIETIES[0], lot_id: '', source_product_id: '',
+    tonnes: '', rate_rs: '', labour_rs: '', power_rs: '', mesh_mm: '', notes: '',
+  });
+  const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
+
+  async function submit(e: any) {
+    e.preventDefault();
+    if (!form.variety || !form.lot_id || !form.tonnes || +form.tonnes <= 0) {
+      notify('Fill variety, lot ID and a positive tonnage', 'error'); return;
+    }
+    try {
+      const res = await chip.mutateAsync({
+        lot_id: form.lot_id,
+        variety: form.variety,
+        source_product_id: form.source_product_id || undefined,
+        tonnes: +form.tonnes,
+        rate_paise: form.rate_rs ? Math.round(+form.rate_rs * 100) : 0,
+        labour_paise: form.labour_rs ? Math.round(+form.labour_rs * 100) : 0,
+        power_paise: form.power_rs ? Math.round(+form.power_rs * 100) : 0,
+        mesh_size_mm: form.mesh_mm ? +form.mesh_mm : undefined,
+        notes: form.notes || undefined,
+      });
+      notify(`Chips batch ${(res as any)?.product?.id ?? ''} recovered — ${form.tonnes} MT at Raw Yard`, 'success');
+      setForm(f => ({ ...f, lot_id: '', source_product_id: '', tonnes: '', rate_rs: '', labour_rs: '', power_rs: '', mesh_mm: '', notes: '' }));
+    } catch (err: any) {
+      notify(err.message || 'Chipping failed', 'error');
+    }
+  }
+
+  const conv = (+form.labour_rs || 0) + (+form.power_rs || 0);
+  const unitCost = form.tonnes && +form.tonnes > 0 ? (conv / +form.tonnes).toFixed(2) : '0';
+
+  return (
+    <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 560 }}>
+      <p style={{ margin: 0, fontSize: 13, color: 'var(--t3)' }}>
+        Recover offcut/waste into a <strong style={{ color: 'var(--t1)' }}>chips / aggregate</strong> batch (HSN 2517). It branches off the slab line and lands at <strong style={{ color: 'var(--t1)' }}>Raw Yard</strong> as sellable stock in tonnes.
+      </p>
+      <div style={row2}>
+        <Fld label="Variety">
+          <Sel value={form.variety} onChange={e => set('variety', e.target.value)}>
+            {VARIETIES.map(v => <option key={v}>{v}</option>)}
+          </Sel>
+        </Fld>
+        <Fld label="Lot ID"><Inp value={form.lot_id} onChange={e => set('lot_id', e.target.value)} placeholder="LOT-024" required /></Fld>
+      </div>
+      {blocks.length > 0 && (
+        <Fld label="Source block (optional)" hint="lineage only — not consumed">
+          <Sel value={form.source_product_id} onChange={e => set('source_product_id', e.target.value)}>
+            <option value="">— none —</option>
+            {blocks.map((b: any) => <option key={b.id} value={b.id}>{b.id} · {b.variety} {b.lot_id ? `(${b.lot_id})` : ''}</option>)}
+          </Sel>
+        </Fld>
+      )}
+      <div style={row2}>
+        <Fld label="Tonnes recovered (MT)"><Inp type="number" step="0.01" min="0" value={form.tonnes} onChange={e => set('tonnes', e.target.value)} placeholder="12.5" required /></Fld>
+        <Fld label="Rate per MT (₹)"><Inp type="number" min="0" value={form.rate_rs} onChange={e => set('rate_rs', e.target.value)} placeholder="900" /></Fld>
+      </div>
+      <div style={row3}>
+        <Fld label="Labour (₹)"><Inp type="number" min="0" value={form.labour_rs} onChange={e => set('labour_rs', e.target.value)} placeholder="2000" /></Fld>
+        <Fld label="Power (₹)"><Inp type="number" min="0" value={form.power_rs} onChange={e => set('power_rs', e.target.value)} placeholder="500" /></Fld>
+        <Fld label="Mesh size (mm)" hint="optional"><Inp type="number" step="0.1" min="0" value={form.mesh_mm} onChange={e => set('mesh_mm', e.target.value)} placeholder="20" /></Fld>
+      </div>
+      {conv > 0 && (
+        <div style={{ fontSize: 13, color: 'var(--gold)', fontWeight: 600 }}>
+          Conversion cost ≈ ₹{conv.toLocaleString('en-IN')} → ₹{unitCost}/MT COGS
+        </div>
+      )}
+      <Fld label="Notes" hint="optional"><Inp value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Crushed from LOT-024 offcuts…" /></Fld>
+      <div>
+        <button type="submit" style={btnPrimary} disabled={chip.isPending}>
+          {chip.isPending ? 'Recording…' : 'Record Chips Batch'}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB 5 — POLISH & GRADE
 // ─────────────────────────────────────────────────────────────────────────────
 function PolishGrade({ gangsawSlabs, notify, preselectId }: { gangsawSlabs: any[]; notify: any; preselectId?: string }) {
   const createJob = useCreateProductionJob();
@@ -1040,7 +1156,115 @@ function PolishGrade({ gangsawSlabs, notify, preselectId }: { gangsawSlabs: any[
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TAB 5 — ROUTE TO SALE
+// TAB 5 — QA CHECK (Gate 3)
+// Polished goods land here as 'pending' and must pass QA before Route to Sale.
+// ─────────────────────────────────────────────────────────────────────────────
+function QACheck({ qaPending, notify }: { qaPending: any[]; notify: any }) {
+  const qa = useQaProduct();
+  const rework = useReworkProduct();
+  const [noteFor, setNoteFor] = useState<string>('');
+  const [noteText, setNoteText] = useState('');
+  const [passFor, setPassFor] = useState<string>('');   // item awaiting rate confirm on pass
+  const [rateText, setRateText] = useState('');
+
+  function runQa(id: string, result: 'pass' | 'fail', currentRatePaise?: number) {
+    // First click opens an inline confirm: fail → reason, pass → sale rate.
+    if (result === 'fail' && noteFor !== id) { setNoteFor(id); setPassFor(''); return; }
+    if (result === 'pass' && passFor !== id) {
+      setPassFor(id); setNoteFor('');
+      setRateText(currentRatePaise ? String(currentRatePaise / 100) : '');
+      return;
+    }
+    const rate_paise = result === 'pass' && rateText ? Math.round(parseFloat(rateText) * 100) : undefined;
+    qa.mutate(
+      { id, result, notes: result === 'fail' ? (noteText || undefined) : undefined, rate_paise },
+      {
+        onSuccess: () => {
+          notify(result === 'pass' ? `QA passed — ${id} cleared for sale` : `QA failed — ${id} held for rework`, result === 'pass' ? 'success' : 'error');
+          setNoteFor(''); setNoteText(''); setPassFor(''); setRateText('');
+        },
+        onError: (e: any) => notify(e.message || 'QA update failed', 'error'),
+      }
+    );
+  }
+
+  function sendBackToPolish(id: string) {
+    const reason = window.prompt('Reason for rework (sent back to re-polish):', 'QA fail — re-polish');
+    if (!reason || reason.trim().length < 3) { if (reason !== null) notify('A reason (min 3 chars) is required', 'error'); return; }
+    rework.mutate({ id, reason: reason.trim() }, {
+      onSuccess: () => notify(`${id} sent back to Gangsaw Out for re-polish`, 'success'),
+      onError: (e: any) => notify(e.message || 'Rework failed', 'error'),
+    });
+  }
+
+  if (qaPending.length === 0) {
+    return (
+      <div style={{ ...card, color: 'var(--t3)', fontSize: 13 }}>
+        Nothing awaiting QA. Polished slabs appear here for a pass/fail check before they can be routed to sale.
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <p style={{ margin: 0, fontSize: 13, color: 'var(--t3)' }}>
+        Finished goods pending QA. <strong style={{ color: 'var(--t1)' }}>Pass</strong> clears an item for the sales yard; <strong style={{ color: 'var(--t1)' }}>Fail</strong> holds it. A failed item can be <strong style={{ color: 'var(--t1)' }}>sent back to re-polish</strong> — it cannot be moved to sale or invoiced until it passes.
+      </p>
+      {qaPending.map((p: any) => {
+        const d = p.dimensions || {};
+        const failed = p.qa_status === 'failed';
+        return (
+          <div key={p.id} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10,
+            borderColor: failed ? 'var(--red)' : 'var(--bd)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <div style={{ fontWeight: 700, color: 'var(--t1)' }}>
+                  {p.variety} <span style={{ color: 'var(--t3)', fontWeight: 400 }}>· {p.id}</span>
+                  {failed && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: 'var(--red)' }}>QA FAILED</span>}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--t3)' }}>
+                  {d.size_lw || ''}{d.thickness_mm ? ` · ${d.thickness_mm}mm` : ''}{p.grade ? ` · Gr.${p.grade}` : ''} · stock {p.stock}
+                </div>
+              </div>
+              {!failed && (
+                <>
+                  <button type="button" style={{ ...btnPrimary, background: 'var(--sage)' }}
+                    onClick={() => runQa(p.id, 'pass', p.rate_paise)} disabled={qa.isPending}>✓ Pass</button>
+                  <button type="button" style={{ ...btnPrimary, background: 'var(--red)' }}
+                    onClick={() => runQa(p.id, 'fail')} disabled={qa.isPending}>✕ Fail</button>
+                </>
+              )}
+              {failed && (
+                <button type="button" style={{ ...btnPrimary, background: 'var(--amber)' }}
+                  onClick={() => sendBackToPolish(p.id)} disabled={rework.isPending}>↩ Rework (re-polish)</button>
+              )}
+            </div>
+            {passFor === p.id && (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <span style={{ fontSize: 12, color: 'var(--t3)', whiteSpace: 'nowrap' }}>Confirm sale rate ₹/sqft</span>
+                <input type="number" min="0" step="0.01" value={rateText} onChange={e => setRateText(e.target.value)}
+                  placeholder="rate" style={{ ...inputStyle, width: 120 }} />
+                <button type="button" style={{ ...btnPrimary, background: 'var(--sage)' }}
+                  onClick={() => runQa(p.id, 'pass')} disabled={qa.isPending}>Confirm Pass</button>
+              </div>
+            )}
+            {noteFor === p.id && (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <input value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="Reason for failure (optional)"
+                  style={{ ...inputStyle, flex: 1 }} />
+                <button type="button" style={{ ...btnPrimary, background: 'var(--red)' }}
+                  onClick={() => runQa(p.id, 'fail')} disabled={qa.isPending}>Confirm Fail</button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB 6 — ROUTE TO SALE
 // ─────────────────────────────────────────────────────────────────────────────
 function RouteToSale({ finishedSlabs, notify, preselectId }: { finishedSlabs: any[]; notify: any; preselectId?: string }) {
   const moveProduct = useMoveProduct();
@@ -1147,8 +1371,54 @@ function RouteToSale({ finishedSlabs, notify, preselectId }: { finishedSlabs: an
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TAB 6 — JOB HISTORY
+// TAB 7 — JOB HISTORY
 // ─────────────────────────────────────────────────────────────────────────────
+const STAGE_LABEL: Record<string, string> = {
+  split: 'Split', cut: 'Cut', chipping: 'Chipping', polish: 'Polish', done: 'Done / Other',
+};
+// Per-stage damage / wastage / yield rollup (Phase D). Loss counts are in each
+// stage's own unit; a single cross-stage yield% is intentionally not shown
+// because the transforms cross UOMs (block cft → slab sqft → pieces).
+function StageLossTable() {
+  const { data } = useProductionStageStats(90);
+  const rows = data?.by_stage || [];
+  if (rows.length === 0) return null;
+  const th: React.CSSProperties = { textAlign: 'right', padding: '6px 10px', fontSize: 11, fontWeight: 700, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid var(--bd)' };
+  const td: React.CSSProperties = { textAlign: 'right', padding: '6px 10px', fontSize: 12, color: 'var(--t2)', borderBottom: '1px solid var(--bd)' };
+  const rupees = (p: number) => `₹${Math.round((p || 0) / 100).toLocaleString('en-IN')}`;
+  return (
+    <div style={{ ...card, padding: 0, overflowX: 'auto' }}>
+      <div style={{ padding: '10px 12px', fontSize: 12, fontWeight: 700, color: 'var(--t2)' }}>
+        Per-stage loss & yield <span style={{ color: 'var(--t3)', fontWeight: 400 }}>· last 90 days</span>
+      </div>
+      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
+        <thead>
+          <tr>
+            <th style={{ ...th, textAlign: 'left' }}>Stage</th>
+            <th style={th}>Jobs</th>
+            <th style={th}>Damage</th>
+            <th style={th}>Wastage</th>
+            <th style={th}>Avg Yield</th>
+            <th style={th}>Conv. Cost</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.stage}>
+              <td style={{ ...td, textAlign: 'left', color: 'var(--t1)', fontWeight: 600 }}>{STAGE_LABEL[r.stage] || r.stage}</td>
+              <td style={td}>{r.jobs}</td>
+              <td style={{ ...td, color: r.damage > 0 ? 'var(--red)' : 'var(--t3)' }}>{r.damage || 0}</td>
+              <td style={{ ...td, color: r.wastage > 0 ? 'var(--amber)' : 'var(--t3)' }}>{r.wastage || 0}</td>
+              <td style={td}>{r.avg_yield_pct != null ? `${r.avg_yield_pct.toFixed(1)}%` : '—'}</td>
+              <td style={td}>{rupees(r.conversion_cost_paise)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function JobHistory({ jobs, isLoading, onDeleteJob }: { jobs: any[]; isLoading: boolean; onDeleteJob?: (id: string) => void }) {
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState('all');
@@ -1183,7 +1453,7 @@ function JobHistory({ jobs, isLoading, onDeleteJob }: { jobs: any[]; isLoading: 
 
   function stageBadge(stage: string) {
     const colors: Record<string, string> = {
-      split: 'var(--blue)', cut: 'var(--amber)', polish: 'var(--sage)', done: 'var(--rust)',
+      split: 'var(--blue)', cut: 'var(--amber)', chipping: 'var(--gold)', polish: 'var(--sage)', done: 'var(--rust)',
     };
     return (
       <span style={{
@@ -1195,12 +1465,14 @@ function JobHistory({ jobs, isLoading, onDeleteJob }: { jobs: any[]; isLoading: 
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <StageLossTable />
       <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
         <Inp value={search} onChange={e => setSearch(e.target.value)} placeholder="Search jobs…" style={{ ...inputStyle, minWidth: 200 }} />
         <Sel value={stageFilter} onChange={e => setStageFilter(e.target.value)}>
           <option value="all">All stages</option>
           <option value="split">Split</option>
           <option value="cut">Cut</option>
+          <option value="chipping">Chipping</option>
           <option value="polish">Polish</option>
           <option value="done">Done</option>
         </Sel>
@@ -1688,6 +1960,28 @@ export function ProductionPage() {
   const showroomSlabs = [...(showroomSlabsData?.products || []), ...(showroomTilesData?.products || [])];
   const jobs          = jobsData?.jobs          || [];
 
+  // Gate 3 split: polished goods awaiting QA vs those cleared for the sales yard.
+  // Only qa_status === 'pending'/'failed' are withheld; passed or untracked flow on.
+  const qaPending  = finishedSlabs.filter((p: any) => p.qa_status === 'pending' || p.qa_status === 'failed');
+  const saleReady  = finishedSlabs.filter((p: any) => p.qa_status !== 'pending' && p.qa_status !== 'failed');
+
+  // Approved-PO gate (mirrors the API): only blocks whose source PO is approved
+  // (or closed), or that have no PO at all, may be consumed into job work. The
+  // API rejects the rest — we hide them from the Split/Cut pickers so operators
+  // never pick a block that would bounce, and surface a count so they're not lost.
+  const { data: prodPosData } = usePurchaseOrders({});
+  const approvedPoIds = useMemo(
+    () => new Set((prodPosData?.purchase_orders || [])
+      .filter((p: any) => p.status === 'approved' || p.status === 'closed')
+      .map((p: any) => p.id)),
+    [prodPosData]
+  );
+  const jobEligibleBlocks = useMemo(
+    () => rawBlocks.filter((b: any) => !b.po_id || approvedPoIds.has(b.po_id)),
+    [rawBlocks, approvedPoIds]
+  );
+  const blockedBlockCount = rawBlocks.length - jobEligibleBlocks.length;
+
   const pipelineGroups = useMemo(() => ({
     RAW_YARD:      rawBlocks,
     GANGSAW_OUT:   gangsawSlabs,
@@ -1728,16 +2022,22 @@ export function ProductionPage() {
             <ReceiveBlock notify={notify} />
           </div>
           <div style={{ display: tab === 'split' ? 'block' : 'none' }}>
-            <SplitBlock rawBlocks={rawBlocks} notify={notify} preselectId={preselectId} />
+            <SplitBlock rawBlocks={jobEligibleBlocks} blockedCount={blockedBlockCount} notify={notify} preselectId={preselectId} />
           </div>
           <div style={{ display: tab === 'cut' ? 'block' : 'none' }}>
-            <CutSlabs rawBlocks={rawBlocks} notify={notify} preselectId={preselectId} />
+            <CutSlabs rawBlocks={jobEligibleBlocks} blockedCount={blockedBlockCount} notify={notify} preselectId={preselectId} />
+          </div>
+          <div style={{ display: tab === 'chipping' ? 'block' : 'none' }}>
+            <Chipping blocks={jobEligibleBlocks} notify={notify} />
           </div>
           <div style={{ display: tab === 'polish' ? 'block' : 'none' }}>
             <PolishGrade gangsawSlabs={gangsawSlabs} notify={notify} preselectId={preselectId} />
           </div>
+          <div style={{ display: tab === 'qa' ? 'block' : 'none' }}>
+            <QACheck qaPending={qaPending} notify={notify} />
+          </div>
           <div style={{ display: tab === 'route' ? 'block' : 'none' }}>
-            <RouteToSale finishedSlabs={finishedSlabs} notify={notify} preselectId={preselectId} />
+            <RouteToSale finishedSlabs={saleReady} notify={notify} preselectId={preselectId} />
           </div>
           <div style={{ display: tab === 'history' ? 'block' : 'none' }}>
             <JobHistory jobs={jobs} isLoading={jobsLoading} onDeleteJob={canEdit ? (id) => {

@@ -11,6 +11,10 @@ console.log('Using test database:', TEST_DB);
 process.env.DB_PATH = TEST_DB;
 process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'test-secret-for-tests-only';
+// Pin the seed admin creds so the suite is hermetic — otherwise a developer's
+// local .env ADMIN_PASSWORD is used to seed and the hard-coded login below 401s.
+process.env.ADMIN_USERNAME = 'admin';
+process.env.ADMIN_PASSWORD = 'admin123';
 
 import { createApp } from '../src/server.js';
 import { runMigrations } from '../src/db/migrate.js';

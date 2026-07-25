@@ -128,6 +128,32 @@ blockInspectionsRouter.patch('/:id',
   }
 );
 
+// ─── PATCH /block-inspections/:id/approve ───
+// Quality gate: an inspection must be explicitly approved before a PO can be
+// raised from it (pending -> approved). This is the criteria checkpoint at the
+// top of the chain: only approved inspections -> PO -> (approve) -> job work.
+blockInspectionsRouter.patch('/:id/approve',
+  requireRole('admin', 'accounts'),
+  (req, res, next) => {
+    try {
+      const db = getDb();
+      const existing = db.prepare('SELECT * FROM block_inspections WHERE id = ?').get(req.params.id);
+      if (!existing) throw new NotFoundError('Inspection not found');
+      if (existing.status !== 'pending') {
+        throw new AppError(`Cannot approve — status is '${existing.status}'. Only 'pending' inspections can be approved.`, 409);
+      }
+      db.prepare(`
+        UPDATE block_inspections
+        SET status = 'approved', approved_by = ?, approved_at = datetime('now'), updated_at = datetime('now')
+        WHERE id = ?
+      `).run(req.user?.username || null, req.params.id);
+      const updated = db.prepare('SELECT * FROM block_inspections WHERE id = ?').get(req.params.id);
+      audit(req, 'INSPECTION_APPROVE', 'block_inspections', req.params.id, existing, updated);
+      res.json({ inspection: updated });
+    } catch (err) { next(err); }
+  }
+);
+
 // ─── PATCH /block-inspections/:id/reject ───
 blockInspectionsRouter.patch('/:id/reject',
   requireRole('admin', 'accounts'),
@@ -136,7 +162,7 @@ blockInspectionsRouter.patch('/:id/reject',
       const db = getDb();
       const existing = db.prepare('SELECT * FROM block_inspections WHERE id = ?').get(req.params.id);
       if (!existing) throw new NotFoundError('Inspection not found');
-      if (existing.status !== 'pending') {
+      if (!['pending', 'approved'].includes(existing.status)) {
         throw new AppError(`Cannot reject — status is '${existing.status}'.`, 409);
       }
       db.prepare(`UPDATE block_inspections SET status = 'rejected', updated_at = datetime('now') WHERE id = ?`)
@@ -162,6 +188,12 @@ blockInspectionsRouter.post('/:id/raise-po',
       }
       if (insp.status === 'rejected') {
         throw new AppError(`Cannot raise PO — inspection ${req.params.id} was rejected.`, 409);
+      }
+      if (insp.status !== 'approved') {
+        throw new AppError(
+          `Cannot raise PO — inspection ${req.params.id} is '${insp.status}'. It must be approved first.`,
+          409
+        );
       }
       if (!insp.vendor_id) throw new AppError('Inspection has no vendor. Update it first.', 400);
 

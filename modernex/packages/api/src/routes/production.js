@@ -202,6 +202,21 @@ productionRouter.post('/',
             400
           );
         }
+        // Approved-PO gate: a block sourced from a purchase order may only be
+        // consumed into job work once that PO is approved. Blocks with no PO
+        // (ad-hoc yard entries) are unaffected. This is the single chokepoint
+        // that keeps unapproved material from ever reaching sale — every
+        // sellable slab descends from a block through a job.
+        if (p.kind === 'block' && p.po_id) {
+          const po = db.prepare('SELECT id, status FROM purchase_orders WHERE id = ?').get(p.po_id);
+          if (po && !['approved', 'closed'].includes(po.status)) {
+            throw new AppError(
+              `Block ${p.id} cannot enter job work — its purchase order ${po.id} is '${po.status}', ` +
+              `not approved. Approve the PO in Purchase before splitting/cutting this block.`,
+              409
+            );
+          }
+        }
         return { product: p, qty_consumed: i.qty_consumed };
       });
 
@@ -288,17 +303,21 @@ productionRouter.post('/',
           const parentId = (inputs.length === 1 && inputs[0].product.kind === 'block')
             ? inputs[0].product.id : null;
           const currentLocationId = outputLocationForStage(b.stage, o.kind);
+          // Gate 3: polish output enters QA as 'pending' — it can't be sold or
+          // moved to the sales yard until a QA check passes. Other stages don't
+          // stamp QA (qa_status stays NULL = not gated).
+          const qaStatus = b.stage === 'polish' ? 'pending' : null;
 
           db.prepare(`
             INSERT INTO products (
               id, kind, variety, hsn, uom, grade, lot_id, current_location_id, rate_paise, stock,
-              source_job_id, source_product_id, unit_cost_paise,
+              source_job_id, source_product_id, unit_cost_paise, qa_status,
               active, created_by
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
           `).run(
             productId, o.kind, o.variety, hsn, uom,
             o.grade || null, b.lot_id, currentLocationId, o.rate_paise, o.qty,
-            jobId, parentId, unitCost,
+            jobId, parentId, unitCost, qaStatus,
             req.user.username
           );
 
@@ -418,6 +437,74 @@ productionRouter.delete('/:id',
   }
 );
 
+// ─── POST /production/chipping ─── waste → chips product (side-branch)
+// Chipping recovers offcut/waste (from split/cut) into a chips/aggregate batch.
+// Waste isn't tracked inventory, so this mints a chips product (tonnes) and a
+// job_type='chipping' record rather than consuming a product input. An optional
+// source_product_id links the block/lot the waste came from (not decremented).
+const chippingSchema = z.object({
+  lot_id: z.string().min(1).max(30),
+  variety: z.string().min(1).max(50),
+  source_product_id: z.string().max(20).optional().nullable(),
+  tonnes: z.number().positive(),
+  rate_paise: z.number().int().nonnegative(),
+  labour_paise: z.number().int().nonnegative().default(0),
+  power_paise: z.number().int().nonnegative().default(0),
+  consumables_paise: z.number().int().nonnegative().default(0),
+  wastage_count: z.number().int().nonnegative().default(0),   // dust / fines lost
+  mesh_size_mm: z.number().positive().optional().nullable(),
+  notes: z.string().max(500).optional().nullable(),
+});
+productionRouter.post('/chipping',
+  requireRole('admin', 'yard'),
+  validate(chippingSchema),
+  (req, res, next) => {
+    try {
+      const db = getDb();
+      const b = req.body;
+      if (b.source_product_id && !loadProduct(db, b.source_product_id)) {
+        throw new AppError(`Source product ${b.source_product_id} not found`, 400);
+      }
+      const jobId = nextJobId(db);
+      const productId = nextProductId(db);
+      const hsn = hsnForKind('chips');
+      const conversionCost = (b.labour_paise || 0) + (b.power_paise || 0) + (b.consumables_paise || 0);
+      const unitCost = b.tonnes > 0 ? Math.round(conversionCost / b.tonnes) : 0;
+
+      const tx = db.transaction(() => {
+        db.prepare(`
+          INSERT INTO production_jobs
+            (id, lot_id, stage, job_type, status, labour_paise, power_paise, consumables_paise, wastage_count, notes, created_by)
+          VALUES (?, ?, 'done', 'chipping', 'Complete', ?, ?, ?, ?, ?, ?)
+        `).run(jobId, b.lot_id, b.labour_paise || 0, b.power_paise || 0, b.consumables_paise || 0, b.wastage_count || 0, b.notes || null, req.user.username);
+
+        db.prepare(`
+          INSERT INTO products
+            (id, kind, variety, hsn, uom, lot_id, current_location_id, rate_paise, stock,
+             source_job_id, source_product_id, unit_cost_paise, active, created_by)
+          VALUES (?, 'chips', ?, ?, 'tonne', ?, 'RAW_YARD', ?, ?, ?, ?, ?, 1, ?)
+        `).run(productId, b.variety, hsn, b.lot_id, b.rate_paise, b.tonnes, jobId, b.source_product_id || null, unitCost, req.user.username);
+
+        insertDimensions(db, productId, 'chips', { mesh_size_mm: b.mesh_size_mm ?? null });
+        db.prepare(`INSERT INTO production_job_outputs (job_id, product_id, qty_produced, unit_cost_paise) VALUES (?, ?, ?, ?)`)
+          .run(jobId, productId, b.tonnes, unitCost);
+        recordInventoryMove(db, {
+          productId, qty: b.tonnes, fromLocationId: null, toLocationId: 'RAW_YARD',
+          moveType: 'produce', stage: 'done', jobId,
+          notes: `Chipping recovery from ${b.source_product_id || 'waste'}`,
+          createdBy: req.user.username, scanInAt: new Date().toISOString(),
+        });
+      });
+      tx();
+
+      const product = loadProduct(db, productId);
+      const job = db.prepare('SELECT * FROM production_jobs WHERE id = ?').get(jobId);
+      audit(req, 'PRODUCTION_CHIPPING', 'production_jobs', jobId, null, { job, product });
+      res.status(201).json({ job, product });
+    } catch (err) { next(err); }
+  }
+);
+
 // ─── GET /production/stats/summary ───
 productionRouter.get('/stats/summary', (req, res) => {
   const db = getDb();
@@ -434,4 +521,30 @@ productionRouter.get('/stats/summary', (req, res) => {
     WHERE date >= date('now', '-30 days')
   `).get();
   res.json({ stats });
+});
+
+// ─── GET /production/stats/by-stage ─── per-stage damage / wastage / yield
+// Buckets by COALESCE(job_type, stage) so 'chipping' shows as its own stage.
+// `days` query param widens the window (default 30). Loss counts are captured
+// per job at each stage in that stage's own unit (block pcs, slab pcs, MT…).
+productionRouter.get('/stats/by-stage', (req, res) => {
+  const db = getDb();
+  const days = Math.min(3650, Math.max(1, parseInt(req.query.days, 10) || 30));
+  const rows = db.prepare(`
+    SELECT
+      COALESCE(job_type, stage) AS stage,
+      COUNT(*)                            AS jobs,
+      SUM(damage_count)                   AS damage,
+      SUM(wastage_count)                  AS wastage,
+      AVG(yield_pct)                      AS avg_yield_pct,
+      SUM(labour_paise + power_paise + consumables_paise) AS conversion_cost_paise
+    FROM production_jobs
+    WHERE date >= date('now', ?)
+    GROUP BY COALESCE(job_type, stage)
+    ORDER BY
+      CASE COALESCE(job_type, stage)
+        WHEN 'split' THEN 1 WHEN 'cut' THEN 2 WHEN 'chipping' THEN 3
+        WHEN 'polish' THEN 4 WHEN 'done' THEN 5 ELSE 6 END
+  `).all(`-${days} days`);
+  res.json({ days, by_stage: rows });
 });

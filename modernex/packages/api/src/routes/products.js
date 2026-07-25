@@ -161,12 +161,13 @@ productsRouter.post('/',
 
       const tx = db.transaction(() => {
         db.prepare(`
-          INSERT INTO products (id, kind, variety, hsn, uom, grade, lot_id, current_location_id,
+          INSERT INTO products (id, kind, variety, hsn, uom, grade, lot_id, po_id, current_location_id,
                                 rate_paise, stock, notes, active, created_by)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
         `).run(
           id, b.kind, b.variety, hsn, uom,
-          b.grade || null, b.lot_id || null, b.current_location_id || defaultLocationForKind(b.kind),
+          b.grade || null, b.lot_id || null, b.po_id || null,
+          b.current_location_id || defaultLocationForKind(b.kind),
           b.rate_paise, b.stock ?? 0, b.notes || null, req.user.username
         );
         insertDimensions(db, id, b.kind, b.dimensions);
@@ -247,6 +248,17 @@ productsRouter.post('/:id/move',
       const destination = db.prepare('SELECT * FROM locations WHERE id = ? AND is_active = 1').get(req.body.to_location_id);
       if (!destination) throw new NotFoundError('Location not found');
 
+      // Gate 3: a QA-tracked item (polished good) can't reach a sellable
+      // location until it has passed QA. Non-QA items (qa_status NULL) pass.
+      if (['showroom', 'sales'].includes(destination.location_type)
+          && ['pending', 'failed'].includes(existing.qa_status)) {
+        throw new AppError(
+          `${existing.id} cannot move to ${destination.name} — QA is '${existing.qa_status}'. ` +
+          `It must pass QA before reaching the sales yard.`,
+          409
+        );
+      }
+
       const qty = req.body.qty ?? existing.stock ?? 0;
       if (qty < 0) throw new AppError('Quantity must be non-negative', 400);
 
@@ -276,6 +288,99 @@ productsRouter.post('/:id/move',
       const updated = loadProduct(db, req.params.id);
       audit(req, 'PRODUCT_MOVE', 'products', req.params.id, existing, updated);
       res.json({ product: updated });
+    } catch (err) { next(err); }
+  }
+);
+
+// ─── POST /products/:id/qa ─── finished-goods QA check (Gate 3)
+// pass -> product may move to the sales yard / be invoiced.
+// fail -> stays blocked from sale until reworked and re-QA'd.
+productsRouter.post('/:id/qa',
+  requireRole('admin', 'yard'),
+  validate(z.object({
+    result: z.enum(['pass', 'fail']),
+    notes: z.string().max(500).nullable().optional(),
+    rate_paise: z.number().int().nonnegative().optional(),   // confirm sale rate on pass
+  })),
+  (req, res, next) => {
+    try {
+      const db = getDb();
+      const existing = loadProduct(db, req.params.id);
+      if (!existing) throw new NotFoundError('Product not found');
+      if (!existing.qa_status) {
+        throw new AppError(`${req.params.id} is not a QA-tracked item (only polished goods enter QA).`, 400);
+      }
+      if (existing.qa_status === 'passed') {
+        throw new AppError(`${req.params.id} has already passed QA.`, 409);
+      }
+      const status = req.body.result === 'pass' ? 'passed' : 'failed';
+      // On a pass, optionally confirm the selling rate as the item clears for sale.
+      const setRate = status === 'passed' && req.body.rate_paise != null;
+      db.prepare(`
+        UPDATE products
+        SET qa_status = ?, qa_by = ?, qa_at = datetime('now'), qa_notes = ?,
+            ${setRate ? 'rate_paise = ?,' : ''}
+            updated_at = datetime('now'), updated_by = ?
+        WHERE id = ?
+      `).run(status, req.user.username, req.body.notes || null,
+             ...(setRate ? [req.body.rate_paise] : []),
+             req.user.username, req.params.id);
+      const updated = loadProduct(db, req.params.id);
+      audit(req, 'PRODUCT_QA', 'products', req.params.id, existing, updated);
+      res.json({ product: updated });
+    } catch (err) { next(err); }
+  }
+);
+
+// ─── POST /products/:id/rework ─── audited one-step-back correction
+// Rework re-runs a finishing operation on the SAME physical piece (it does not
+// reverse a transformation). Each step moves the item to the prior stage's
+// location, clears QA if it drops out of Finished Yard, and logs the reason.
+const REWORK_BACK = {
+  SHOWROOM:      { to: 'FINISHED_YARD', label: 'pull back from sale', stage: 'done'   },
+  FINISHED_YARD: { to: 'GANGSAW_OUT',   label: 're-polish',          stage: 'polish', clearQa: true },
+  GANGSAW_OUT:   { to: 'GANGSAW_IN',    label: 're-cut / dress',     stage: 'cut'    },
+  GANGSAW_IN:    { to: 'RAW_YARD',      label: 'back to raw yard',   stage: 'split'  },
+};
+productsRouter.post('/:id/rework',
+  requireRole('admin', 'yard'),
+  validate(z.object({
+    reason: z.string().trim().min(3).max(500),
+  })),
+  (req, res, next) => {
+    try {
+      const db = getDb();
+      const existing = loadProduct(db, req.params.id);
+      if (!existing) throw new NotFoundError('Product not found');
+      const step = REWORK_BACK[existing.current_location_id];
+      if (!step) {
+        throw new AppError(`No rework step available from ${existing.current_location_id || 'this location'}.`, 400);
+      }
+      const tx = db.transaction(() => {
+        db.prepare(`
+          UPDATE products
+          SET current_location_id = ?,
+              qa_status = ${step.clearQa ? 'NULL' : 'qa_status'},
+              updated_at = datetime('now'), updated_by = ?
+          WHERE id = ?
+        `).run(step.to, req.user.username, req.params.id);
+        recordInventoryMove(db, {
+          productId: req.params.id,
+          qty: existing.stock ?? 0,
+          fromLocationId: existing.current_location_id || null,
+          toLocationId: step.to,
+          moveType: 'adjust',
+          stage: step.stage,
+          notes: `REWORK (${step.label}): ${req.body.reason}`,
+          createdBy: req.user.username,
+          scanOutAt: new Date().toISOString(),
+          scanInAt: new Date().toISOString(),
+        });
+      });
+      tx();
+      const updated = loadProduct(db, req.params.id);
+      audit(req, 'PRODUCT_REWORK', 'products', req.params.id, existing, updated);
+      res.json({ product: updated, rework: { to: step.to, stage: step.stage, label: step.label } });
     } catch (err) { next(err); }
   }
 );
