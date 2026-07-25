@@ -451,6 +451,7 @@ const chippingSchema = z.object({
   labour_paise: z.number().int().nonnegative().default(0),
   power_paise: z.number().int().nonnegative().default(0),
   consumables_paise: z.number().int().nonnegative().default(0),
+  wastage_count: z.number().int().nonnegative().default(0),   // dust / fines lost
   mesh_size_mm: z.number().positive().optional().nullable(),
   notes: z.string().max(500).optional().nullable(),
 });
@@ -473,9 +474,9 @@ productionRouter.post('/chipping',
       const tx = db.transaction(() => {
         db.prepare(`
           INSERT INTO production_jobs
-            (id, lot_id, stage, job_type, status, labour_paise, power_paise, consumables_paise, notes, created_by)
-          VALUES (?, ?, 'done', 'chipping', 'Complete', ?, ?, ?, ?, ?)
-        `).run(jobId, b.lot_id, b.labour_paise || 0, b.power_paise || 0, b.consumables_paise || 0, b.notes || null, req.user.username);
+            (id, lot_id, stage, job_type, status, labour_paise, power_paise, consumables_paise, wastage_count, notes, created_by)
+          VALUES (?, ?, 'done', 'chipping', 'Complete', ?, ?, ?, ?, ?, ?)
+        `).run(jobId, b.lot_id, b.labour_paise || 0, b.power_paise || 0, b.consumables_paise || 0, b.wastage_count || 0, b.notes || null, req.user.username);
 
         db.prepare(`
           INSERT INTO products
@@ -520,4 +521,30 @@ productionRouter.get('/stats/summary', (req, res) => {
     WHERE date >= date('now', '-30 days')
   `).get();
   res.json({ stats });
+});
+
+// ─── GET /production/stats/by-stage ─── per-stage damage / wastage / yield
+// Buckets by COALESCE(job_type, stage) so 'chipping' shows as its own stage.
+// `days` query param widens the window (default 30). Loss counts are captured
+// per job at each stage in that stage's own unit (block pcs, slab pcs, MT…).
+productionRouter.get('/stats/by-stage', (req, res) => {
+  const db = getDb();
+  const days = Math.min(3650, Math.max(1, parseInt(req.query.days, 10) || 30));
+  const rows = db.prepare(`
+    SELECT
+      COALESCE(job_type, stage) AS stage,
+      COUNT(*)                            AS jobs,
+      SUM(damage_count)                   AS damage,
+      SUM(wastage_count)                  AS wastage,
+      AVG(yield_pct)                      AS avg_yield_pct,
+      SUM(labour_paise + power_paise + consumables_paise) AS conversion_cost_paise
+    FROM production_jobs
+    WHERE date >= date('now', ?)
+    GROUP BY COALESCE(job_type, stage)
+    ORDER BY
+      CASE COALESCE(job_type, stage)
+        WHEN 'split' THEN 1 WHEN 'cut' THEN 2 WHEN 'chipping' THEN 3
+        WHEN 'polish' THEN 4 WHEN 'done' THEN 5 ELSE 6 END
+  `).all(`-${days} days`);
+  res.json({ days, by_stage: rows });
 });

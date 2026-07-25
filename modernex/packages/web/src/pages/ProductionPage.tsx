@@ -6,7 +6,7 @@ import {
   useProducts, useCreateProduct, useCreateProductionJob, useChippingJob,
   useProductionJobs, useMoveProduct, usePurchaseOrders,
   useDeleteProduct, useUpdateProduct, useRecordDamage, useQaProduct, useReworkProduct,
-  useDeleteProductionJob,
+  useDeleteProductionJob, useProductionStageStats,
 } from '@/hooks/useApi';
 import { useToastStore, useAuthStore } from '@/store';
 
@@ -1353,8 +1353,54 @@ function RouteToSale({ finishedSlabs, notify, preselectId }: { finishedSlabs: an
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TAB 6 — JOB HISTORY
+// TAB 7 — JOB HISTORY
 // ─────────────────────────────────────────────────────────────────────────────
+const STAGE_LABEL: Record<string, string> = {
+  split: 'Split', cut: 'Cut', chipping: 'Chipping', polish: 'Polish', done: 'Done / Other',
+};
+// Per-stage damage / wastage / yield rollup (Phase D). Loss counts are in each
+// stage's own unit; a single cross-stage yield% is intentionally not shown
+// because the transforms cross UOMs (block cft → slab sqft → pieces).
+function StageLossTable() {
+  const { data } = useProductionStageStats(90);
+  const rows = data?.by_stage || [];
+  if (rows.length === 0) return null;
+  const th: React.CSSProperties = { textAlign: 'right', padding: '6px 10px', fontSize: 11, fontWeight: 700, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid var(--bd)' };
+  const td: React.CSSProperties = { textAlign: 'right', padding: '6px 10px', fontSize: 12, color: 'var(--t2)', borderBottom: '1px solid var(--bd)' };
+  const rupees = (p: number) => `₹${Math.round((p || 0) / 100).toLocaleString('en-IN')}`;
+  return (
+    <div style={{ ...card, padding: 0, overflowX: 'auto' }}>
+      <div style={{ padding: '10px 12px', fontSize: 12, fontWeight: 700, color: 'var(--t2)' }}>
+        Per-stage loss & yield <span style={{ color: 'var(--t3)', fontWeight: 400 }}>· last 90 days</span>
+      </div>
+      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
+        <thead>
+          <tr>
+            <th style={{ ...th, textAlign: 'left' }}>Stage</th>
+            <th style={th}>Jobs</th>
+            <th style={th}>Damage</th>
+            <th style={th}>Wastage</th>
+            <th style={th}>Avg Yield</th>
+            <th style={th}>Conv. Cost</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.stage}>
+              <td style={{ ...td, textAlign: 'left', color: 'var(--t1)', fontWeight: 600 }}>{STAGE_LABEL[r.stage] || r.stage}</td>
+              <td style={td}>{r.jobs}</td>
+              <td style={{ ...td, color: r.damage > 0 ? 'var(--red)' : 'var(--t3)' }}>{r.damage || 0}</td>
+              <td style={{ ...td, color: r.wastage > 0 ? 'var(--amber)' : 'var(--t3)' }}>{r.wastage || 0}</td>
+              <td style={td}>{r.avg_yield_pct != null ? `${r.avg_yield_pct.toFixed(1)}%` : '—'}</td>
+              <td style={td}>{rupees(r.conversion_cost_paise)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function JobHistory({ jobs, isLoading, onDeleteJob }: { jobs: any[]; isLoading: boolean; onDeleteJob?: (id: string) => void }) {
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState('all');
@@ -1389,7 +1435,7 @@ function JobHistory({ jobs, isLoading, onDeleteJob }: { jobs: any[]; isLoading: 
 
   function stageBadge(stage: string) {
     const colors: Record<string, string> = {
-      split: 'var(--blue)', cut: 'var(--amber)', polish: 'var(--sage)', done: 'var(--rust)',
+      split: 'var(--blue)', cut: 'var(--amber)', chipping: 'var(--gold)', polish: 'var(--sage)', done: 'var(--rust)',
     };
     return (
       <span style={{
@@ -1401,12 +1447,14 @@ function JobHistory({ jobs, isLoading, onDeleteJob }: { jobs: any[]; isLoading: 
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <StageLossTable />
       <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
         <Inp value={search} onChange={e => setSearch(e.target.value)} placeholder="Search jobs…" style={{ ...inputStyle, minWidth: 200 }} />
         <Sel value={stageFilter} onChange={e => setStageFilter(e.target.value)}>
           <option value="all">All stages</option>
           <option value="split">Split</option>
           <option value="cut">Cut</option>
+          <option value="chipping">Chipping</option>
           <option value="polish">Polish</option>
           <option value="done">Done</option>
         </Sel>

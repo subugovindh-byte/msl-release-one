@@ -485,6 +485,17 @@ export function useProductionJob(id: string, options?: Omit<UseQueryOptions<Prod
   });
 }
 
+export interface StageStat {
+  stage: string; jobs: number; damage: number; wastage: number;
+  avg_yield_pct: number | null; conversion_cost_paise: number;
+}
+export function useProductionStageStats(days = 30) {
+  return useQuery({
+    queryKey: [...queryKeys.production.all, 'by-stage', days],
+    queryFn: () => api.get<{ days: number; by_stage: StageStat[] }>('/production/stats/by-stage', { params: { days } }),
+  });
+}
+
 export function useCreateProductionJob(options?: UseMutationOptions<{ job: ProductionJob; created_products: string[] }, Error, any>) {
   const queryClient = useQueryClient();
   
