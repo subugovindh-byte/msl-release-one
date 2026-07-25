@@ -165,6 +165,43 @@ migrate_db() {
     print_success "Migrations completed"
 }
 
+# Reset database — wipe all data and re-run migrations from scratch
+reset_db() {
+    print_header "Reset Database"
+
+    print_warning "This will PERMANENTLY DELETE all data in the database!"
+    read -p "Type 'yes' to confirm: " confirm
+    echo
+
+    if [ "$confirm" != "yes" ]; then
+        print_info "Reset cancelled"
+        return
+    fi
+
+    # Remove all DB files
+    local db_base="${DB_PATH%.*}"
+    for f in "$DB_PATH" "${DB_PATH}-wal" "${DB_PATH}-shm" "${DB_PATH}-journal"; do
+        [ -f "$f" ] && rm -f "$f" && print_info "Removed $f"
+    done
+    # Also clean the root-level db if it exists
+    for f in modernex.db modernex.db-wal modernex.db-shm packages/api/data/modernex.db; do
+        [ -f "$f" ] && rm -f "$f" && print_info "Removed $f"
+    done
+
+    print_success "Database files wiped"
+
+    print_info "Re-running migrations…"
+    npm run migrate
+    print_success "Database reset complete — fresh empty database ready"
+
+    read -p "Also seed with demo data? (y/N): " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        npm run seed -w @modernex/api
+        print_success "Demo data seeded"
+    fi
+}
+
 # Seed database
 seed_db() {
     print_header "Seeding Database"
@@ -417,6 +454,7 @@ ${GREEN}Commands:${NC}
   ${YELLOW}setup${NC}          Set up environment and create .env.local file
   ${YELLOW}install${NC}        Install/update npm dependencies
   ${YELLOW}migrate${NC}        Run database migrations
+  ${YELLOW}reset-db${NC}       Wipe database and re-run migrations from scratch
   ${YELLOW}seed${NC}           Seed database with sample data
   ${YELLOW}dev${NC}            Start development server (API + Web with hot reload)
   ${YELLOW}start${NC}          Build and start production server
@@ -460,6 +498,9 @@ main() {
             ;;
         migrate)
             migrate_db
+            ;;
+        reset-db|reset)
+            reset_db
             ;;
         seed)
             seed_db
