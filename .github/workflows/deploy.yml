@@ -17,6 +17,9 @@ defaults:
 jobs:
   build-deploy:
     runs-on: ubuntu-latest
+    concurrency:
+      group: azure-deploy
+      cancel-in-progress: false
 
     steps:
       - uses: actions/checkout@v4
@@ -89,11 +92,21 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      - name: Stop app before deploy (avoid 409 conflict)
+        run: |
+          az webapp stop --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RG }} || true
+          sleep 10
+
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           package: deploy.zip
+
+      - name: Start app after deploy
+        if: always()
+        run: |
+          az webapp start --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RG }} || true
 
       - name: Post-deploy health check
         run: |
@@ -115,4 +128,5 @@ jobs:
         with:
           name: deploy-logs-${{ github.sha }}
           path: modernex/packages/api/logs/
+          if-no-files-found: ignore
           retention-days: 7
