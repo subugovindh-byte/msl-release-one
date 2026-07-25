@@ -398,9 +398,10 @@ export function MastersPage() {
   const [editingCustomer, setEditingCustomer] = useState<any | null>(null);
   const [showCreateVendor, setShowCreateVendor] = useState(false);
   const [editingVendor, setEditingVendor] = useState<any | null>(null);
+  const [vendorType, setVendorType] = useState('');   // '' = all types
 
   const { data: customersData, isLoading: loadingCustomers } = useCustomers({ q: searchQuery });
-  const { data: vendorsData, isLoading: loadingVendors } = useVendors({ q: searchQuery });
+  const { data: vendorsData, isLoading: loadingVendors } = useVendors({ q: searchQuery, type: vendorType || undefined });
   const { data: varietiesData, isLoading: loadingVarieties } = useVarietyMaster({ q: activeTab === 'varieties' ? searchQuery : undefined });
   const { data: pricesData } = useBlockPriceMaster();
   const upsertPrice = useUpsertBlockPrice();
@@ -654,10 +655,39 @@ export function MastersPage() {
         )
       )}
 
+      {/* Vendor type filter */}
+      {activeTab === 'vendors' && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+          {[
+            { key: '', label: 'All' },
+            { key: 'Quarry', label: 'Quarry' },
+            { key: 'Broker', label: 'Broker' },
+            { key: 'Transporter', label: 'Transporter' },
+            { key: 'Other', label: 'Other' },
+          ].map(t => (
+            <button
+              key={t.key || 'all'}
+              type="button"
+              onClick={() => setVendorType(t.key)}
+              style={{
+                padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                background: vendorType === t.key ? 'var(--rust)' : 'var(--bg2)',
+                color: vendorType === t.key ? '#fff' : 'var(--t2)',
+                border: `1px solid ${vendorType === t.key ? 'var(--rust)' : 'var(--bd)'}`,
+              }}
+            >{t.label}</button>
+          ))}
+        </div>
+      )}
+
       {/* Vendor cards */}
       {activeTab === 'vendors' && (
         loadingVendors ? <p style={{ color: 'var(--t3)' }}>Loading vendors...</p> :
-        vendors.length === 0 ? <p style={{ color: 'var(--t3)' }}>No vendors found.</p> : (
+        vendors.length === 0 ? (
+          <p style={{ color: 'var(--t3)' }}>
+            {vendorType ? `No ${vendorType.toLowerCase()} vendors found. Add one via “New Vendor” and set Type: ${vendorType}.` : 'No vendors found.'}
+          </p>
+        ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: '16px' }}>
             {vendors.map((v) => (
               <VendorCard key={v.id} vendor={v} onEdit={handleEditOpen} />
