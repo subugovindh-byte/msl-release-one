@@ -498,6 +498,18 @@ export function useCreateProductionJob(options?: UseMutationOptions<{ job: Produ
   });
 }
 
+export function useChippingJob(options?: UseMutationOptions<{ job: ProductionJob; product: Product }, Error, any>) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: any) => api.post<{ job: ProductionJob; product: Product }>('/production/chipping', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.production.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.products.all });
+    },
+    ...options,
+  });
+}
+
 export function useUpdateProductionJob(options?: UseMutationOptions<ProductionJob, Error, { id: string; data: Partial<ProductionJob> }>) {
   const queryClient = useQueryClient();
 

@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import QRCode from 'qrcode';
 import { VARIETIES, GRADES, STANDARD_SPECS } from '@modernex/shared';
 import {
-  useProducts, useCreateProduct, useCreateProductionJob,
+  useProducts, useCreateProduct, useCreateProductionJob, useChippingJob,
   useProductionJobs, useMoveProduct, usePurchaseOrders,
   useDeleteProduct, useUpdateProduct, useRecordDamage, useQaProduct, useReworkProduct,
   useDeleteProductionJob,
@@ -174,15 +174,16 @@ function StatCard({ label, count, sub, color }: { label: string; count: number; 
 }
 
 // ── tabs ─────────────────────────────────────────────────────────────────────
-type Tab = 'receive' | 'split' | 'cut' | 'polish' | 'qa' | 'route' | 'history';
+type Tab = 'receive' | 'split' | 'cut' | 'chipping' | 'polish' | 'qa' | 'route' | 'history';
 const TABS: { id: Tab; label: string; step?: string }[] = [
-  { id: 'receive', label: 'Receive Block', step: '1' },
-  { id: 'split',   label: 'Split Block',   step: '2' },
-  { id: 'cut',     label: 'Cut Slabs',     step: '3' },
-  { id: 'polish',  label: 'Polish & Grade',step: '4' },
-  { id: 'qa',      label: 'QA Check',      step: '5' },
-  { id: 'route',   label: 'Route to Sale', step: '6' },
-  { id: 'history', label: 'Job History' },
+  { id: 'receive',  label: 'Receive Block', step: '1' },
+  { id: 'split',    label: 'Split Block',   step: '2' },
+  { id: 'cut',      label: 'Cut Slabs',     step: '3' },
+  { id: 'chipping', label: 'Chipping',      step: '4' },
+  { id: 'polish',   label: 'Polish & Grade',step: '5' },
+  { id: 'qa',       label: 'QA Check',      step: '6' },
+  { id: 'route',    label: 'Route to Sale', step: '7' },
+  { id: 'history',  label: 'Job History' },
 ];
 
 function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void }) {
@@ -917,7 +918,90 @@ function CutSlabs({ rawBlocks, blockedCount = 0, notify, preselectId }: { rawBlo
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TAB 4 — POLISH & GRADE
+// TAB 4 — CHIPPING (waste → chips product, side-branch)
+// ─────────────────────────────────────────────────────────────────────────────
+function Chipping({ blocks, notify }: { blocks: any[]; notify: any }) {
+  const chip = useChippingJob();
+  const [form, setForm] = useState({
+    variety: VARIETIES[0], lot_id: '', source_product_id: '',
+    tonnes: '', rate_rs: '', labour_rs: '', power_rs: '', mesh_mm: '', notes: '',
+  });
+  const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
+
+  async function submit(e: any) {
+    e.preventDefault();
+    if (!form.variety || !form.lot_id || !form.tonnes || +form.tonnes <= 0) {
+      notify('Fill variety, lot ID and a positive tonnage', 'error'); return;
+    }
+    try {
+      const res = await chip.mutateAsync({
+        lot_id: form.lot_id,
+        variety: form.variety,
+        source_product_id: form.source_product_id || undefined,
+        tonnes: +form.tonnes,
+        rate_paise: form.rate_rs ? Math.round(+form.rate_rs * 100) : 0,
+        labour_paise: form.labour_rs ? Math.round(+form.labour_rs * 100) : 0,
+        power_paise: form.power_rs ? Math.round(+form.power_rs * 100) : 0,
+        mesh_size_mm: form.mesh_mm ? +form.mesh_mm : undefined,
+        notes: form.notes || undefined,
+      });
+      notify(`Chips batch ${(res as any)?.product?.id ?? ''} recovered — ${form.tonnes} MT at Raw Yard`, 'success');
+      setForm(f => ({ ...f, lot_id: '', source_product_id: '', tonnes: '', rate_rs: '', labour_rs: '', power_rs: '', mesh_mm: '', notes: '' }));
+    } catch (err: any) {
+      notify(err.message || 'Chipping failed', 'error');
+    }
+  }
+
+  const conv = (+form.labour_rs || 0) + (+form.power_rs || 0);
+  const unitCost = form.tonnes && +form.tonnes > 0 ? (conv / +form.tonnes).toFixed(2) : '0';
+
+  return (
+    <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 560 }}>
+      <p style={{ margin: 0, fontSize: 13, color: 'var(--t3)' }}>
+        Recover offcut/waste into a <strong style={{ color: 'var(--t1)' }}>chips / aggregate</strong> batch (HSN 2517). It branches off the slab line and lands at <strong style={{ color: 'var(--t1)' }}>Raw Yard</strong> as sellable stock in tonnes.
+      </p>
+      <div style={row2}>
+        <Fld label="Variety">
+          <Sel value={form.variety} onChange={e => set('variety', e.target.value)}>
+            {VARIETIES.map(v => <option key={v}>{v}</option>)}
+          </Sel>
+        </Fld>
+        <Fld label="Lot ID"><Inp value={form.lot_id} onChange={e => set('lot_id', e.target.value)} placeholder="LOT-024" required /></Fld>
+      </div>
+      {blocks.length > 0 && (
+        <Fld label="Source block (optional)" hint="lineage only — not consumed">
+          <Sel value={form.source_product_id} onChange={e => set('source_product_id', e.target.value)}>
+            <option value="">— none —</option>
+            {blocks.map((b: any) => <option key={b.id} value={b.id}>{b.id} · {b.variety} {b.lot_id ? `(${b.lot_id})` : ''}</option>)}
+          </Sel>
+        </Fld>
+      )}
+      <div style={row2}>
+        <Fld label="Tonnes recovered (MT)"><Inp type="number" step="0.01" min="0" value={form.tonnes} onChange={e => set('tonnes', e.target.value)} placeholder="12.5" required /></Fld>
+        <Fld label="Rate per MT (₹)"><Inp type="number" min="0" value={form.rate_rs} onChange={e => set('rate_rs', e.target.value)} placeholder="900" /></Fld>
+      </div>
+      <div style={row3}>
+        <Fld label="Labour (₹)"><Inp type="number" min="0" value={form.labour_rs} onChange={e => set('labour_rs', e.target.value)} placeholder="2000" /></Fld>
+        <Fld label="Power (₹)"><Inp type="number" min="0" value={form.power_rs} onChange={e => set('power_rs', e.target.value)} placeholder="500" /></Fld>
+        <Fld label="Mesh size (mm)" hint="optional"><Inp type="number" step="0.1" min="0" value={form.mesh_mm} onChange={e => set('mesh_mm', e.target.value)} placeholder="20" /></Fld>
+      </div>
+      {conv > 0 && (
+        <div style={{ fontSize: 13, color: 'var(--gold)', fontWeight: 600 }}>
+          Conversion cost ≈ ₹{conv.toLocaleString('en-IN')} → ₹{unitCost}/MT COGS
+        </div>
+      )}
+      <Fld label="Notes" hint="optional"><Inp value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Crushed from LOT-024 offcuts…" /></Fld>
+      <div>
+        <button type="submit" style={btnPrimary} disabled={chip.isPending}>
+          {chip.isPending ? 'Recording…' : 'Record Chips Batch'}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB 5 — POLISH & GRADE
 // ─────────────────────────────────────────────────────────────────────────────
 function PolishGrade({ gangsawSlabs, notify, preselectId }: { gangsawSlabs: any[]; notify: any; preselectId?: string }) {
   const createJob = useCreateProductionJob();
@@ -1876,6 +1960,9 @@ export function ProductionPage() {
           </div>
           <div style={{ display: tab === 'cut' ? 'block' : 'none' }}>
             <CutSlabs rawBlocks={jobEligibleBlocks} blockedCount={blockedBlockCount} notify={notify} preselectId={preselectId} />
+          </div>
+          <div style={{ display: tab === 'chipping' ? 'block' : 'none' }}>
+            <Chipping blocks={jobEligibleBlocks} notify={notify} />
           </div>
           <div style={{ display: tab === 'polish' ? 'block' : 'none' }}>
             <PolishGrade gangsawSlabs={gangsawSlabs} notify={notify} preselectId={preselectId} />

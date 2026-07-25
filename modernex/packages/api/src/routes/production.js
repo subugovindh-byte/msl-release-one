@@ -437,6 +437,73 @@ productionRouter.delete('/:id',
   }
 );
 
+// ─── POST /production/chipping ─── waste → chips product (side-branch)
+// Chipping recovers offcut/waste (from split/cut) into a chips/aggregate batch.
+// Waste isn't tracked inventory, so this mints a chips product (tonnes) and a
+// job_type='chipping' record rather than consuming a product input. An optional
+// source_product_id links the block/lot the waste came from (not decremented).
+const chippingSchema = z.object({
+  lot_id: z.string().min(1).max(30),
+  variety: z.string().min(1).max(50),
+  source_product_id: z.string().max(20).optional().nullable(),
+  tonnes: z.number().positive(),
+  rate_paise: z.number().int().nonnegative(),
+  labour_paise: z.number().int().nonnegative().default(0),
+  power_paise: z.number().int().nonnegative().default(0),
+  consumables_paise: z.number().int().nonnegative().default(0),
+  mesh_size_mm: z.number().positive().optional().nullable(),
+  notes: z.string().max(500).optional().nullable(),
+});
+productionRouter.post('/chipping',
+  requireRole('admin', 'yard'),
+  validate(chippingSchema),
+  (req, res, next) => {
+    try {
+      const db = getDb();
+      const b = req.body;
+      if (b.source_product_id && !loadProduct(db, b.source_product_id)) {
+        throw new AppError(`Source product ${b.source_product_id} not found`, 400);
+      }
+      const jobId = nextJobId(db);
+      const productId = nextProductId(db);
+      const hsn = hsnForKind('chips');
+      const conversionCost = (b.labour_paise || 0) + (b.power_paise || 0) + (b.consumables_paise || 0);
+      const unitCost = b.tonnes > 0 ? Math.round(conversionCost / b.tonnes) : 0;
+
+      const tx = db.transaction(() => {
+        db.prepare(`
+          INSERT INTO production_jobs
+            (id, lot_id, stage, job_type, status, labour_paise, power_paise, consumables_paise, notes, created_by)
+          VALUES (?, ?, 'done', 'chipping', 'Complete', ?, ?, ?, ?, ?)
+        `).run(jobId, b.lot_id, b.labour_paise || 0, b.power_paise || 0, b.consumables_paise || 0, b.notes || null, req.user.username);
+
+        db.prepare(`
+          INSERT INTO products
+            (id, kind, variety, hsn, uom, lot_id, current_location_id, rate_paise, stock,
+             source_job_id, source_product_id, unit_cost_paise, active, created_by)
+          VALUES (?, 'chips', ?, ?, 'tonne', ?, 'RAW_YARD', ?, ?, ?, ?, ?, 1, ?)
+        `).run(productId, b.variety, hsn, b.lot_id, b.rate_paise, b.tonnes, jobId, b.source_product_id || null, unitCost, req.user.username);
+
+        insertDimensions(db, productId, 'chips', { mesh_size_mm: b.mesh_size_mm ?? null });
+        db.prepare(`INSERT INTO production_job_outputs (job_id, product_id, qty_produced, unit_cost_paise) VALUES (?, ?, ?, ?)`)
+          .run(jobId, productId, b.tonnes, unitCost);
+        recordInventoryMove(db, {
+          productId, qty: b.tonnes, fromLocationId: null, toLocationId: 'RAW_YARD',
+          moveType: 'produce', stage: 'done', jobId,
+          notes: `Chipping recovery from ${b.source_product_id || 'waste'}`,
+          createdBy: req.user.username, scanInAt: new Date().toISOString(),
+        });
+      });
+      tx();
+
+      const product = loadProduct(db, productId);
+      const job = db.prepare('SELECT * FROM production_jobs WHERE id = ?').get(jobId);
+      audit(req, 'PRODUCTION_CHIPPING', 'production_jobs', jobId, null, { job, product });
+      res.status(201).json({ job, product });
+    } catch (err) { next(err); }
+  }
+);
+
 // ─── GET /production/stats/summary ───
 productionRouter.get('/stats/summary', (req, res) => {
   const db = getDb();
