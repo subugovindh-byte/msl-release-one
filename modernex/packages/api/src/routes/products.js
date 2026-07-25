@@ -325,6 +325,59 @@ productsRouter.post('/:id/qa',
   }
 );
 
+// ─── POST /products/:id/rework ─── audited one-step-back correction
+// Rework re-runs a finishing operation on the SAME physical piece (it does not
+// reverse a transformation). Each step moves the item to the prior stage's
+// location, clears QA if it drops out of Finished Yard, and logs the reason.
+const REWORK_BACK = {
+  SHOWROOM:      { to: 'FINISHED_YARD', label: 'pull back from sale', stage: 'done'   },
+  FINISHED_YARD: { to: 'GANGSAW_OUT',   label: 're-polish',          stage: 'polish', clearQa: true },
+  GANGSAW_OUT:   { to: 'GANGSAW_IN',    label: 're-cut / dress',     stage: 'cut'    },
+  GANGSAW_IN:    { to: 'RAW_YARD',      label: 'back to raw yard',   stage: 'split'  },
+};
+productsRouter.post('/:id/rework',
+  requireRole('admin', 'yard'),
+  validate(z.object({
+    reason: z.string().trim().min(3).max(500),
+  })),
+  (req, res, next) => {
+    try {
+      const db = getDb();
+      const existing = loadProduct(db, req.params.id);
+      if (!existing) throw new NotFoundError('Product not found');
+      const step = REWORK_BACK[existing.current_location_id];
+      if (!step) {
+        throw new AppError(`No rework step available from ${existing.current_location_id || 'this location'}.`, 400);
+      }
+      const tx = db.transaction(() => {
+        db.prepare(`
+          UPDATE products
+          SET current_location_id = ?,
+              qa_status = ${step.clearQa ? 'NULL' : 'qa_status'},
+              updated_at = datetime('now'), updated_by = ?
+          WHERE id = ?
+        `).run(step.to, req.user.username, req.params.id);
+        recordInventoryMove(db, {
+          productId: req.params.id,
+          qty: existing.stock ?? 0,
+          fromLocationId: existing.current_location_id || null,
+          toLocationId: step.to,
+          moveType: 'adjust',
+          stage: step.stage,
+          notes: `REWORK (${step.label}): ${req.body.reason}`,
+          createdBy: req.user.username,
+          scanOutAt: new Date().toISOString(),
+          scanInAt: new Date().toISOString(),
+        });
+      });
+      tx();
+      const updated = loadProduct(db, req.params.id);
+      audit(req, 'PRODUCT_REWORK', 'products', req.params.id, existing, updated);
+      res.json({ product: updated, rework: { to: step.to, stage: step.stage, label: step.label } });
+    } catch (err) { next(err); }
+  }
+);
+
 // ─── POST /products/bulk-rate — admin bulk rate update ───
 // ─── POST /products/:id/damage ─── record ad-hoc damage or wastage at any stage
 productsRouter.post('/:id/damage',

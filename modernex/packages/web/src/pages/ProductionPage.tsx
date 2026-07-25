@@ -5,7 +5,7 @@ import { VARIETIES, GRADES, STANDARD_SPECS } from '@modernex/shared';
 import {
   useProducts, useCreateProduct, useCreateProductionJob,
   useProductionJobs, useMoveProduct, usePurchaseOrders,
-  useDeleteProduct, useUpdateProduct, useRecordDamage, useQaProduct,
+  useDeleteProduct, useUpdateProduct, useRecordDamage, useQaProduct, useReworkProduct,
   useDeleteProductionJob,
 } from '@/hooks/useApi';
 import { useToastStore, useAuthStore } from '@/store';
@@ -1077,6 +1077,7 @@ function PolishGrade({ gangsawSlabs, notify, preselectId }: { gangsawSlabs: any[
 // ─────────────────────────────────────────────────────────────────────────────
 function QACheck({ qaPending, notify }: { qaPending: any[]; notify: any }) {
   const qa = useQaProduct();
+  const rework = useReworkProduct();
   const [noteFor, setNoteFor] = useState<string>('');
   const [noteText, setNoteText] = useState('');
 
@@ -1094,6 +1095,15 @@ function QACheck({ qaPending, notify }: { qaPending: any[]; notify: any }) {
     );
   }
 
+  function sendBackToPolish(id: string) {
+    const reason = window.prompt('Reason for rework (sent back to re-polish):', 'QA fail — re-polish');
+    if (!reason || reason.trim().length < 3) { if (reason !== null) notify('A reason (min 3 chars) is required', 'error'); return; }
+    rework.mutate({ id, reason: reason.trim() }, {
+      onSuccess: () => notify(`${id} sent back to Gangsaw Out for re-polish`, 'success'),
+      onError: (e: any) => notify(e.message || 'Rework failed', 'error'),
+    });
+  }
+
   if (qaPending.length === 0) {
     return (
       <div style={{ ...card, color: 'var(--t3)', fontSize: 13 }}>
@@ -1105,23 +1115,36 @@ function QACheck({ qaPending, notify }: { qaPending: any[]; notify: any }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <p style={{ margin: 0, fontSize: 13, color: 'var(--t3)' }}>
-        Finished goods pending QA. <strong style={{ color: 'var(--t1)' }}>Pass</strong> clears an item for the sales yard; <strong style={{ color: 'var(--t1)' }}>Fail</strong> holds it for rework — it cannot be moved to sale or invoiced until it passes.
+        Finished goods pending QA. <strong style={{ color: 'var(--t1)' }}>Pass</strong> clears an item for the sales yard; <strong style={{ color: 'var(--t1)' }}>Fail</strong> holds it. A failed item can be <strong style={{ color: 'var(--t1)' }}>sent back to re-polish</strong> — it cannot be moved to sale or invoiced until it passes.
       </p>
       {qaPending.map((p: any) => {
         const d = p.dimensions || {};
+        const failed = p.qa_status === 'failed';
         return (
-          <div key={p.id} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div key={p.id} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10,
+            borderColor: failed ? 'var(--red)' : 'var(--bd)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <div style={{ flex: 1, minWidth: 200 }}>
-                <div style={{ fontWeight: 700, color: 'var(--t1)' }}>{p.variety} <span style={{ color: 'var(--t3)', fontWeight: 400 }}>· {p.id}</span></div>
+                <div style={{ fontWeight: 700, color: 'var(--t1)' }}>
+                  {p.variety} <span style={{ color: 'var(--t3)', fontWeight: 400 }}>· {p.id}</span>
+                  {failed && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: 'var(--red)' }}>QA FAILED</span>}
+                </div>
                 <div style={{ fontSize: 12, color: 'var(--t3)' }}>
                   {d.size_lw || ''}{d.thickness_mm ? ` · ${d.thickness_mm}mm` : ''}{p.grade ? ` · Gr.${p.grade}` : ''} · stock {p.stock}
                 </div>
               </div>
-              <button type="button" style={{ ...btnPrimary, background: 'var(--sage)' }}
-                onClick={() => runQa(p.id, 'pass')} disabled={qa.isPending}>✓ Pass</button>
-              <button type="button" style={{ ...btnPrimary, background: 'var(--red)' }}
-                onClick={() => runQa(p.id, 'fail')} disabled={qa.isPending}>✕ Fail</button>
+              {!failed && (
+                <>
+                  <button type="button" style={{ ...btnPrimary, background: 'var(--sage)' }}
+                    onClick={() => runQa(p.id, 'pass')} disabled={qa.isPending}>✓ Pass</button>
+                  <button type="button" style={{ ...btnPrimary, background: 'var(--red)' }}
+                    onClick={() => runQa(p.id, 'fail')} disabled={qa.isPending}>✕ Fail</button>
+                </>
+              )}
+              {failed && (
+                <button type="button" style={{ ...btnPrimary, background: 'var(--amber)' }}
+                  onClick={() => sendBackToPolish(p.id)} disabled={rework.isPending}>↩ Rework (re-polish)</button>
+              )}
             </div>
             {noteFor === p.id && (
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
