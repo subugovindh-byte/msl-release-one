@@ -398,7 +398,7 @@ export function POSPage() {
                   <div className="sl-lot">{product.id}</div>
                   {getDisplaySize(product) !== 'N/A' && (
                     <div className="sl-dims">
-                      {getDisplaySize(product)}{getDisplayThickness(product) ? ` × ${getDisplayThickness(product)}mm` : ''}
+                      {getDisplaySize(product)}{getDisplayThickness(product) ? ` × ${getDisplayThickness(product)}cm` : ''}
                     </div>
                   )}
                   <div className="sl-bot">

@@ -94,7 +94,7 @@ function RaisePOModal({ insp, onClose }: { insp: any; onClose: () => void }) {
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!rate) { toast('Enter rate per CFT', 'error'); return; }
+    if (!rate) { toast('Enter rate per cbmt', 'error'); return; }
     raise.mutate(
       { id: insp.id, rate_per_cft_paise: rate, transport_paise: transport, notes, date },
       {
@@ -111,18 +111,18 @@ function RaisePOModal({ insp, onClose }: { insp: any; onClose: () => void }) {
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1000, display:'flex', alignItems:'flex-end', justifyContent:'center' }}>
       <div style={{ background:'var(--bg0)', borderRadius:'16px 16px 0 0', padding:'24px 20px', width:'100%', maxWidth:540, paddingBottom:'env(safe-area-inset-bottom, 16px)' }}>
         <h3 style={{ margin:'0 0 4px', fontSize:18 }}>Raise Purchase Order</h3>
-        <p style={{ margin:'0 0 16px', color:'var(--t2)', fontSize:13 }}>{insp.variety} · {insp.block_count} blocks · {cft} CFT · Grade {insp.grade}</p>
+        <p style={{ margin:'0 0 16px', color:'var(--t2)', fontSize:13 }}>{insp.variety} · {insp.block_count} blocks · {cft} cbmt · Grade {insp.grade}</p>
         <form onSubmit={submit}>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
             <div><label style={lbl}>PO Date</label>
               <input style={inp} type="date" value={date} onChange={e => setDate(e.target.value)} /></div>
-            <div><label style={lbl}>Rate/CFT (₹)</label>
+            <div><label style={lbl}>Rate/cbmt (₹)</label>
               <input style={inp} type="number" min={0} step="0.01" value={rate ? rate/100 : ''} placeholder="0.00"
                 onFocus={selectOnFocus}
                 onChange={e => { setUserEditedRate(true); setRate(Math.round(parseFloat(e.target.value || '0') * 100)); }} />
               {masterRate > 0 && (
                 <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 3 }}>
-                  Master price: {formatINR(masterRate)}/CFT
+                  Master price: {formatINR(masterRate)}/cbmt
                   {userEditedRate && rate !== masterRate && (
                     <button type="button" onClick={() => { setRate(masterRate); setUserEditedRate(false); }}
                       style={{ marginLeft: 6, fontSize: 11, color: 'var(--blue)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
@@ -248,7 +248,7 @@ export default function BlockInspectionDetailPage() {
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 800, fontSize: 17 }}>{insp.id}</div>
           <div style={{ color: 'var(--t2)', fontSize: 13, marginTop: 2 }}>
-            {insp.variety} · {insp.block_count} block{insp.block_count !== 1 ? 's' : ''} · {insp.est_cft} CFT
+            {insp.variety} · {insp.block_count} block{insp.block_count !== 1 ? 's' : ''} · {insp.est_cft} cbmt
           </div>
           {insp.vendor_name && <div style={{ color: 'var(--t3)', fontSize: 12 }}>{insp.vendor_name}</div>}
         </div>
@@ -295,7 +295,7 @@ export default function BlockInspectionDetailPage() {
               <div><label style={lbl}>Blocks</label>
                 <input style={inp} type="number" min={1} value={numericInputValue(editForm.block_count, false)}
                   onFocus={selectOnFocus} onChange={e => setEditForm((f: any) => ({ ...f, block_count: parseInt(e.target.value) || 1 }))} /></div>
-              <div><label style={lbl}>Est. CFT</label>
+              <div><label style={lbl}>Est. cbmt</label>
                 <input style={inp} type="number" min={0} step="0.01" value={numericInputValue(editForm.est_cft)}
                   onFocus={selectOnFocus} onChange={e => setEditForm((f: any) => ({ ...f, est_cft: parseFloat(e.target.value) || 0 }))} /></div>
             </div>
@@ -320,7 +320,7 @@ export default function BlockInspectionDetailPage() {
             <div><span style={{ color: 'var(--t3)' }}>Grade</span><br />
               <strong style={{ color: gradeMeta.color }}>{insp.grade}</strong></div>
             <div><span style={{ color: 'var(--t3)' }}>Blocks</span><br /><strong>{insp.block_count}</strong></div>
-            <div><span style={{ color: 'var(--t3)' }}>Est. CFT</span><br /><strong>{insp.est_cft}</strong></div>
+            <div><span style={{ color: 'var(--t3)' }}>Est. cbmt</span><br /><strong>{insp.est_cft}</strong></div>
             {insp.quarry_location && <div style={{ gridColumn: '1/-1' }}><span style={{ color: 'var(--t3)' }}>Quarry</span><br /><strong>{insp.quarry_location}</strong></div>}
             {insp.defect_note && <div style={{ gridColumn: '1/-1' }}><span style={{ color: 'var(--t3)' }}>Defect note</span><br /><strong style={{ color: 'var(--amber)' }}>{insp.defect_note}</strong></div>}
             {insp.notes && <div style={{ gridColumn: '1/-1' }}><span style={{ color: 'var(--t3)' }}>Notes</span><br /><strong>{insp.notes}</strong></div>}

@@ -176,7 +176,7 @@ a { color: var(--rust); text-decoration: none; }
   letter-spacing: 1px; text-transform: uppercase; color: var(--t2); margin-top: 1px;
 }
 .sb-sec {
-  padding: 13px 12px 4px; font-family: 'IBM Plex Mono', monospace;
+  padding: 13px 12px 4px; font-family: 'Inter', sans-serif;
   font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--t1); font-weight: 700;
   display: flex; align-items: center; gap: 8px; margin-top: 4px;
   background: none; border: none; cursor: pointer; width: 100%; text-align: left;

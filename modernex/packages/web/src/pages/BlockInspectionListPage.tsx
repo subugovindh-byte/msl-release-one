@@ -284,7 +284,7 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
           </div>
         </>}
 
-        {/* ── BLOCKS + CFT ── */}
+        {/* ── BLOCKS + CBMT ── */}
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:16 }}>
           <div>
             <label style={lbl}>Blocks *</label>
@@ -295,7 +295,7 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
             </div>
           </div>
           <div>
-            <label style={lbl}>Est. CFT</label>
+            <label style={lbl}>Est. cbmt</label>
             <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:6 }}>
               {[20,30,40,50,60,80,100].map(n => (
                 <button key={n} type="button" onClick={() => set('est_cft', n)}
@@ -305,7 +305,7 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
               ))}
             </div>
             <input style={{ ...inp, fontSize:13 }} type="number" min={0} step="0.01"
-              placeholder="custom CFT" value={numericInputValue(form.est_cft)}
+              placeholder="custom cbmt" value={numericInputValue(form.est_cft)}
               onFocus={selectOnFocus} onChange={e => set('est_cft', parseFloat(e.target.value) || 0)} />
           </div>
         </div>
@@ -493,7 +493,7 @@ export default function BlockInspectionListPage() {
                 <div style={{ flex: 1, minWidth: 160 }}>
                   <div style={{ fontWeight: 700, fontSize: 14 }}>{insp.id}</div>
                   <div style={{ color: 'var(--t2)', fontSize: 12, marginTop: 2 }}>
-                    {insp.variety} · {insp.block_count} block{insp.block_count !== 1 ? 's' : ''} · {insp.est_cft} CFT
+                    {insp.variety} · {insp.block_count} block{insp.block_count !== 1 ? 's' : ''} · {insp.est_cft} cbmt
                   </div>
                   {insp.vendor_name && <div style={{ color: 'var(--t3)', fontSize: 11, marginTop: 2 }}>{insp.vendor_name}</div>}
                   {insp.quarry_location && <div style={{ color: 'var(--t3)', fontSize: 11 }}>📍 {insp.quarry_location}</div>}

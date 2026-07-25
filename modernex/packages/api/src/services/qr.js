@@ -126,7 +126,7 @@ export async function generateSlabLabelHTML(slabs, baseUrl) {
         <div class="meta">
           <div class="id">${slab.id}</div>
           <div class="var">${escapeHtml(slab.variety)}</div>
-          <div class="dim">${slab.size || ''}mm · ${slab.thickness_mm || slab.tk || ''}mm · Gr.${slab.grade || ''}</div>
+          <div class="dim">${slab.size || ''}cm · ${slab.thickness_mm || slab.tk || ''}cm · Gr.${slab.grade || ''}</div>
           <div class="lot">Lot ${slab.lot_id || slab.lot || ''} · ${slab.sqft || ''}sqft</div>
         </div>
       </div>`;
@@ -235,14 +235,14 @@ function renderSlabLabel(p, qr, qrClass) {
         <div class="kind-badge">SLAB</div>
         <div class="id">${p.id}</div>
         <div class="var">${escapeHtml(p.variety)}</div>
-        <div class="dim">${p.slab_size || '—'}mm · ${p.slab_tk || ''}mm · Gr.${p.grade || '—'}</div>
+        <div class="dim">${p.slab_size || '—'}cm · ${p.slab_tk || ''}cm · Gr.${p.grade || '—'}</div>
         <div class="lot">Lot ${p.lot_id || '—'} · ${p.slab_sqft || '—'} sqft · HSN ${p.hsn}</div>
       </div>
     </div>`;
 }
 
 function renderBlockLabel(p, qr, qrClass) {
-  const vol = p.cft ? `${p.cft} CFT` : '';
+  const vol = p.cft ? `${p.cft} cbmt` : '';
   const dims = [p.length_m, p.width_m, p.height_m].filter(Boolean).join('×') + (p.length_m ? ' m' : '');
   return `
     <div class="label">
@@ -253,7 +253,7 @@ function renderBlockLabel(p, qr, qrClass) {
         <div class="var">${escapeHtml(p.variety)}</div>
         <div class="dim">${dims} · ${vol}</div>
         <div class="lot">Lot ${p.lot_id || '—'} · ${escapeHtml(p.source_quarry || 'Own quarry')}</div>
-        <div class="hsn">HSN ${p.hsn} · UOM: CFT</div>
+        <div class="hsn">HSN ${p.hsn} · UOM: cbmt</div>
       </div>
     </div>`;
 }
@@ -267,7 +267,7 @@ function renderCtsLabel(p, qr, qrClass) {
         <div class="kind-badge">CUT-TO-SIZE</div>
         <div class="id">${p.id}</div>
         <div class="var">${escapeHtml(p.variety)}</div>
-        <div class="dim">${p.cts_l || ''}×${p.cts_w || ''}mm · ${p.cts_sqft || ''} sqft · Gr.${p.grade || '—'}</div>
+        <div class="dim">${p.cts_l || ''}×${p.cts_w || ''}cm · ${p.cts_sqft || ''} sqft · Gr.${p.grade || '—'}</div>
         ${spec ? `<div class="lot">${spec}</div>` : ''}
         <div class="hsn">HSN ${p.hsn}</div>
       </div>
@@ -281,7 +281,7 @@ function renderTileLabel(p, qr, qrClass) {
       <div class="kind-badge" style="margin-top:2mm">TILE</div>
       <div class="id-sm">${p.id}</div>
       <div class="var-sm">${escapeHtml(p.variety)}</div>
-      <div class="dim-sm">${p.tile_size || '—'}mm · ${p.sqft_per_tile || ''}sqft</div>
+      <div class="dim-sm">${p.tile_size || '—'}cm · ${p.sqft_per_tile || ''}sqft</div>
       <div class="dim-sm">${p.pieces_per_box ? p.pieces_per_box + ' per box · ' : ''}Gr.${p.grade || '—'}</div>
     </div>`;
 }
@@ -295,14 +295,14 @@ function renderKerbLabel(p, qr, qrClass) {
         <div class="id">${p.id}</div>
         <div class="var">${escapeHtml(p.variety)}</div>
         <div class="dim">Profile: ${escapeHtml(p.kerb_profile || '—')}</div>
-        <div class="dim">Length: ${p.kerb_l || '—'}mm</div>
+        <div class="dim">Length: ${p.kerb_l || '—'}cm</div>
         <div class="hsn">HSN ${p.hsn} · UOM: piece</div>
       </div>
     </div>`;
 }
 
 function renderMonumentLabel(p, qr, qrClass) {
-  const dims = [p.mon_l, p.mon_w, p.mon_t].filter(Boolean).join('×') + (p.mon_l ? 'mm' : '');
+  const dims = [p.mon_l, p.mon_w, p.mon_t].filter(Boolean).join('×') + (p.mon_l ? 'cm' : '');
   return `
     <div class="label">
       <div class="qr ${qrClass}"><img src="${qr}" alt="${p.id}"/></div>
@@ -319,7 +319,7 @@ function renderMonumentLabel(p, qr, qrClass) {
 }
 
 function renderCobbleLabel(p, qr, qrClass) {
-  const dims = [p.cobble_l, p.cobble_w, p.cobble_h].filter(Boolean).join('×') + 'mm';
+  const dims = [p.cobble_l, p.cobble_w, p.cobble_h].filter(Boolean).join('×') + 'cm';
   return `
     <div class="label-compact center">
       <div class="qr ${qrClass}" style="margin:0 auto"><img src="${qr}" alt="${p.id}"/></div>
@@ -338,7 +338,7 @@ function renderChipsLabel(p, qr, qrClass) {
       <div class="kind-badge" style="margin-top:2mm">CHIPS</div>
       <div class="id-sm">${p.id}</div>
       <div class="var-sm">${escapeHtml(p.variety)}</div>
-      <div class="dim-sm">${p.mesh_size_mm || '—'}mm mesh</div>
+      <div class="dim-sm">${p.mesh_size_mm || '—'}cm mesh</div>
       <div class="dim-sm">HSN ${p.hsn} · tonne</div>
     </div>`;
 }
@@ -362,7 +362,7 @@ function renderStripLabel(p, qr, qrClass) {
         <div class="kind-badge">STRIP</div>
         <div class="id">${p.id}</div>
         <div class="var">${escapeHtml(p.variety)}</div>
-        <div class="dim">${p.cts_l || ''}×${p.cts_w || ''}mm · Gr.${p.grade || '—'}</div>
+        <div class="dim">${p.cts_l || ''}×${p.cts_w || ''}cm · Gr.${p.grade || '—'}</div>
         <div class="hsn">HSN ${p.hsn} · UOM: rft</div>
       </div>
     </div>`;

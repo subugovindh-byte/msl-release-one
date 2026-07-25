@@ -170,7 +170,7 @@ const SECTIONS: Section[] = [
       { type: 'p', text: 'Path: Purchase → New PO' },
       { type: 'ol', items: [
         'Select vendor (MSME flag shows automatically if registered)',
-        'Enter: variety, blocks, CFT, rate per CFT',
+        'Enter: variety, blocks, cbmt, rate per cbmt',
         'Transport charges (if known)',
         'System calculates GST (12% for granite)',
         'Save as "Draft" → "Approve" when PO sent to quarry',

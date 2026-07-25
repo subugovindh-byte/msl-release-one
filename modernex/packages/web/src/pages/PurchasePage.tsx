@@ -96,14 +96,14 @@ function POForm({ vendors, form, setForm, onSubmit, isPending, onCancel, title }
             onFocus={selectOnFocus} required />
         </div>
         <div>
-          <label style={lbl}>CFT *</label>
+          <label style={lbl}>cbmt *</label>
           <input type="number" style={inp} min="0" step="0.01" value={numericInputValue(form.cft)}
             onChange={e => setForm({ ...form, cft: parseFloat(e.target.value) || 0 })}
             onFocus={selectOnFocus} required />
           {form.cft > 0 && <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 3 }}>= {(form.cft * 0.0283168).toFixed(3)} CBM</div>}
         </div>
         <div>
-          <label style={lbl}>Rate/CFT (₹) *</label>
+          <label style={lbl}>Rate/cbmt (₹) *</label>
           <input type="number" style={inp} min="0" step="0.01"
             value={numericInputValue(form.rate_per_cft_paise / 100)}
             onChange={e => setForm({ ...form, rate_per_cft_paise: Math.round((parseFloat(e.target.value) || 0) * 100) })}
@@ -234,7 +234,7 @@ function POCard({ po, canManage, onApprove, onCancel, onDelete, onPay, onEdit, o
             {po.vendor_name || po.vendor_id}
           </div>
           <div style={{ fontSize: 12, color: 'var(--t3)', marginTop: 2 }}>
-            {po.variety} · <strong style={{ color: 'var(--t2)' }}>{po.blocks} block{po.blocks !== 1 ? 's' : ''}</strong> · {po.cft} CFT
+            {po.variety} · <strong style={{ color: 'var(--t2)' }}>{po.blocks} block{po.blocks !== 1 ? 's' : ''}</strong> · {po.cft} cbmt
           </div>
         </div>
 

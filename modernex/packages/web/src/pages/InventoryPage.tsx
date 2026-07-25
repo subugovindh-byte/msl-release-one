@@ -140,23 +140,23 @@ export function InventoryPage() {
   const getProductDetails = (p: any) => {
     switch (p.kind) {
       case 'block':
-        return `${p.length_mm || 0}×${p.width_mm || 0}×${p.height_mm || 0}mm`;
+        return `${p.length_mm || 0}×${p.width_mm || 0}×${p.height_mm || 0}cm`;
       case 'slab':
-        return `${p.size_lw || '—'} · ${p.thickness_mm || 0}mm${p.grade ? ` · Gr.${p.grade}` : ''}`;
+        return `${p.size_lw || '—'} · ${p.thickness_mm || 0}cm${p.grade ? ` · Gr.${p.grade}` : ''}`;
       case 'tile':
-        return `${p.size_lw || '—'} · ${p.thickness_mm || 0}mm`;
+        return `${p.size_lw || '—'} · ${p.thickness_mm || 0}cm`;
       case 'cts':
-        return `${p.length_mm || 0}×${p.width_mm || 0}mm`;
+        return `${p.length_mm || 0}×${p.width_mm || 0}cm`;
       case 'strip':
-        return `${p.length_mm || 0}×${p.width_mm || 0}mm`;
+        return `${p.length_mm || 0}×${p.width_mm || 0}cm`;
       case 'kerb':
-        return `${p.profile || '—'} · ${p.length_mm || 0}mm`;
+        return `${p.profile || '—'} · ${p.length_mm || 0}cm`;
       case 'cobble':
-        return `${p.cobble_type || '—'} · ${p.length_mm || 0}×${p.width_mm || 0}×${p.height_mm || 0}mm`;
+        return `${p.cobble_type || '—'} · ${p.length_mm || 0}×${p.width_mm || 0}×${p.height_mm || 0}cm`;
       case 'chips':
-        return `${p.mesh_size_mm || 0}mm mesh`;
+        return `${p.mesh_size_mm || 0}cm mesh`;
       case 'monument':
-        return `${p.monument_type || '—'} · ${p.thickness_mm || 0}mm`;
+        return `${p.monument_type || '—'} · ${p.thickness_mm || 0}cm`;
       default:
         return '—';
     }

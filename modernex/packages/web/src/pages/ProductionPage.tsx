@@ -28,7 +28,7 @@ function cbmFromM(l: number, w: number, h: number) {
 }
 
 function volLabel(cft: number, cbm: number) {
-  return `${cft} CFT · ${cbm} CBM`;
+  return `${cft} cbmt · ${cbm} CBM`;
 }
 
 const LOCATION_LABEL: Record<string, string> = {
@@ -40,12 +40,12 @@ async function printLabel(p: any) {
   const d = p.dimensions || {};
   let dimStr = '';
   if (p.kind === 'block') {
-    const lmm = d.length_m ? Math.round(d.length_m * 1000) : null;
-    const wmm = d.width_m  ? Math.round(d.width_m  * 1000) : null;
-    const hmm = d.height_m ? Math.round(d.height_m * 1000) : null;
-    if (lmm && wmm && hmm) dimStr = `${lmm}×${wmm}×${hmm} mm · ${volLabel(cftFromM(d.length_m,d.width_m,d.height_m), cbmFromM(d.length_m,d.width_m,d.height_m))}`;
+    const lmm = d.length_m ? Math.round(d.length_m * 100) : null;
+    const wmm = d.width_m  ? Math.round(d.width_m  * 100) : null;
+    const hmm = d.height_m ? Math.round(d.height_m * 100) : null;
+    if (lmm && wmm && hmm) dimStr = `${lmm}×${wmm}×${hmm} cm · ${volLabel(cftFromM(d.length_m,d.width_m,d.height_m), cbmFromM(d.length_m,d.width_m,d.height_m))}`;
   } else if (d.size_lw) {
-    dimStr = `${d.size_lw}${d.thickness_mm ? ` · ${d.thickness_mm}mm` : ''}${d.sqft ? ` · ${d.sqft} sqft` : ''}${d.sqft_per_tile ? ` · ${d.sqft_per_tile} sqft/tile` : ''}`;
+    dimStr = `${d.size_lw}${d.thickness_mm ? ` · ${d.thickness_mm}cm` : ''}${d.sqft ? ` · ${d.sqft} sqft` : ''}${d.sqft_per_tile ? ` · ${d.sqft_per_tile} sqft/tile` : ''}`;
   }
   const loc  = LOCATION_LABEL[p.current_location_id] || p.current_location_id || '';
   const rate = p.rate_paise ? `₹${(p.rate_paise/100).toLocaleString('en-IN')}` : '';
@@ -377,14 +377,14 @@ function ReceiveBlock({ notify }: { notify: any }) {
           Block Dimensions
         </div>
         <div style={row3}>
-          <Fld label="Length (mm)">
-            <Inp type="number" step="1" min="0" value={form.length_m} onChange={e => set('length_m', e.target.value)} placeholder="2440" required />
+          <Fld label="Length (cm)">
+            <Inp type="number" step="1" min="0" value={form.length_m} onChange={e => set('length_m', e.target.value)} placeholder="244" required />
           </Fld>
-          <Fld label="Width (mm)">
-            <Inp type="number" step="1" min="0" value={form.width_m} onChange={e => set('width_m', e.target.value)} placeholder="1220" required />
+          <Fld label="Width (cm)">
+            <Inp type="number" step="1" min="0" value={form.width_m} onChange={e => set('width_m', e.target.value)} placeholder="122" required />
           </Fld>
-          <Fld label="Height (mm)">
-            <Inp type="number" step="1" min="0" value={form.height_m} onChange={e => set('height_m', e.target.value)} placeholder="1220" required />
+          <Fld label="Height (cm)">
+            <Inp type="number" step="1" min="0" value={form.height_m} onChange={e => set('height_m', e.target.value)} placeholder="122" required />
           </Fld>
         </div>
         {cft > 0 && (
@@ -407,7 +407,7 @@ function ReceiveBlock({ notify }: { notify: any }) {
       )}
 
       <div style={row2}>
-        <Fld label="Rate per CFT (₹)" hint="optional">
+        <Fld label="Rate per cbmt (₹)" hint="optional">
           <Inp type="number" min="0" value={form.rate_paise} onChange={e => set('rate_paise', e.target.value)} placeholder="500" />
         </Fld>
         <Fld label="Notes" hint="optional">
@@ -456,8 +456,8 @@ function SplitBlock({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; noti
   const parentDims = selectedBlock?.dimensions || {};
   const parentCft = cftFromM(parentDims.length_m, parentDims.width_m, parentDims.height_m);
 
-  // Convert mm-input fields to metres for calculations
-  const toM = (v: string) => +v / 1000;
+  // Convert cm-input fields to metres for calculations
+  const toM = (v: string) => +v / 100;
   const cft1 = cftFromM(toM(form.sub1.length_m), toM(form.sub1.width_m), toM(form.sub1.height_m));
   const cbm1 = cbmFromM(toM(form.sub1.length_m), toM(form.sub1.width_m), toM(form.sub1.height_m));
   const cft2 = cftFromM(toM(form.sub2.length_m), toM(form.sub2.width_m), toM(form.sub2.height_m));
@@ -521,17 +521,17 @@ function SplitBlock({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; noti
       <div style={{ flex: 1, ...card, display: 'flex', flexDirection: 'column', gap: 10, borderColor: oversize ? 'var(--red)' : 'var(--bd)' }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: oversize ? 'var(--red)' : 'var(--rust)' }}>{label}</div>
         <div style={row3}>
-          <Fld label="Length (mm)">
+          <Fld label="Length (cm)">
             <Inp type="number" step="1" min="0" value={dims.length_m} onChange={e => setSub(n, 'length_m', e.target.value)}
-              placeholder={parentDims.length_m ? String(Math.round(parentDims.length_m * 1000)) : '2440'} required />
+              placeholder={parentDims.length_m ? String(Math.round(parentDims.length_m * 100)) : '244'} required />
           </Fld>
-          <Fld label="Width (mm)">
+          <Fld label="Width (cm)">
             <Inp type="number" step="1" min="0" value={dims.width_m} onChange={e => setSub(n, 'width_m', e.target.value)}
-              placeholder={parentDims.width_m ? String(Math.round(parentDims.width_m * 1000)) : '1220'} required />
+              placeholder={parentDims.width_m ? String(Math.round(parentDims.width_m * 100)) : '122'} required />
           </Fld>
-          <Fld label="Height (mm)">
+          <Fld label="Height (cm)">
             <Inp type="number" step="1" min="0" value={dims.height_m} onChange={e => setSub(n, 'height_m', e.target.value)}
-              placeholder={parentDims.height_m ? String(Math.round(parentDims.height_m * 1000)) : '600'} required />
+              placeholder={parentDims.height_m ? String(Math.round(parentDims.height_m * 100)) : '60'} required />
           </Fld>
         </div>
         {cft > 0 && (
@@ -591,7 +591,7 @@ function SplitBlock({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; noti
         <div style={{ fontSize: 12, color: 'var(--t3)', marginTop: -8, display: 'flex', gap: 8, alignItems: 'center' }}>
           <span>Source: <strong style={{ color: 'var(--t1)' }}>{selectedBlock.variety}</strong></span>
           {parentCft > 0 && <span style={{ color: 'var(--gold)', fontWeight: 600 }}>
-            {(() => { const d = parentDims; return `${Math.round(d.length_m*1000)}×${Math.round(d.width_m*1000)}×${Math.round(d.height_m*1000)} mm · ${volLabel(parentCft, cbmFromM(d.length_m,d.width_m,d.height_m))}`; })()}
+            {(() => { const d = parentDims; return `${Math.round(d.length_m*100)}×${Math.round(d.width_m*100)}×${Math.round(d.height_m*100)} cm · ${volLabel(parentCft, cbmFromM(d.length_m,d.width_m,d.height_m))}`; })()}
           </span>}
         </div>
       )}
@@ -611,8 +611,8 @@ function SplitBlock({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; noti
           color: volOver ? 'var(--red)' : volWarn ? 'var(--sage)' : 'var(--t3)',
         }}>
           {volOver
-            ? `Output ${outputCft.toFixed(1)} CFT > source ${parentCft.toFixed(1)} CFT — check for typos in dimensions`
-            : `Output ${outputCft.toFixed(1)} CFT vs source ${parentCft.toFixed(1)} CFT (${((outputCft/parentCft)*100).toFixed(1)}% yield — kerf loss ${(parentCft - outputCft).toFixed(1)} CFT)`
+            ? `Output ${outputCft.toFixed(1)} cbmt > source ${parentCft.toFixed(1)} cbmt — check for typos in dimensions`
+            : `Output ${outputCft.toFixed(1)} cbmt vs source ${parentCft.toFixed(1)} cbmt (${((outputCft/parentCft)*100).toFixed(1)}% yield — kerf loss ${(parentCft - outputCft).toFixed(1)} cbmt)`
           }
         </div>
       )}
@@ -634,7 +634,7 @@ function SplitBlock({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; noti
           <Fld label="Damaged pieces" hint="blocks cracked / broken">
             <Inp type="number" min="0" step="1" value={form.damage_count} onChange={e => set('damage_count', e.target.value)} placeholder="0" />
           </Fld>
-          <Fld label="Wastage (CFT)" hint="trim / kerf material removed">
+          <Fld label="Wastage (cbmt)" hint="trim / kerf material removed">
             <Inp type="number" min="0" step="1" value={form.wastage_count} onChange={e => set('wastage_count', e.target.value)} placeholder="0" />
           </Fld>
         </div>
@@ -795,7 +795,7 @@ function CutSlabs({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; notify
             </Sel>
             {!SLAB_SIZES.includes(form.slab_size) && (
               <Inp style={{ ...inputStyle, marginTop: 4 }} value={form.slab_size}
-                onChange={e => set('slab_size', e.target.value)} placeholder="L×W mm e.g. 3200×1500" autoFocus />
+                onChange={e => set('slab_size', e.target.value)} placeholder="L×W cm e.g. 3200×1500" autoFocus />
             )}
           </Fld>
         ) : (
@@ -809,21 +809,21 @@ function CutSlabs({ rawBlocks, notify, preselectId }: { rawBlocks: any[]; notify
             </Sel>
             {!TILE_SIZES.includes(form.tile_size) && (
               <Inp style={{ ...inputStyle, marginTop: 4 }} value={form.tile_size}
-                onChange={e => set('tile_size', e.target.value)} placeholder="L×W mm e.g. 450×450" autoFocus />
+                onChange={e => set('tile_size', e.target.value)} placeholder="L×W cm e.g. 45×45" autoFocus />
             )}
           </Fld>
         )}
       </div>
 
       <div style={row3}>
-        <Fld label="Thickness (mm)">
+        <Fld label="Thickness (cm)">
           {isSlab ? (
             <Sel value={form.slab_thickness} onChange={e => set('slab_thickness', e.target.value)}>
-              {SLAB_THICKNESSES.map(t => <option key={t} value={t}>{t} mm</option>)}
+              {SLAB_THICKNESSES.map(t => <option key={t} value={t}>{t} cm</option>)}
             </Sel>
           ) : (
             <Sel value={form.tile_thickness} onChange={e => set('tile_thickness', e.target.value)}>
-              {TILE_THICKNESSES.map(t => <option key={t} value={t}>{t} mm</option>)}
+              {TILE_THICKNESSES.map(t => <option key={t} value={t}>{t} cm</option>)}
             </Sel>
           )}
         </Fld>
@@ -973,7 +973,7 @@ function PolishGrade({ gangsawSlabs, notify, preselectId }: { gangsawSlabs: any[
             const dims = s.dimensions || {};
             return (
               <option key={s.id} value={s.id}>
-                {s.id} [{s.kind}] · {s.variety} {dims.size_lw ? `${dims.size_lw}` : ''} {dims.thickness_mm ? `${dims.thickness_mm}mm` : ''} {s.grade ? `[${s.grade}]` : ''} · {s.stock} pcs
+                {s.id} [{s.kind}] · {s.variety} {dims.size_lw ? `${dims.size_lw}` : ''} {dims.thickness_mm ? `${dims.thickness_mm}cm` : ''} {s.grade ? `[${s.grade}]` : ''} · {s.stock} pcs
               </option>
             );
           })}
@@ -1311,9 +1311,9 @@ function PipelineInventory({ groups, onAction, onDelete }: { groups: Record<stri
       grade:        p.grade || '',
       stock:        String(p.stock ?? 0),
       rate_rs:      p.rate_paise ? String((p.rate_paise / 100).toFixed(2)) : '',
-      length_mm:    d.length_m ? String(Math.round(d.length_m * 1000)) : '',
-      width_mm:     d.width_m  ? String(Math.round(d.width_m  * 1000)) : '',
-      height_mm:    d.height_m ? String(Math.round(d.height_m * 1000)) : '',
+      length_mm:    d.length_m ? String(Math.round(d.length_m * 100)) : '',
+      width_mm:     d.width_m  ? String(Math.round(d.width_m  * 100)) : '',
+      height_mm:    d.height_m ? String(Math.round(d.height_m * 100)) : '',
       size_lw:      d.size_lw      || '',
       thickness_mm: d.thickness_mm ? String(d.thickness_mm) : '',
     });
@@ -1331,9 +1331,9 @@ function PipelineInventory({ groups, onAction, onDelete }: { groups: Record<stri
     };
     if (p.kind === 'block' && ef.length_mm && ef.width_mm && ef.height_mm) {
       data.dimensions = {
-        length_m: Number(ef.length_mm) / 1000,
-        width_m:  Number(ef.width_mm)  / 1000,
-        height_m: Number(ef.height_mm) / 1000,
+        length_m: Number(ef.length_mm) / 100,
+        width_m:  Number(ef.width_mm)  / 100,
+        height_m: Number(ef.height_mm) / 100,
       };
     } else if ((p.kind === 'slab' || p.kind === 'cts') && ef.size_lw && ef.thickness_mm) {
       data.dimensions = { size_lw: ef.size_lw, thickness_mm: Number(ef.thickness_mm), sqft: sqftFromSize(ef.size_lw) };
@@ -1427,16 +1427,16 @@ function PipelineInventory({ groups, onAction, onDelete }: { groups: Record<stri
                       const d = p.dimensions || {};
                       let dimStr = '';
                       if (p.kind === 'block') {
-                        const lmm = d.length_m ? Math.round(d.length_m * 1000) : null;
-                        const wmm = d.width_m  ? Math.round(d.width_m  * 1000) : null;
-                        const hmm = d.height_m ? Math.round(d.height_m * 1000) : null;
+                        const lmm = d.length_m ? Math.round(d.length_m * 100) : null;
+                        const wmm = d.width_m  ? Math.round(d.width_m  * 100) : null;
+                        const hmm = d.height_m ? Math.round(d.height_m * 100) : null;
                         if (lmm && wmm && hmm) {
                           const cft = cftFromM(d.length_m, d.width_m, d.height_m);
                           const cbm = cbmFromM(d.length_m, d.width_m, d.height_m);
-                          dimStr = `${lmm}×${wmm}×${hmm} mm · ${volLabel(cft, cbm)}`;
+                          dimStr = `${lmm}×${wmm}×${hmm} cm · ${volLabel(cft, cbm)}`;
                         }
                       } else if (d.size_lw) {
-                        dimStr = `${d.size_lw} · ${d.thickness_mm || '?'}mm`;
+                        dimStr = `${d.size_lw} · ${d.thickness_mm || '?'}cm`;
                         if (d.sqft)          dimStr += ` · ${d.sqft} sqft`;
                         if (d.sqft_per_tile) dimStr += ` · ${d.sqft_per_tile} sqft/tile`;
                       }
@@ -1586,7 +1586,7 @@ function PipelineInventory({ groups, onAction, onDelete }: { groups: Record<stri
                                   <div style={{ width: 1, background: 'var(--bd)', alignSelf: 'stretch', margin: '0 2px' }} />
                                   {(['length_mm','width_mm','height_mm'] as const).map(k => (
                                     <div key={k} style={fieldStyle}>
-                                      <label style={labelStyle}>{k === 'length_mm' ? 'L (mm)' : k === 'width_mm' ? 'W (mm)' : 'H (mm)'}</label>
+                                      <label style={labelStyle}>{k === 'length_mm' ? 'L (cm)' : k === 'width_mm' ? 'W (cm)' : 'H (cm)'}</label>
                                       <input style={{ ...inputStyle, width: 72 }} type="number" min="0" value={editForm[k]}
                                         onChange={e => setEditForm((f: any) => ({ ...f, [k]: e.target.value }))} />
                                     </div>
@@ -1601,7 +1601,7 @@ function PipelineInventory({ groups, onAction, onDelete }: { groups: Record<stri
                                       placeholder="2600×1600" />
                                   </div>
                                   <div style={fieldStyle}>
-                                    <label style={labelStyle}>Thick (mm)</label>
+                                    <label style={labelStyle}>Thick (cm)</label>
                                     <input style={{ ...inputStyle, width: 70 }} type="number" min="0" value={editForm.thickness_mm}
                                       onChange={e => setEditForm((f: any) => ({ ...f, thickness_mm: e.target.value }))} />
                                   </div>

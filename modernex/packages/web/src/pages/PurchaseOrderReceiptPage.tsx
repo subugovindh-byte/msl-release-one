@@ -223,8 +223,8 @@ export function PurchaseOrderReceiptPage() {
   <table>
     ${row('Variety', p.variety ?? '\u2014')}
     ${row('Blocks', String(p.blocks ?? '\u2014'))}
-    ${row('Volume', `${p.cft ?? 0} CFT`)}
-    ${row('Rate/CFT', fp(p.rate_per_cft_paise ?? 0))}
+    ${row('Volume', `${p.cft ?? 0} cbmt`)}
+    ${row('Rate/cbmt', fp(p.rate_per_cft_paise ?? 0))}
     ${row('HSN', hsnCode)}
   </table>
   <hr class="rule">
@@ -576,13 +576,13 @@ export function PurchaseOrderReceiptPage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
             <div style={{ background: 'var(--bg1)', border: '1px solid var(--bd)', borderRadius: 6, padding: '10px 12px' }}>
               <div className="receipt-label" style={{ marginBottom: 6 }}>1 · Ordered (PO)</div>
-              <div style={{ fontSize: 12, color: 'var(--t2)' }}>{matchData.ordered.blocks} blocks · {matchData.ordered.cft} CFT</div>
+              <div style={{ fontSize: 12, color: 'var(--t2)' }}>{matchData.ordered.blocks} blocks · {matchData.ordered.cft} cbmt</div>
               <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--t1)', marginTop: 4 }}>{formatINR(matchData.ordered.total_paise)}</div>
             </div>
             <div style={{ background: 'var(--bg1)', border: '1px solid var(--bd)', borderRadius: 6, padding: '10px 12px' }}>
               <div className="receipt-label" style={{ marginBottom: 6 }}>2 · Received (weighbridge)</div>
               <div style={{ fontSize: 12, color: 'var(--t2)' }}>
-                {matchData.received.blocks_received} blocks · {matchData.received.cft_received} CFT
+                {matchData.received.blocks_received} blocks · {matchData.received.cft_received} cbmt
                 {matchData.received.net_weight_kg > 0 && <> · <strong style={{ color: 'var(--gold)' }}>{(matchData.received.net_weight_kg / 1000).toFixed(3)} t</strong></>}
               </div>
               <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 4 }}>
@@ -732,8 +732,8 @@ export function PurchaseOrderReceiptPage() {
             {po.block_number && <POInfoRow label="Block #" value={po.block_number} />}
             <POInfoRow label="Variety"    value={po.variety ?? '—'} />
             <POInfoRow label="Blocks"     value={String(po.blocks ?? '—')} />
-            <POInfoRow label="Volume"     value={`${po.cft ?? 0} CFT`} />
-            <POInfoRow label="Rate / CFT" value={formatINR(po.rate_per_cft_paise ?? 0)} />
+            <POInfoRow label="Volume"     value={`${po.cft ?? 0} cbmt`} />
+            <POInfoRow label="Rate / cbmt" value={formatINR(po.rate_per_cft_paise ?? 0)} />
             {po.incoterm && <POInfoRow label="Incoterm" value={po.incoterm} />}
             {po.allowance_pct > 0 && <POInfoRow label="Allowance" value={`${po.allowance_pct}% (rough-edge)`} />}
             {transport > 0 && <POInfoRow label="Transport" value={formatINR(transport)} />}
@@ -760,8 +760,8 @@ export function PurchaseOrderReceiptPage() {
               <th style={{ textAlign: 'left', width: '30%' }}>Description</th>
               <th>HSN</th>
               <th>Blocks</th>
-              <th>Volume (CFT)</th>
-              <th>Rate / CFT</th>
+              <th>Volume (cbmt)</th>
+              <th>Rate / cbmt</th>
               {transport > 0 && <th>Transport</th>}
               <th>Taxable</th>
               <th>GST {GST_RATE_LABEL}%</th>
@@ -914,7 +914,7 @@ export function PurchaseOrderReceiptPage() {
             <form onSubmit={handleCreateGRN} style={{ padding: 16, borderTop: '1px solid var(--bd)', backgroundColor: 'var(--bg1)' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
                 <div><label className="fl">Blocks Received *</label><input type="number" value={grnForm.blocks_received || ''} onChange={e => setGrnForm({ ...grnForm, blocks_received: parseInt(e.target.value) || 0 })} required className="fi" min="1" /></div>
-                <div><label className="fl">CFT Received *</label><input type="number" step="0.01" value={grnForm.cft_received || ''} onChange={e => setGrnForm({ ...grnForm, cft_received: parseFloat(e.target.value) || 0 })} required className="fi" min="0" /></div>
+                <div><label className="fl">cbmt Received *</label><input type="number" step="0.01" value={grnForm.cft_received || ''} onChange={e => setGrnForm({ ...grnForm, cft_received: parseFloat(e.target.value) || 0 })} required className="fi" min="0" /></div>
                 <div>
                   <label className="fl">Net Weight (kg) — weighbridge</label>
                   <input type="number" step="0.1" value={grnForm.net_weight_kg || ''} onChange={e => setGrnForm({ ...grnForm, net_weight_kg: parseFloat(e.target.value) || 0 })} className="fi" min="0" placeholder="certified scale" />
@@ -945,7 +945,7 @@ export function PurchaseOrderReceiptPage() {
                 <div key={g.id} style={{ display: 'flex', gap: 16, padding: '10px 16px', borderBottom: '1px solid var(--bd)', fontSize: 12, flexWrap: 'wrap', alignItems: 'center' }}>
                   <span style={{ fontFamily: 'monospace', fontWeight: 700, minWidth: 120 }}>{g.id}</span>
                   <span style={{ color: 'var(--t3)' }}>{g.date}</span>
-                  <span>{g.blocks_received} blocks · {g.cft_received} CFT</span>
+                  <span>{g.blocks_received} blocks · {g.cft_received} cbmt</span>
                   {g.net_weight_kg > 0 && (
                     <span style={{ fontWeight: 700, color: 'var(--gold)' }}>
                       ⊜ {(g.net_weight_kg / 1000).toFixed(3)} t
