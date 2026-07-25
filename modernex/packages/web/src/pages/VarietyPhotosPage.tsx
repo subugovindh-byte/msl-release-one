@@ -207,7 +207,9 @@ export function VarietyPhotosPage() {
                 />
               ) : (
                 <div style={{ textAlign: 'center', color: 'var(--t3)', fontSize: '12px' }}>
-                  <div style={{ fontSize: '32px', marginBottom: '8px' }}>📷</div>
+                  <div style={{ marginBottom: '8px', color: 'var(--t3)' }}>
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                  </div>
                   <div>No photo</div>
                 </div>
               )}
@@ -291,7 +293,12 @@ export function VarietyPhotosPage() {
                     transition: 'all 0.2s'
                   }}
                 >
-                  {uploading === variety.variety ? 'Uploading...' : '📤 Upload Photo'}
+                  {uploading === variety.variety ? 'Uploading…' : (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                      Upload Photo
+                    </span>
+                  )}
                 </label>
                 {variety.photo_url && user?.role === 'admin' && (
                   <button
@@ -300,9 +307,11 @@ export function VarietyPhotosPage() {
                       padding: '6px 16px', fontSize: '11px', fontWeight: 600,
                       background: 'transparent', color: 'var(--red)',
                       border: '1px solid var(--red)', borderRadius: '4px', cursor: 'pointer',
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
                     }}
                   >
-                    ✕ Remove Photo
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                    Remove Photo
                   </button>
                 )}
               </div>
