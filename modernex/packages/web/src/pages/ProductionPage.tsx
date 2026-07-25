@@ -1164,15 +1164,24 @@ function QACheck({ qaPending, notify }: { qaPending: any[]; notify: any }) {
   const rework = useReworkProduct();
   const [noteFor, setNoteFor] = useState<string>('');
   const [noteText, setNoteText] = useState('');
+  const [passFor, setPassFor] = useState<string>('');   // item awaiting rate confirm on pass
+  const [rateText, setRateText] = useState('');
 
-  function runQa(id: string, result: 'pass' | 'fail') {
-    if (result === 'fail' && noteFor !== id) { setNoteFor(id); return; }
+  function runQa(id: string, result: 'pass' | 'fail', currentRatePaise?: number) {
+    // First click opens an inline confirm: fail → reason, pass → sale rate.
+    if (result === 'fail' && noteFor !== id) { setNoteFor(id); setPassFor(''); return; }
+    if (result === 'pass' && passFor !== id) {
+      setPassFor(id); setNoteFor('');
+      setRateText(currentRatePaise ? String(currentRatePaise / 100) : '');
+      return;
+    }
+    const rate_paise = result === 'pass' && rateText ? Math.round(parseFloat(rateText) * 100) : undefined;
     qa.mutate(
-      { id, result, notes: result === 'fail' ? (noteText || undefined) : undefined },
+      { id, result, notes: result === 'fail' ? (noteText || undefined) : undefined, rate_paise },
       {
         onSuccess: () => {
           notify(result === 'pass' ? `QA passed — ${id} cleared for sale` : `QA failed — ${id} held for rework`, result === 'pass' ? 'success' : 'error');
-          setNoteFor(''); setNoteText('');
+          setNoteFor(''); setNoteText(''); setPassFor(''); setRateText('');
         },
         onError: (e: any) => notify(e.message || 'QA update failed', 'error'),
       }
@@ -1220,7 +1229,7 @@ function QACheck({ qaPending, notify }: { qaPending: any[]; notify: any }) {
               {!failed && (
                 <>
                   <button type="button" style={{ ...btnPrimary, background: 'var(--sage)' }}
-                    onClick={() => runQa(p.id, 'pass')} disabled={qa.isPending}>✓ Pass</button>
+                    onClick={() => runQa(p.id, 'pass', p.rate_paise)} disabled={qa.isPending}>✓ Pass</button>
                   <button type="button" style={{ ...btnPrimary, background: 'var(--red)' }}
                     onClick={() => runQa(p.id, 'fail')} disabled={qa.isPending}>✕ Fail</button>
                 </>
@@ -1230,6 +1239,15 @@ function QACheck({ qaPending, notify }: { qaPending: any[]; notify: any }) {
                   onClick={() => sendBackToPolish(p.id)} disabled={rework.isPending}>↩ Rework (re-polish)</button>
               )}
             </div>
+            {passFor === p.id && (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <span style={{ fontSize: 12, color: 'var(--t3)', whiteSpace: 'nowrap' }}>Confirm sale rate ₹/sqft</span>
+                <input type="number" min="0" step="0.01" value={rateText} onChange={e => setRateText(e.target.value)}
+                  placeholder="rate" style={{ ...inputStyle, width: 120 }} />
+                <button type="button" style={{ ...btnPrimary, background: 'var(--sage)' }}
+                  onClick={() => runQa(p.id, 'pass')} disabled={qa.isPending}>Confirm Pass</button>
+              </div>
+            )}
             {noteFor === p.id && (
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <input value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="Reason for failure (optional)"

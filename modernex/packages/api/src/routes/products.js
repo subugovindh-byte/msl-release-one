@@ -300,6 +300,7 @@ productsRouter.post('/:id/qa',
   validate(z.object({
     result: z.enum(['pass', 'fail']),
     notes: z.string().max(500).nullable().optional(),
+    rate_paise: z.number().int().nonnegative().optional(),   // confirm sale rate on pass
   })),
   (req, res, next) => {
     try {
@@ -313,11 +314,17 @@ productsRouter.post('/:id/qa',
         throw new AppError(`${req.params.id} has already passed QA.`, 409);
       }
       const status = req.body.result === 'pass' ? 'passed' : 'failed';
+      // On a pass, optionally confirm the selling rate as the item clears for sale.
+      const setRate = status === 'passed' && req.body.rate_paise != null;
       db.prepare(`
         UPDATE products
-        SET qa_status = ?, qa_by = ?, qa_at = datetime('now'), qa_notes = ?, updated_at = datetime('now'), updated_by = ?
+        SET qa_status = ?, qa_by = ?, qa_at = datetime('now'), qa_notes = ?,
+            ${setRate ? 'rate_paise = ?,' : ''}
+            updated_at = datetime('now'), updated_by = ?
         WHERE id = ?
-      `).run(status, req.user.username, req.body.notes || null, req.user.username, req.params.id);
+      `).run(status, req.user.username, req.body.notes || null,
+             ...(setRate ? [req.body.rate_paise] : []),
+             req.user.username, req.params.id);
       const updated = loadProduct(db, req.params.id);
       audit(req, 'PRODUCT_QA', 'products', req.params.id, existing, updated);
       res.json({ product: updated });

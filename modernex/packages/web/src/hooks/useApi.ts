@@ -152,7 +152,7 @@ export function useRecordDamage(options?: UseMutationOptions<{ ok: boolean; new_
   });
 }
 
-export function useQaProduct(options?: UseMutationOptions<Product, Error, { id: string; result: 'pass' | 'fail'; notes?: string }>) {
+export function useQaProduct(options?: UseMutationOptions<Product, Error, { id: string; result: 'pass' | 'fail'; notes?: string; rate_paise?: number }>) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...data }) => api.post<{ product: Product }>(`/products/${id}/qa`, data).then((res) => res.product),

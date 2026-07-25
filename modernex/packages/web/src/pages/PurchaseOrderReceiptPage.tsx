@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import QRCode from 'qrcode';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { CGST_RATE_LABEL, SGST_RATE_LABEL, GST_RATE_LABEL, PAYMENT_MODES } from '@modernex/shared'; // CGST/SGST used in totals
-import { usePurchaseOrder, useCompany, useCreatePayment, useGRNList, useCreateGRN, useUpdatePOTransport, useVendors, useUpdatePOStatus, usePOMatch, useRecordPOMatch } from '@/hooks/useApi';
+import { usePurchaseOrder, useCompany, useCreatePayment, useGRNList, useCreateGRN, useUpdatePOTransport, useVendors, useCreateVendor, useUpdatePOStatus, usePOMatch, useRecordPOMatch } from '@/hooks/useApi';
 import { formatINR, formatDate, selectOnFocus } from '@/utils/format';
 import { useToastStore } from '@/store';
 
@@ -266,6 +266,10 @@ export function PurchaseOrderReceiptPage() {
   const transportors: any[] = (vendorsData as any)?.vendors || [];
   const grns: any[] = grnData?.receipts || [];
 
+  // Inline transporter quick-add (so you don't have to leave the receipt for Masters)
+  const createTransporter = useCreateVendor();
+  const [newTransporter, setNewTransporter] = useState('');
+
   const co = companyData?.company;
   const COMPANY  = co?.name    ?? 'MODERNEX STONES LLP';
   const GSTIN    = co?.gstin   ?? '33ACGFM7745J1ZW';
@@ -351,6 +355,23 @@ export function PurchaseOrderReceiptPage() {
         },
         onError: (e: any) => notify(e.message || 'Failed to record match', 'error'),
       },
+    );
+  }
+
+  function addTransporter() {
+    const name = newTransporter.trim();
+    if (!name) return;
+    createTransporter.mutate(
+      { name, type: 'Transporter', state: co?.state || 'Tamil Nadu' } as any,
+      {
+        onSuccess: (res: any) => {
+          const id = res?.vendor?.id;
+          if (id) setTransportForm(f => ({ ...f, transport_vendor_id: id }));
+          setNewTransporter('');
+          notify(`Transporter "${name}" added`, 'success');
+        },
+        onError: (e: any) => notify(e.message || 'Failed to add transporter', 'error'),
+      }
     );
   }
 
@@ -880,9 +901,19 @@ export function PurchaseOrderReceiptPage() {
                 <div>
                   <label className="fl">Transporter</label>
                   <select value={transportForm.transport_vendor_id} onChange={e => setTransportForm({ ...transportForm, transport_vendor_id: e.target.value })} className="fsel">
-                    <option value="">— Select —</option>
+                    <option value="">{transportors.length ? '— Select —' : '— none yet, add below —'}</option>
                     {transportors.map((v: any) => <option key={v.id} value={v.id}>{v.name}</option>)}
                   </select>
+                  <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                    <input value={newTransporter} onChange={e => setNewTransporter(e.target.value)}
+                      placeholder="＋ New transporter name" className="fi" style={{ flex: 1 }}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTransporter(); } }} />
+                    <button type="button" onClick={addTransporter}
+                      disabled={!newTransporter.trim() || createTransporter.isPending}
+                      style={{ padding: '0 12px', background: 'var(--rust)', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 600, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap', opacity: newTransporter.trim() ? 1 : 0.5 }}>
+                      {createTransporter.isPending ? 'Adding…' : 'Add'}
+                    </button>
+                  </div>
                 </div>
                 <div><label className="fl">Bill No</label><input type="text" value={transportForm.transport_bill_no} onChange={e => setTransportForm({ ...transportForm, transport_bill_no: e.target.value })} className="fi" placeholder="e.g. TB-2025-001" /></div>
                 <div><label className="fl">Bill Date</label><input type="date" value={transportForm.transport_bill_date} onChange={e => setTransportForm({ ...transportForm, transport_bill_date: e.target.value })} className="fi" /></div>
