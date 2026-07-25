@@ -137,6 +137,27 @@ productsRouter.post('/',
       const uom = b.uom || kindDef?.uom || 'pc';
       const hsn = b.hsn || kindDef?.hsn || '2516';
 
+      // Approved-PO gate: blocks can only enter Raw Yard from an approved PO
+      if (b.kind === 'block') {
+        if (!b.po_id) {
+          throw new AppError(
+            'Block registration requires an approved Purchase Order. ' +
+            'Create and approve a PO in the Purchase module first.',
+            400
+          );
+        }
+        const po = db.prepare('SELECT id, status, variety FROM purchase_orders WHERE id = ?').get(b.po_id);
+        if (!po) throw new AppError(`Purchase Order ${b.po_id} not found.`, 404);
+        if (!['approved', 'closed'].includes(po.status)) {
+          throw new AppError(
+            `Block cannot be registered — PO ${po.id} is '${po.status}'. ` +
+            `Only 'approved' or 'closed' POs allow block receipt. ` +
+            `Approve the PO in Purchase first.`,
+            409
+          );
+        }
+      }
+
       // Duplicate block guard: same lot + variety + dimensions already registered
       if (b.kind === 'block' && b.lot_id && b.dimensions) {
         const dims = b.dimensions;

@@ -237,10 +237,12 @@ function ReceiveBlock({ notify }: { notify: any }) {
   const createProduct = useCreateProduct();
   const { data: posData }      = usePurchaseOrders({});
   const { data: allProdsData } = useProducts({});
-  const pos      = (posData?.purchase_orders || []).filter((p: any) => p.status !== 'cancelled');
+  // Only approved/closed POs can be used to receive blocks
+  const allPos   = posData?.purchase_orders || [];
+  const pos      = allPos.filter((p: any) => ['approved', 'closed'].includes(p.status));
   const allProds = allProdsData?.products   || [];
 
-  const suggested = useMemo(() => nextLotId(allProds, pos), [allProds, pos]);
+  const suggested = useMemo(() => nextLotId(allProds, allPos), [allProds, allPos]);
 
   const [form, setForm] = useState({
     variety: VARIETIES[0],
@@ -258,12 +260,19 @@ function ReceiveBlock({ notify }: { notify: any }) {
     setForm(f => f.lot_id ? f : { ...f, lot_id: suggested });
   }, [suggested]);
 
-  // When PO selected, derive lot from PO id if lot_id not manually set
+  // When PO selected: derive lot, auto-fill variety + rate from PO
   function onPoChange(poId: string) {
     setForm(f => {
       const po = pos.find((p: any) => p.id === poId);
-      const newLot = po ? nextLotId(allProds, pos) : suggested;
-      return { ...f, po_id: poId, lot_id: f.lot_id || newLot };
+      if (!po) return { ...f, po_id: '', variety: VARIETIES[0], rate_paise: '' };
+      const newLot = nextLotId(allProds, allPos);
+      return {
+        ...f,
+        po_id: poId,
+        lot_id: f.lot_id || newLot,
+        variety: po.variety || f.variety,
+        rate_paise: po.rate_per_cft_paise ? String(po.rate_per_cft_paise / 100) : f.rate_paise,
+      };
     });
   }
 
@@ -295,6 +304,9 @@ function ReceiveBlock({ notify }: { notify: any }) {
 
   async function submit(e: any) {
     e.preventDefault();
+    if (!form.po_id) {
+      notify('Select an approved Purchase Order before registering a block', 'error'); return;
+    }
     if (!form.variety || !form.lot_id || !form.length_m || !form.width_m || !form.height_m) {
       notify('Fill variety, lot ID and all dimensions', 'error'); return;
     }
@@ -328,113 +340,122 @@ function ReceiveBlock({ notify }: { notify: any }) {
   return (
     <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 560 }}>
       <p style={{ margin: 0, fontSize: 13, color: 'var(--t3)' }}>
-        Register an incoming quarry block. It will be placed at <strong style={{ color: 'var(--t1)' }}>Raw Yard</strong> and available for splitting.
+        Select an <strong>approved</strong> Purchase Order to receive a block into <strong style={{ color: 'var(--t1)' }}>Raw Yard</strong>.
+        Blocks without an approved PO cannot enter production.
       </p>
 
-      <div style={row2}>
-        <Fld label="Variety">
-          <Sel value={form.variety} onChange={e => set('variety', e.target.value)}>
-            {VARIETIES.map(v => <option key={v}>{v}</option>)}
-          </Sel>
-        </Fld>
-        <Fld label="Lot ID" hint="auto-assigned — editable">
-          <div style={{ position: 'relative' }}>
-            <Inp
-              value={form.lot_id}
-              onChange={e => set('lot_id', e.target.value)}
-              placeholder={suggested}
-              required
-              style={{ ...inputStyle, paddingRight: 72, width: '100%', boxSizing: 'border-box' }}
-            />
-            {form.lot_id !== suggested && (
-              <button
-                type="button"
-                onClick={() => set('lot_id', suggested)}
-                style={{
-                  position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
-                  background: 'var(--rustW)', color: 'var(--rust)', border: 'none',
-                  borderRadius: 4, fontSize: 10, fontWeight: 700, padding: '2px 7px', cursor: 'pointer',
-                }}
-              >reset</button>
-            )}
-          </div>
-        </Fld>
-      </div>
-
-      {pos.length > 0 && (
-        <Fld label="Link to Purchase Order (optional)">
-          <Sel value={form.po_id} onChange={e => onPoChange(e.target.value)}>
-            <option value="">— none —</option>
+      {pos.length === 0 ? (
+        <div style={{ background: 'rgba(220,50,50,0.08)', border: '1px solid var(--red)', borderRadius: 6, padding: '12px 16px', fontSize: 13, color: 'var(--red)', fontWeight: 600 }}>
+          No approved Purchase Orders found. Go to <strong>Purchase</strong> and approve a PO before receiving blocks.
+        </div>
+      ) : (
+        <Fld label="Purchase Order *" hint="only approved/closed POs shown">
+          <Sel value={form.po_id} onChange={e => onPoChange(e.target.value)} required>
+            <option value="">— select approved PO —</option>
             {pos.map((po: any) => (
-              <option key={po.id} value={po.id}>{po.id} · {po.variety} [{po.status}]</option>
+              <option key={po.id} value={po.id}>
+                {po.id} · {po.variety} · {po.blocks} blk · {po.cft} cbmt [{po.status}]
+              </option>
             ))}
           </Sel>
         </Fld>
       )}
+
       {form.po_id && (() => {
         const po = pos.find((p: any) => p.id === form.po_id);
         if (!po) return null;
-        if (po.status === 'new') return (
-          <div style={{ background: 'rgba(220,50,50,0.1)', border: '1px solid var(--red)', borderRadius: 5, padding: '7px 12px', fontSize: 12, color: 'var(--red)', fontWeight: 600 }}>
-            PO is still <strong>New</strong> — receive blocks via GRN first, then get it approved before registering for production.
+        return (
+          <div style={{ background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 6, padding: '8px 14px', fontSize: 12, color: 'var(--t2)', display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+            <span><span style={{ color: 'var(--t3)' }}>Vendor:</span> <strong>{po.vendor_name || po.vendor_id}</strong></span>
+            <span><span style={{ color: 'var(--t3)' }}>Variety:</span> <strong>{po.variety}</strong></span>
+            <span><span style={{ color: 'var(--t3)' }}>Ordered:</span> <strong>{po.blocks} blk · {po.cft} cbmt</strong></span>
+            <span><span style={{ color: 'var(--t3)' }}>Rate:</span> <strong>₹{(po.rate_per_cft_paise / 100).toLocaleString()}/cbmt</strong></span>
           </div>
         );
-        if (po.status === 'received') return (
-          <div style={{ background: 'rgba(230,160,0,0.1)', border: '1px solid var(--amber)', borderRadius: 5, padding: '7px 12px', fontSize: 12, color: 'var(--amber)', fontWeight: 600 }}>
-            PO is <strong>Received</strong> — pending approval. Ask admin to approve before production.
-          </div>
-        );
-        return null;
       })()}
 
-      <div style={{ borderTop: '1px solid var(--bd)', paddingTop: 12 }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--t3)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-          Block Dimensions
+      {form.po_id && (
+        <div style={row2}>
+          <Fld label="Variety">
+            <Sel value={form.variety} onChange={e => set('variety', e.target.value)}>
+              {VARIETIES.map(v => <option key={v}>{v}</option>)}
+            </Sel>
+          </Fld>
+          <Fld label="Lot ID" hint="auto-assigned — editable">
+            <div style={{ position: 'relative' }}>
+              <Inp
+                value={form.lot_id}
+                onChange={e => set('lot_id', e.target.value)}
+                placeholder={suggested}
+                required
+                style={{ ...inputStyle, paddingRight: 72, width: '100%', boxSizing: 'border-box' }}
+              />
+              {form.lot_id !== suggested && (
+                <button
+                  type="button"
+                  onClick={() => set('lot_id', suggested)}
+                  style={{
+                    position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
+                    background: 'var(--rustW)', color: 'var(--rust)', border: 'none',
+                    borderRadius: 4, fontSize: 10, fontWeight: 700, padding: '2px 7px', cursor: 'pointer',
+                  }}
+                >reset</button>
+              )}
+            </div>
+          </Fld>
         </div>
-        <div style={row3}>
-          <Fld label="Length (cm)">
-            <Inp type="number" step="1" min="0" value={form.length_m} onChange={e => set('length_m', e.target.value)} placeholder="244" required />
-          </Fld>
-          <Fld label="Width (cm)">
-            <Inp type="number" step="1" min="0" value={form.width_m} onChange={e => set('width_m', e.target.value)} placeholder="122" required />
-          </Fld>
-          <Fld label="Height (cm)">
-            <Inp type="number" step="1" min="0" value={form.height_m} onChange={e => set('height_m', e.target.value)} placeholder="122" required />
-          </Fld>
+      )}
+
+      {form.po_id && (<>
+        <div style={{ borderTop: '1px solid var(--bd)', paddingTop: 12 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--t3)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            Block Dimensions
+          </div>
+          <div style={row3}>
+            <Fld label="Length (cm)">
+              <Inp type="number" step="1" min="0" value={form.length_m} onChange={e => set('length_m', e.target.value)} placeholder="244" required />
+            </Fld>
+            <Fld label="Width (cm)">
+              <Inp type="number" step="1" min="0" value={form.width_m} onChange={e => set('width_m', e.target.value)} placeholder="122" required />
+            </Fld>
+            <Fld label="Height (cm)">
+              <Inp type="number" step="1" min="0" value={form.height_m} onChange={e => set('height_m', e.target.value)} placeholder="122" required />
+            </Fld>
+          </div>
+          {cft > 0 && (
+            <div style={{ marginTop: 8, fontSize: 13, color: 'var(--gold)', fontWeight: 600 }}>
+              ≈ {volLabel(cft, cbm)}
+            </div>
+          )}
         </div>
-        {cft > 0 && (
-          <div style={{ marginTop: 8, fontSize: 13, color: 'var(--gold)', fontWeight: 600 }}>
-            ≈ {volLabel(cft, cbm)}
+
+        {/* Duplicate warnings */}
+        {exactDupe && (
+          <div style={{ background: 'rgba(220,50,50,0.1)', border: '1px solid var(--red)', borderRadius: 6, padding: '8px 12px', fontSize: 12, color: 'var(--red)', fontWeight: 600 }}>
+            Duplicate block detected: <span style={{ fontFamily: 'monospace' }}>{exactDupe.id}</span> already has this exact lot, variety and dimensions. Change the lot ID if this is a different physical block.
           </div>
         )}
-      </div>
+        {!exactDupe && lotDupes.length > 0 && (
+          <div style={{ background: 'rgba(230,160,0,0.1)', border: '1px solid var(--amber)', borderRadius: 6, padding: '8px 12px', fontSize: 12, color: 'var(--amber)' }}>
+            Lot <strong>{form.lot_id}</strong> already has {lotDupes.length} block{lotDupes.length > 1 ? 's' : ''} registered ({lotDupes.map((p: any) => p.id).join(', ')}). Confirm dimensions are different.
+          </div>
+        )}
 
-      {/* Duplicate warnings */}
-      {exactDupe && (
-        <div style={{ background: 'rgba(220,50,50,0.1)', border: '1px solid var(--red)', borderRadius: 6, padding: '8px 12px', fontSize: 12, color: 'var(--red)', fontWeight: 600 }}>
-          Duplicate block detected: <span style={{ fontFamily: 'monospace' }}>{exactDupe.id}</span> already has this exact lot, variety and dimensions. Change the lot ID if this is a different physical block.
+        <div style={row2}>
+          <Fld label="Rate per cbmt (₹)" hint="auto-filled from PO">
+            <Inp type="number" min="0" value={form.rate_paise} onChange={e => set('rate_paise', e.target.value)} placeholder="500" />
+          </Fld>
+          <Fld label="Notes" hint="optional">
+            <Inp value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Any remark..." />
+          </Fld>
         </div>
-      )}
-      {!exactDupe && lotDupes.length > 0 && (
-        <div style={{ background: 'rgba(230,160,0,0.1)', border: '1px solid var(--amber)', borderRadius: 6, padding: '8px 12px', fontSize: 12, color: 'var(--amber)' }}>
-          Lot <strong>{form.lot_id}</strong> already has {lotDupes.length} block{lotDupes.length > 1 ? 's' : ''} registered ({lotDupes.map((p: any) => p.id).join(', ')}). Confirm dimensions are different.
+
+        <div>
+          <button type="submit" style={{ ...btnPrimary, opacity: exactDupe ? 0.5 : 1 }} disabled={createProduct.isPending || !!exactDupe}>
+            {createProduct.isPending ? 'Registering…' : 'Register Block at Raw Yard'}
+          </button>
         </div>
-      )}
-
-      <div style={row2}>
-        <Fld label="Rate per cbmt (₹)" hint="optional">
-          <Inp type="number" min="0" value={form.rate_paise} onChange={e => set('rate_paise', e.target.value)} placeholder="500" />
-        </Fld>
-        <Fld label="Notes" hint="optional">
-          <Inp value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Any remark..." />
-        </Fld>
-      </div>
-
-      <div>
-        <button type="submit" style={{ ...btnPrimary, opacity: exactDupe ? 0.5 : 1 }} disabled={createProduct.isPending || !!exactDupe}>
-          {createProduct.isPending ? 'Registering…' : 'Register Block at Raw Yard'}
-        </button>
-      </div>
+      </>)}
     </form>
   );
 }
