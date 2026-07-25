@@ -184,9 +184,9 @@ function VarietyList({ varieties, loading, onCreate, onUpdate, onDelete, notify 
                 </select>
               </div>
               <div><label className="fl" title="Harmonised System of Nomenclature code — 2516 is standard for granite, used on invoices">HSN Code</label><input type="text" value={editForm.hsn_default} onChange={e => setEditForm({ ...editForm, hsn_default: e.target.value })} maxLength={8} className="fi" /></div>
-              <div><label className="fl" title="Unit of Measure — sqft for slabs, cft for blocks, kg for chips">Default UOM</label>
+              <div><label className="fl" title="Unit of Measure — sqft for slabs, cbmt for blocks, kg for chips">Default UOM</label>
                 <select value={editForm.uom_default} onChange={e => setEditForm({ ...editForm, uom_default: e.target.value })} className="fsel">
-                  {['sqft','cft','mt','kg','nos'].map(u => <option key={u} value={u}>{u}</option>)}
+                  {['sqft','cbmt','mt','kg','nos'].map(u => <option key={u} value={u}>{u}</option>)}
                 </select>
               </div>
               <div><label className="fl" title="Product kind: slab, tile, block, chips, cobble, kerb, etc.">Default Kind</label>

@@ -50,6 +50,19 @@ function POForm({ vendors, form, setForm, onSubmit, isPending, onCancel, title }
   vendors: any[]; form: POFormState; setForm: (f: POFormState) => void;
   onSubmit: (e: React.FormEvent) => void; isPending: boolean; onCancel: () => void; title: string;
 }) {
+  const [dims, setDims] = useState({ l: '', w: '', h: '' });
+
+  // Auto-calculate cbmt from L×W×H (cm) whenever any dimension changes
+  const handleDim = (k: 'l' | 'w' | 'h', v: string) => {
+    const next = { ...dims, [k]: v };
+    setDims(next);
+    const l = parseFloat(next.l), w = parseFloat(next.w), h = parseFloat(next.h);
+    if (l > 0 && w > 0 && h > 0) {
+      const cbmt = +(l * w * h / 28316.8).toFixed(2);
+      setForm({ ...form, cft: cbmt });
+    }
+  };
+
   const taxable = Math.round(form.cft * form.rate_per_cft_paise) + (form.transport_paise || 0);
   const gst = Math.round(taxable * GST_RATE);
   const total = taxable + gst;
@@ -95,12 +108,29 @@ function POForm({ vendors, form, setForm, onSubmit, isPending, onCancel, title }
             onChange={e => setForm({ ...form, blocks: parseInt(e.target.value) || 1 })}
             onFocus={selectOnFocus} required />
         </div>
-        <div style={{ gridColumn: 'span 3' }}>
-          <label style={lbl}>cbmt *</label>
+        <div>
+          <label style={lbl}>Length (cm)</label>
+          <input type="number" style={inp} min="0" step="1" placeholder="e.g. 270"
+            value={dims.l} onChange={e => handleDim('l', e.target.value)} onFocus={selectOnFocus} />
+        </div>
+        <div>
+          <label style={lbl}>Width (cm)</label>
+          <input type="number" style={inp} min="0" step="1" placeholder="e.g. 180"
+            value={dims.w} onChange={e => handleDim('w', e.target.value)} onFocus={selectOnFocus} />
+        </div>
+        <div>
+          <label style={lbl}>Height (cm)</label>
+          <input type="number" style={inp} min="0" step="1" placeholder="e.g. 160"
+            value={dims.h} onChange={e => handleDim('h', e.target.value)} onFocus={selectOnFocus} />
+        </div>
+      </div>
+
+      <div>
+        <label style={lbl}>cbmt *</label>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
             {[80, 100, 120, 160, 200, 250, 300, 350].map(n => (
               <button key={n} type="button"
-                onClick={() => setForm({ ...form, cft: n })}
+                onClick={() => { setDims({ l: '', w: '', h: '' }); setForm({ ...form, cft: n }); }}
                 style={{
                   padding: '5px 10px', fontSize: 12, borderRadius: 6, cursor: 'pointer', border: '1px solid',
                   borderColor: form.cft === n ? 'var(--blue)' : 'var(--bd)',
@@ -113,11 +143,10 @@ function POForm({ vendors, form, setForm, onSubmit, isPending, onCancel, title }
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <input type="number" style={{ ...inp, flex: 1 }} min="0" step="0.01" value={numericInputValue(form.cft)}
-              onChange={e => setForm({ ...form, cft: parseFloat(e.target.value) || 0 })}
+              onChange={e => { setDims({ l: '', w: '', h: '' }); setForm({ ...form, cft: parseFloat(e.target.value) || 0 }); }}
               onFocus={selectOnFocus} required />
             {form.cft > 0 && <div style={{ fontSize: 11, color: 'var(--t3)', whiteSpace: 'nowrap' }}>= {(form.cft * 0.0283168).toFixed(3)} CBM</div>}
           </div>
-        </div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div>

@@ -19,9 +19,20 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'gstr9',        label: 'GSTR-9' },
 ];
 
-const CURRENT_FY = '2025-26';
-const FY_FROM = '2025-04-01';
-const FY_TO   = '2026-03-31';
+// Compute current financial year dynamically (India: Apr–Mar)
+function getCurrentFY(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1; // 1-based
+  return month >= 4 ? `${year}-${String(year + 1).slice(2)}` : `${year - 1}-${String(year).slice(2)}`;
+}
+function getFYBounds(fy: string): { from: string; to: string } {
+  const startYear = parseInt(fy.split('-')[0]);
+  return { from: `${startYear}-04-01`, to: `${startYear + 1}-03-31` };
+}
+
+const CURRENT_FY = getCurrentFY();
+const { from: FY_FROM, to: FY_TO } = getFYBounds(CURRENT_FY);
 
 function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void }) {
   return (
@@ -474,7 +485,7 @@ function GSTR9() {
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 20 }}>
         <label style={{ fontSize: 12, color: 'var(--t3)' }}>Financial Year</label>
         <select value={fy} onChange={e => { setFy(e.target.value); }} className="fsel" style={{ width: 120 }}>
-          {['2024-25', '2025-26', '2026-27'].map(f => <option key={f} value={f}>{f}</option>)}
+          {['2024-25', '2025-26', '2026-27', '2027-28'].map(f => <option key={f} value={f}>{f}</option>)}
         </select>
         <button onClick={() => refetch()} style={{ padding: '6px 14px', backgroundColor: 'var(--rust)', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12 }}>Load</button>
       </div>

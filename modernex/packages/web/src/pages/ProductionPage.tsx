@@ -1099,7 +1099,7 @@ function PolishGrade({ gangsawSlabs, notify, preselectId }: { gangsawSlabs: any[
       {selectedSlab && (
         <div style={{ fontSize: 12, color: 'var(--t3)' }}>
           Available: <strong style={{ color: 'var(--t1)' }}>{selectedSlab.stock} pcs</strong>
-          {selectedSlab.dimensions?.size_lw && <> · {selectedSlab.dimensions.size_lw} · {selectedSlab.dimensions.thickness_mm}mm</>}
+          {selectedSlab.dimensions?.size_lw && <> · {selectedSlab.dimensions.size_lw} · {selectedSlab.dimensions.thickness_mm}cm</>}
         </div>
       )}
 
@@ -1223,7 +1223,7 @@ function QACheck({ qaPending, notify }: { qaPending: any[]; notify: any }) {
                   {failed && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: 'var(--red)' }}>QA FAILED</span>}
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--t3)' }}>
-                  {d.size_lw || ''}{d.thickness_mm ? ` · ${d.thickness_mm}mm` : ''}{p.grade ? ` · Gr.${p.grade}` : ''} · stock {p.stock}
+                  {d.size_lw || ''}{d.thickness_mm ? ` · ${d.thickness_mm}cm` : ''}{p.grade ? ` · Gr.${p.grade}` : ''} · stock {p.stock}
                 </div>
               </div>
               {!failed && (
