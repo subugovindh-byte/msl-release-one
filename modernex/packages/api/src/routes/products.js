@@ -9,8 +9,8 @@ import { NotFoundError, AppError } from '../middleware/error.js';
 import { audit } from '../services/audit.js';
 import { loadProductTrace, recordInventoryMove } from '../services/inventoryMoves.js';
 import {
-  insertDimensions, updateDimensions, deleteDimensions,
-  loadProduct, nextProductId, uomForProduct,
+  insertDimensions, updateDimensions,
+  loadProduct, nextProductId,
 } from '../services/products.js';
 
 export const productsRouter = Router();

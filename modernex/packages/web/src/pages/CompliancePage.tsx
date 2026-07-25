@@ -27,7 +27,7 @@ function getCurrentFY(): string {
   return month >= 4 ? `${year}-${String(year + 1).slice(2)}` : `${year - 1}-${String(year).slice(2)}`;
 }
 function getFYBounds(fy: string): { from: string; to: string } {
-  const startYear = parseInt(fy.split('-')[0]);
+  const startYear = parseInt(fy.split('-')[0] ?? '0');
   return { from: `${startYear}-04-01`, to: `${startYear + 1}-03-31` };
 }
 

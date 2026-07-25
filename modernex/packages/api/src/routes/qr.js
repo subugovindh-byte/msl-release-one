@@ -4,7 +4,7 @@ import { config } from '../config.js';
 import { authenticate } from '../middleware/auth.js';
 import { NotFoundError, AppError } from '../middleware/error.js';
 import {
-  upiQRDataURL, upiQRBuffer, signedIRNQRDataURL,
+  upiQRBuffer, signedIRNQRDataURL,
   slabQRDataURL, invoiceQRDataURL, generateSlabLabelHTML, generateProductLabelHTML,
 } from '../services/qr.js';
 
