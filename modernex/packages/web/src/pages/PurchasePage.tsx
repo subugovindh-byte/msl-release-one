@@ -4,6 +4,7 @@ import { GST_RATE, GST_RATE_LABEL, VARIETIES } from '@modernex/shared';
 import {
   usePurchaseOrders, useVendors, useCreatePurchaseOrder, useCreatePayment,
   useDeletePurchaseOrder, useUpdatePOStatus, useUpdatePurchaseOrder,
+  useBlockInspections, useRaiseInspectionPO, useBlockPriceMaster,
 } from '@/hooks/useApi';
 import { formatINR, numericInputValue, selectOnFocus } from '@/utils/format';
 import { useToastStore, useAuthStore } from '@/store';
@@ -55,9 +56,10 @@ function cleanPOPayload(form: POFormState): Record<string, unknown> {
   return payload;
 }
 
-function POForm({ vendors, form, setForm, onSubmit, isPending, onCancel, title, submitLabel, canEditDate }: {
+function POForm({ vendors, form, setForm, onSubmit, isPending, onCancel, title, submitLabel, canEditDate, lockFromInspection = false }: {
   vendors: any[]; form: POFormState; setForm: (f: POFormState) => void;
-  onSubmit: (e: React.FormEvent) => void; isPending: boolean; onCancel: () => void; title: string; submitLabel: string; canEditDate: boolean;
+  onSubmit: (e: React.FormEvent) => void; isPending: boolean; onCancel: () => void;
+  title: string; submitLabel: string; canEditDate: boolean; lockFromInspection?: boolean;
 }) {
   const [dims, setDims] = useState({ l: '', w: '', h: '' });
 
@@ -90,8 +92,8 @@ function POForm({ vendors, form, setForm, onSubmit, isPending, onCancel, title, 
         </div>
         <div>
           <label style={lbl}>Vendor *</label>
-          <select style={{ ...inp, cursor: 'pointer' }} value={form.vendor_id}
-            onChange={e => setForm({ ...form, vendor_id: e.target.value })} required>
+          <select style={{ ...inp, cursor: 'pointer', ...(lockFromInspection ? { opacity: 0.7 } : {}) }} value={form.vendor_id}
+            onChange={e => setForm({ ...form, vendor_id: e.target.value })} disabled={lockFromInspection} required>
             <option value="">— select vendor —</option>
             {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
           </select>
@@ -100,17 +102,19 @@ function POForm({ vendors, form, setForm, onSubmit, isPending, onCancel, title, 
 
       <div>
         <label style={lbl}>Variety *</label>
-        <select style={{ ...inp, cursor: 'pointer', marginBottom: 4 }}
+        <select style={{ ...inp, cursor: 'pointer', marginBottom: 4, ...(lockFromInspection ? { opacity: 0.7 } : {}) }}
           value={VARIETIES.includes(form.variety) ? form.variety : form.variety ? '__custom__' : ''}
           onChange={e => { if (e.target.value !== '__custom__') setForm({ ...form, variety: e.target.value }); }}
-          required={!form.variety}>
+          disabled={lockFromInspection} required={!form.variety}>
           <option value="">— select variety —</option>
           {VARIETIES.map((v: string) => <option key={v} value={v}>{v}</option>)}
           {form.variety && !VARIETIES.includes(form.variety) && <option value="__custom__">{form.variety} (custom)</option>}
         </select>
-        <input type="text" style={{ ...inp, fontSize: 12 }} placeholder="Or type custom variety…"
-          value={!VARIETIES.includes(form.variety) ? form.variety : ''}
-          onChange={e => setForm({ ...form, variety: e.target.value })} />
+        {!lockFromInspection && (
+          <input type="text" style={{ ...inp, fontSize: 12 }} placeholder="Or type custom variety…"
+            value={!VARIETIES.includes(form.variety) ? form.variety : ''}
+            onChange={e => setForm({ ...form, variety: e.target.value })} />
+        )}
       </div>
 
       {/* Datalist with common cm values 50–400 in steps of 10, fractions allowed */}
@@ -123,31 +127,31 @@ function POForm({ vendors, form, setForm, onSubmit, isPending, onCancel, title, 
           <label style={lbl}>Blocks *</label>
           <input type="number" style={inp} min="1" value={numericInputValue(form.blocks, false)}
             onChange={e => setForm({ ...form, blocks: parseInt(e.target.value) || 1 })}
-            onFocus={selectOnFocus} required />
+            onFocus={selectOnFocus} disabled={lockFromInspection} required />
         </div>
         <div>
           <label style={lbl}>Length (cm)</label>
           <input list="dim-sizes" type="number" style={inp} min="0" step="any" placeholder="e.g. 270"
-            value={dims.l} onChange={e => handleDim('l', e.target.value)} onFocus={selectOnFocus} />
+            value={dims.l} onChange={e => handleDim('l', e.target.value)} onFocus={selectOnFocus} disabled={lockFromInspection} />
         </div>
         <div>
           <label style={lbl}>Width (cm)</label>
           <input list="dim-sizes" type="number" style={inp} min="0" step="any" placeholder="e.g. 180"
-            value={dims.w} onChange={e => handleDim('w', e.target.value)} onFocus={selectOnFocus} />
+            value={dims.w} onChange={e => handleDim('w', e.target.value)} onFocus={selectOnFocus} disabled={lockFromInspection} />
         </div>
         <div>
           <label style={lbl}>Height (cm)</label>
           <input list="dim-sizes" type="number" style={inp} min="0" step="any" placeholder="e.g. 160"
-            value={dims.h} onChange={e => handleDim('h', e.target.value)} onFocus={selectOnFocus} />
+            value={dims.h} onChange={e => handleDim('h', e.target.value)} onFocus={selectOnFocus} disabled={lockFromInspection} />
         </div>
       </div>
 
       <div>
-        <label style={lbl}>CBM *</label>
+        <label style={lbl}>CBM *{lockFromInspection && <span style={{ textTransform: 'none', fontWeight: 400, color: 'var(--t3)' }}> · from inspection</span>}</label>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <input type="number" style={{ ...inp, flex: 1 }} min="0" step="0.001" value={numericInputValue(form.cft)}
+            <input type="number" style={{ ...inp, flex: 1, ...(lockFromInspection ? { opacity: 0.7 } : {}) }} min="0" step="0.001" value={numericInputValue(form.cft)}
               onChange={e => { setDims({ l: '', w: '', h: '' }); setForm({ ...form, cft: parseFloat(e.target.value) || 0 }); }}
-              onFocus={selectOnFocus} placeholder="auto-filled from L×W×H (cm) or enter m³" required />
+              onFocus={selectOnFocus} placeholder="auto-filled from L×W×H (cm) or enter m³" disabled={lockFromInspection} required />
             {form.cft > 0 && <div style={{ fontSize: 11, color: 'var(--t3)', whiteSpace: 'nowrap' }}>= {(form.cft * 35.3147).toFixed(2)} CFT</div>}
           </div>
       </div>
@@ -516,6 +520,13 @@ export function PurchasePage() {
   const deletePO = useDeletePurchaseOrder();
   const updateStatus = useUpdatePOStatus();
   const createPayment = useCreatePayment();
+  const raiseInspPO = useRaiseInspectionPO();
+  // Approved inspections waiting for a PO (inspector approves → purchasing raises PO here)
+  const { data: apprInspData } = useBlockInspections({ status: 'approved' });
+  const approvedInspections: any[] = apprInspData?.inspections || [];
+  const { data: priceData } = useBlockPriceMaster();
+  const blockPrices: any[] = priceData?.prices || [];
+  const [fromInspId, setFromInspId] = useState('');
   const { notify } = useToastStore();
   const { user } = useAuthStore();
   const canManage = user?.role === 'admin' || user?.role === 'accounts';
@@ -657,13 +668,44 @@ export function PurchasePage() {
     setBulkAction(null);
   }
 
+  // Pick an approved inspection → pre-fill vendor/variety/blocks/CBM from it and
+  // auto-fill the rate from the block-price master (variety + grade). '' = manual PO.
+  function selectInspection(id: string) {
+    setFromInspId(id);
+    if (!id) { setNewForm(BLANK_FORM()); return; }
+    const insp = approvedInspections.find(i => i.id === id);
+    if (!insp) return;
+    const master = blockPrices.find(p => p.variety === insp.variety && p.grade === insp.grade);
+    setNewForm(f => ({
+      ...f,
+      vendor_id: insp.vendor_id || '',
+      variety: insp.variety || '',
+      blocks: insp.block_count || 1,
+      cft: insp.est_cft || 0,
+      rate_per_cft_paise: master?.rate_per_cft_paise || f.rate_per_cft_paise || 0,
+    }));
+  }
+
+  function closeNewModal() { setModal(null); setNewForm(BLANK_FORM()); setFromInspId(''); }
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     try {
-      await createPO.mutateAsync(cleanPOPayload(newForm));
-      notify('Purchase order created', 'success');
-      setModal(null);
-      setNewForm(BLANK_FORM());
+      if (fromInspId) {
+        // Raise the PO from the approved inspection (marks it po_raised + links it)
+        await raiseInspPO.mutateAsync({
+          id: fromInspId,
+          rate_per_cft_paise: newForm.rate_per_cft_paise,
+          transport_paise: newForm.transport_paise || 0,
+          notes: newForm.notes || undefined,
+          date: (isAdmin && newForm.date) ? newForm.date : undefined,
+        });
+        notify('PO raised from inspection', 'success');
+      } else {
+        await createPO.mutateAsync(cleanPOPayload(newForm));
+        notify('Purchase order created', 'success');
+      }
+      closeNewModal();
     } catch (err: any) { notify(err.message || 'Failed to create PO', 'error'); }
   }
 
@@ -746,7 +788,7 @@ export function PurchasePage() {
             ))}
           </div>
           {canManage && (
-            <button onClick={() => setModal('new')} style={{ ...btn('var(--rust)'), fontSize: 13, padding: '9px 22px' }}>
+            <button onClick={() => { setNewForm(BLANK_FORM()); setFromInspId(''); setModal('new'); }} style={{ ...btn('var(--rust)'), fontSize: 13, padding: '9px 22px' }}>
               + New PO
             </button>
           )}
@@ -856,8 +898,33 @@ export function PurchasePage() {
 
             {/* New PO */}
             {modal === 'new' && (
-              <POForm title="New Purchase Order" submitLabel="Create PO" canEditDate={isAdmin} vendors={vendors} form={newForm} setForm={setNewForm}
-                onSubmit={handleCreate} isPending={createPO.isPending} onCancel={() => setModal(null)} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {/* Raise from an approved block inspection (inspector approves → purchasing raises PO) */}
+                {approvedInspections.length > 0 && (
+                  <div style={{ background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8, padding: '10px 12px' }}>
+                    <label style={lbl}>Raise from approved inspection (optional)</label>
+                    <select style={{ ...inp, cursor: 'pointer' }} value={fromInspId} onChange={e => selectInspection(e.target.value)}>
+                      <option value="">— Manual PO —</option>
+                      {approvedInspections.map(i => (
+                        <option key={i.id} value={i.id}>
+                          {i.id} · {i.variety} · {i.vendor_name || 'no vendor'} · {i.block_count} blk · {i.est_cft} CBM · Gr.{i.grade}
+                        </option>
+                      ))}
+                    </select>
+                    {fromInspId && (
+                      <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 6 }}>
+                        Vendor, variety, blocks and CBM come from the inspection — set the rate, transport and (admin) date, then Raise PO.
+                      </div>
+                    )}
+                  </div>
+                )}
+                <POForm
+                  title={fromInspId ? `Raise PO from ${fromInspId}` : 'New Purchase Order'}
+                  submitLabel={fromInspId ? 'Raise PO' : 'Create PO'}
+                  lockFromInspection={!!fromInspId}
+                  canEditDate={isAdmin} vendors={vendors} form={newForm} setForm={setNewForm}
+                  onSubmit={handleCreate} isPending={createPO.isPending || raiseInspPO.isPending} onCancel={closeNewModal} />
+              </div>
             )}
 
             {/* Bulk Confirm */}
