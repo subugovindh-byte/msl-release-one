@@ -308,11 +308,23 @@ blockInspectionsRouter.delete('/:id',
       const db = getDb();
       const existing = db.prepare('SELECT * FROM block_inspections WHERE id = ?').get(req.params.id);
       if (!existing) throw new NotFoundError('Inspection not found');
-      // PO-raised inspections are locked for normal users; admin has full access.
-      // The PO's inspection_id FK is ON DELETE SET NULL, so the PO is unaffected.
+      // PO-raised inspections are locked for normal users; admin has full access —
+      // EXCEPT once the chain is committed. If the linked PO still exists and has
+      // progressed past 'new' (blocks received / in production / possibly sold),
+      // nobody may delete it, so the audit trail behind a sale can't be unwound.
       const isAdmin = (req.user.roles ?? [req.user.role]).includes('admin');
       if (existing.status === 'po_raised' && !isAdmin) {
         throw new AppError(`Cannot delete — PO ${existing.po_id} was already raised from this inspection.`, 409);
+      }
+      if (existing.po_id) {
+        const po = db.prepare('SELECT id, status FROM purchase_orders WHERE id = ?').get(existing.po_id);
+        if (po && !['new', 'cancelled'].includes(po.status)) {
+          throw new AppError(
+            `Cannot delete — PO ${po.id} is '${po.status}' (blocks received/committed). ` +
+            `Records behind a committed or sold PO cannot be removed, even by admin.`,
+            409
+          );
+        }
       }
       db.prepare('DELETE FROM block_inspections WHERE id = ?').run(req.params.id);
       audit(req, 'INSPECTION_DELETE', 'block_inspections', req.params.id, existing, null);

@@ -17,6 +17,8 @@ interface PosProduct {
   stock: number;
   lot_id?: string;
   grade?: string;
+  qa_status?: 'pending' | 'passed' | 'failed' | null;
+  current_location_id?: string | null;
   effective_photo_url?: string;
   photo_url?: string;
   dimensions?: {
@@ -25,6 +27,14 @@ interface PosProduct {
     sqft?: number;
     cft?: number;
   };
+}
+
+// POS sells finished, QA-cleared goods only — items still in-process (Raw Yard,
+// Gangsaw In/Out) or awaiting/failing QA must not appear for sale.
+const SELLABLE_LOCATIONS = ['FINISHED_YARD', 'SHOWROOM', 'SALES_HOLD', 'DISPATCH_AREA'];
+function isSellable(p: { current_location_id?: string | null; qa_status?: string | null }): boolean {
+  return SELLABLE_LOCATIONS.includes(p.current_location_id || '')
+    && p.qa_status !== 'pending' && p.qa_status !== 'failed';
 }
 
 interface InvoiceResult {
@@ -205,6 +215,7 @@ export function POSPage() {
   // Filter products by variety
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
+      if (!isSellable(product)) return false;   // finished + QA-cleared + sellable location only
       const matchesSearch = !searchQuery
         || product.variety?.toLowerCase().includes(searchQuery.toLowerCase())
         || product.id?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -214,9 +225,9 @@ export function POSPage() {
     });
   }, [products, searchQuery, varietyFilter]);
 
-  // Get unique varieties for filter
+  // Get unique varieties for filter (only among sellable stock)
   const varieties = useMemo(() => {
-    const unique = new Set(products.map(p => p.variety));
+    const unique = new Set(products.filter(isSellable).map(p => p.variety));
     return Array.from(unique).sort();
   }, [products]);
 
