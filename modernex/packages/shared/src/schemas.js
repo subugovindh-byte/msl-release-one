@@ -216,6 +216,7 @@ export const invoiceCreateSchema = z.object({
 export const poCreateSchema = z.object({
   vendor_id: z.string().min(1),
   variety: z.string().min(1),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),   // admin-set PO date (else server = today)
   blocks: z.number().int().positive(),
   cft: z.number().positive(),
   rate_per_cft_paise: z.number().int().positive(),

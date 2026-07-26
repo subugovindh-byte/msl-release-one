@@ -103,7 +103,9 @@ purchaseRouter.post('/',
       const gst = Math.round(taxable * GST_RATE);
       const total = taxable + gst;
 
-      const date = new Date().toISOString().slice(0, 10);
+      // PO date defaults to today; an admin may set/backdate it explicitly.
+      const isAdmin = (req.user.roles ?? [req.user.role]).includes('admin');
+      const date = (isAdmin && p.date) ? p.date : new Date().toISOString().slice(0, 10);
 
       // Prevent exact duplicate PO (same vendor, variety, date, blocks, cft, rate)
       const dupe = db.prepare(`
@@ -156,6 +158,8 @@ purchaseRouter.patch('/:id',
       }
       const p = req.body;
       const editable = ['vendor_id', 'variety', 'blocks', 'cft', 'rate_per_cft_paise', 'transport_paise', 'notes', 'block_number', 'incoterm', 'defect_clause', 'allowance_pct'];
+      // Only an admin may change the PO date (backdating/corrections).
+      if ((req.user.roles ?? [req.user.role]).includes('admin')) editable.push('date');
       const updates = [];
       const params = [];
       for (const k of editable) {

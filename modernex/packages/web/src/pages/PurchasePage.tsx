@@ -55,9 +55,9 @@ function cleanPOPayload(form: POFormState): Record<string, unknown> {
   return payload;
 }
 
-function POForm({ vendors, form, setForm, onSubmit, isPending, onCancel, title, submitLabel }: {
+function POForm({ vendors, form, setForm, onSubmit, isPending, onCancel, title, submitLabel, canEditDate }: {
   vendors: any[]; form: POFormState; setForm: (f: POFormState) => void;
-  onSubmit: (e: React.FormEvent) => void; isPending: boolean; onCancel: () => void; title: string; submitLabel: string;
+  onSubmit: (e: React.FormEvent) => void; isPending: boolean; onCancel: () => void; title: string; submitLabel: string; canEditDate: boolean;
 }) {
   const [dims, setDims] = useState({ l: '', w: '', h: '' });
 
@@ -83,8 +83,10 @@ function POForm({ vendors, form, setForm, onSubmit, isPending, onCancel, title, 
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div>
-          <label style={lbl}>Date *</label>
-          <input type="date" style={inp} value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} required />
+          <label style={lbl}>Date *{!canEditDate && <span style={{ textTransform: 'none', fontWeight: 400, color: 'var(--t3)' }}> · admin only</span>}</label>
+          <input type="date" style={{ ...inp, ...(canEditDate ? {} : { opacity: 0.6, cursor: 'not-allowed' }) }}
+            value={form.date} onChange={e => setForm({ ...form, date: e.target.value })}
+            disabled={!canEditDate} title={canEditDate ? '' : 'Only an admin can change the PO date'} required />
         </div>
         <div>
           <label style={lbl}>Vendor *</label>
@@ -517,6 +519,7 @@ export function PurchasePage() {
   const { notify } = useToastStore();
   const { user } = useAuthStore();
   const canManage = user?.role === 'admin' || user?.role === 'accounts';
+  const isAdmin = user?.role === 'admin';   // only admin may set/change the PO date
 
   const allPos: any[] = usePurchaseOrders({}).data?.purchase_orders || [];
   const pos: any[] = posData?.purchase_orders || [];
@@ -853,7 +856,7 @@ export function PurchasePage() {
 
             {/* New PO */}
             {modal === 'new' && (
-              <POForm title="New Purchase Order" submitLabel="Create PO" vendors={vendors} form={newForm} setForm={setNewForm}
+              <POForm title="New Purchase Order" submitLabel="Create PO" canEditDate={isAdmin} vendors={vendors} form={newForm} setForm={setNewForm}
                 onSubmit={handleCreate} isPending={createPO.isPending} onCancel={() => setModal(null)} />
             )}
 
@@ -887,7 +890,7 @@ export function PurchasePage() {
 
             {/* Edit PO */}
             {modal === 'edit' && editingPO && (
-              <POForm title={`Edit ${editingPO.id}`} submitLabel="Save Changes" vendors={vendors} form={editForm} setForm={setEditForm}
+              <POForm title={`Edit ${editingPO.id}`} submitLabel="Save Changes" canEditDate={isAdmin} vendors={vendors} form={editForm} setForm={setEditForm}
                 onSubmit={handleUpdate} isPending={updatePO.isPending} onCancel={() => setModal(null)} />
             )}
 
