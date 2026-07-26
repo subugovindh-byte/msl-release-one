@@ -417,7 +417,8 @@ export function POSPage() {
                   onClick={() => addToCart(product)}
                 >
                   {getDisplayPhoto(product) && (
-                    <img src={getDisplayPhoto(product)} alt={product.variety} className="sl-photo" />
+                    <img src={getDisplayPhoto(product)} alt="" className="sl-photo"
+                      onError={(e) => { e.currentTarget.style.display = 'none'; }} />
                   )}
                   <div className="sl-var">{product.variety}</div>
                   <div className="sl-lot">{product.id}</div>
