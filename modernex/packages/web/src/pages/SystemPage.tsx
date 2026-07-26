@@ -153,7 +153,7 @@ export function SystemPage() {
             gap: '16px',
             marginBottom: '24px'
           }}>
-            <StatCard label="Last Backup" value={new Date().toLocaleDateString('en-IN')} subtitle="auto" />
+            <StatCard label="Last Backup" value={new Date().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' })} subtitle="auto" />
             <StatCard label="Snapshots" value="Daily" subtitle="Azure Blob" />
             <StatCard label="DB Size" value="~2.5 MB" subtitle="SQLite WAL" />
             <StatCard label="Retention" value="30d + 12mo" subtitle="Lifecycle" />

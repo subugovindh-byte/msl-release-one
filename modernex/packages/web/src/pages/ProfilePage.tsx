@@ -70,8 +70,8 @@ export function ProfilePage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
             <Info label="Username" value={user.username} />
             <Info label="Role" value={user.role} />
-            <Info label="Last Login" value={user.last_login ? new Date(user.last_login).toLocaleString('en-IN') : '—'} />
-            <Info label="Member Since" value={user.created_at ? new Date(user.created_at).toLocaleDateString('en-IN') : '—'} />
+            <Info label="Last Login" value={user.last_login ? new Date(user.last_login).toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'} />
+            <Info label="Member Since" value={user.created_at ? new Date(user.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—'} />
           </div>
 
           <form onSubmit={saveProfile} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>

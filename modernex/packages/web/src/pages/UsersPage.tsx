@@ -192,7 +192,7 @@ export function UsersPage() {
         </span>
       ),
     },
-    { headerName: 'Last Login', field: 'last_login', minWidth: 120, valueFormatter: p => p.value ? new Date(p.value).toLocaleDateString('en-IN') : 'Never' },
+    { headerName: 'Last Login', field: 'last_login', minWidth: 120, valueFormatter: p => p.value ? new Date(p.value).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' }) : 'Never' },
     {
       headerName: 'Actions', minWidth: 280, sortable: false, filter: false,
       cellRenderer: (p: any) => {

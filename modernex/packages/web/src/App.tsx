@@ -104,8 +104,8 @@ const NAV_GROUPS = buildGroups(NAV);
 function formatDate(): string {
   return new Date().toLocaleDateString('en-IN', {
     day: '2-digit',
-    month: 'short',
-    year: 'numeric',
+    month: '2-digit',
+    year: '2-digit',
   });
 }
 

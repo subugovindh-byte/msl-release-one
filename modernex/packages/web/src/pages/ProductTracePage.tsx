@@ -69,7 +69,7 @@ export function ProductTracePage() {
               <tbody>
                 {moves.map((move) => (
                   <tr key={move.id}>
-                    <td>{new Date(move.created_at).toLocaleString('en-IN')}</td>
+                    <td>{new Date(move.created_at).toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
                     <td>{move.move_type}</td>
                     <td>{move.from_location_name || move.from_location_id || '—'}</td>
                     <td>{move.to_location_name || move.to_location_id || '—'}</td>

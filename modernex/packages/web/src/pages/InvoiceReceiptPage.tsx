@@ -221,7 +221,7 @@ export function InvoiceReceiptPage() {
     const url = window.location.href;
     const qr = await QRCode.toDataURL(url, { width: 200, margin: 1, color: { dark: '#000', light: '#fff' }, errorCorrectionLevel: 'M' });
     const fp = (v: number) => '₹' + (v / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 });
-    const fd = (iso: string) => iso ? new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+    const fd = (iso: string) => iso ? new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—';
     const coCity = co?.city ?? 'Krishnagiri';
     const coState = co?.state ?? 'Tamil Nadu';
     const itemRows = derivedItems.map((it: any) => {

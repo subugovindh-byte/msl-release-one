@@ -275,7 +275,7 @@ function POCard({ po, canManage, onApprove, onCancel, onDelete, onPay, onEdit, o
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
             <span style={{ fontFamily: 'monospace', fontSize: 14, fontWeight: 700, color: 'var(--t1)' }}>{po.id}</span>
             <span style={{ fontSize: 12, color: 'var(--t3)' }}>
-              {po.date ? new Date(po.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+              {po.date ? new Date(po.date).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—'}
             </span>
           </div>
           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--t2)', marginTop: 3 }}>
@@ -451,7 +451,7 @@ function POTable({ pos, canManage, selectedIds, onToggle, onSelectAll, onApprove
                     style={{ width: 15, height: 15, accentColor: 'var(--rust)', cursor: 'pointer' }} />
                 </td>
                 <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700, color: 'var(--t1)' }}>{po.id}</td>
-                <td style={td}>{po.date ? new Date(po.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '—'}</td>
+                <td style={td}>{po.date ? new Date(po.date).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—'}</td>
                 <td style={{ ...td, fontWeight: 600, color: 'var(--t1)' }}>{po.vendor_name || po.vendor_id}</td>
                 <td style={td}>{po.variety}</td>
                 <td style={{ ...td, textAlign: 'right' }}>{po.blocks}</td>

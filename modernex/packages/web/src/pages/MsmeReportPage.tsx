@@ -405,7 +405,7 @@ function FormITab() {
           </div>
 
           <div style={{ fontSize: 11, color: 'var(--t3)', padding: '8px 0' }}>
-            Generated: {form.generated_at ? new Date(form.generated_at).toLocaleString('en-IN') : '—'} ·
+            Generated: {form.generated_at ? new Date(form.generated_at).toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'} ·
             {' '}Vendor count: {form.vendor_count || 0} ·
             {' '}Filed under MSMED Act 2006, Section 22 read with MSME Development (Amendment) Act 2018
           </div>

@@ -89,7 +89,7 @@ export function PurchaseOrderReceiptPage() {
       errorCorrectionLevel: 'M',
     });
     const blockCount = p.blocks ?? 1;
-    const dateStr = p.date ? new Date(p.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+    const dateStr = p.date ? new Date(p.date).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '';
     // Build one sticker div per block
     const stickers = Array.from({ length: blockCount }, (_, i) => `
       <div class="sticker">
@@ -158,7 +158,7 @@ export function PurchaseOrderReceiptPage() {
     });
     const fp = (v: number) => '\u20b9' + (v / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 });
     const fd = (iso: string | null | undefined) => iso
-      ? new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+      ? new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' })
       : '\u2014';
     const row = (lbl: string, val: string, bold = false) =>
       `<tr${bold ? ' class="b"' : ''}><td class="l">${lbl}</td><td class="v">${val}</td></tr>`;
@@ -1024,7 +1024,7 @@ export function PurchaseOrderReceiptPage() {
                     <div style={{ width: 10, height: 10, borderRadius: '50%', background: ts ? color : 'rgba(26,22,18,.2)', margin: '0 auto 4px' }} />
                     <div style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: ts ? color : 'rgba(26,22,18,.4)', marginBottom: 2 }}>{label}</div>
                     <div style={{ fontSize: 9, color: 'rgba(26,22,18,.6)', fontFamily: "'IBM Plex Mono', monospace", whiteSpace: 'nowrap' }}>
-                      {ts ? new Date(ts).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
+                      {ts ? new Date(ts).toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}
                     </div>
                   </div>
                 </div>

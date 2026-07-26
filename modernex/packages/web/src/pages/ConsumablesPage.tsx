@@ -147,7 +147,7 @@ export function ConsumablesPage() {
   // ── AG Grid columns ──
   const colDefs: any[] = [
     { headerName: 'ID', field: 'id', minWidth: 140, pinned: 'left' },
-    { headerName: 'Date', field: 'date', minWidth: 110, valueFormatter: (p: any) => p.value ? new Date(p.value).toLocaleDateString('en-IN') : '—' },
+    { headerName: 'Date', field: 'date', minWidth: 110, valueFormatter: (p: any) => p.value ? new Date(p.value).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—' },
     { headerName: 'Vendor', field: 'vendor_name', minWidth: 160, flex: 1 },
     { headerName: 'Category', field: 'category', minWidth: 150 },
     {

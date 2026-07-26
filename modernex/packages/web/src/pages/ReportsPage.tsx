@@ -109,7 +109,7 @@ export function ReportsPage() {
 
   const salesColDefs: ColDef[] = [
     { headerName: 'Invoice', field: 'id', minWidth: 140, pinned: 'left' },
-    { headerName: 'Date', field: 'date', minWidth: 110, valueFormatter: (p) => p.value ? new Date(p.value).toLocaleDateString('en-IN') : '—' },
+    { headerName: 'Date', field: 'date', minWidth: 110, valueFormatter: (p) => p.value ? new Date(p.value).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—' },
     { headerName: 'Customer', field: 'customer_name', minWidth: 160, flex: 2 },
     { headerName: 'Taxable', field: 'taxable_paise', minWidth: 120, type: 'numericColumn', valueFormatter: (p) => formatINR(p.value) },
     { headerName: 'GST', colId: 'gst', minWidth: 110, type: 'numericColumn', valueGetter: (p) => (p.data?.cgst_paise || 0) + (p.data?.sgst_paise || 0) + (p.data?.igst_paise || 0), valueFormatter: (p) => formatINR(p.value) },

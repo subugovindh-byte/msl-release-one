@@ -82,13 +82,15 @@ export async function streamInvoicePDF(invoice, customer, target) {
   // Invoice block (right)
   doc.fillColor(DARK).fontSize(20).font('Helvetica-Bold')
     .text('TAX INVOICE', 350, 40, { width: 205, align: 'right' });
+  // Indian standard day-first date (DD/MM/YY)
+  const fmtDate = (v) => v ? new Date(v).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—';
   doc.fontSize(9).font('Helvetica')
     .fillColor(GREY).text('Invoice No.', 350, 70, { width: 90, align: 'right' })
     .fillColor(DARK).text(invoice.id, 450, 70, { width: 105, align: 'right' })
     .fillColor(GREY).text('Date', 350, 84, { width: 90, align: 'right' })
-    .fillColor(DARK).text(invoice.date, 450, 84, { width: 105, align: 'right' })
+    .fillColor(DARK).text(fmtDate(invoice.date), 450, 84, { width: 105, align: 'right' })
     .fillColor(GREY).text('Due Date', 350, 98, { width: 90, align: 'right' })
-    .fillColor(DARK).text(invoice.due_date || '—', 450, 98, { width: 105, align: 'right' });
+    .fillColor(DARK).text(fmtDate(invoice.due_date), 450, 98, { width: 105, align: 'right' });
 
   // Divider
   doc.moveTo(40, 120).lineTo(555, 120).strokeColor(LINE).lineWidth(1).stroke();

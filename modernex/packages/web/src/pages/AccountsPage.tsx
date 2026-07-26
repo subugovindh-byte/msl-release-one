@@ -89,7 +89,7 @@ export function AccountsPage() {
       headerName: 'Date',
       field: 'date',
       minWidth: 120,
-      valueFormatter: (p) => p.value ? new Date(p.value).toLocaleDateString() : '—',
+      valueFormatter: (p) => p.value ? new Date(p.value).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—',
     },
     { headerName: 'Customer', field: 'customer_name', minWidth: 180, flex: 2 },
     {
@@ -150,7 +150,7 @@ export function AccountsPage() {
       headerName: 'Date',
       field: 'date',
       minWidth: 120,
-      valueFormatter: (p) => p.value ? new Date(p.value).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—',
+      valueFormatter: (p) => p.value ? new Date(p.value).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—',
     },
     {
       headerName: 'Type',
@@ -397,7 +397,7 @@ export function AccountsPage() {
                   <span style={{ fontSize: '13px', color: 'var(--t2)', flex: 1 }}>{note.customer_name || note.customer_id}</span>
                   {note.ref_invoice_id && <span style={{ fontSize: '12px', color: 'var(--t3)' }}>Ref: {note.ref_invoice_id}</span>}
                   <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--t1)' }}>{formatINR(note.amount_paise)}</span>
-                  <span style={{ fontSize: '11px', color: 'var(--t3)' }}>{note.date ? new Date(note.date).toLocaleDateString('en-IN') : ''}</span>
+                  <span style={{ fontSize: '11px', color: 'var(--t3)' }}>{note.date ? new Date(note.date).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}</span>
                   <span style={{
                     padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: 600,
                     backgroundColor: note.status === 'confirmed' ? 'var(--blueW)' : note.status === 'cancelled' ? 'var(--bg3)' : 'var(--amberW)',
@@ -464,7 +464,7 @@ export function AccountsPage() {
                 <tbody>
                   {ledgerEntries.map((entry: any, i: number) => (
                     <tr key={i} style={{ borderBottom: '1px solid var(--bd)' }}>
-                      <td style={{ padding: '10px 14px', color: 'var(--t2)' }}>{entry.date ? new Date(entry.date).toLocaleDateString('en-IN') : '—'}</td>
+                      <td style={{ padding: '10px 14px', color: 'var(--t2)' }}>{entry.date ? new Date(entry.date).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—'}</td>
                       <td style={{ padding: '10px 14px' }}>
                         <span style={{ padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: 600, backgroundColor: 'var(--bg3)', color: 'var(--t2)', textTransform: 'capitalize' }}>{entry.type}</span>
                       </td>

@@ -60,11 +60,11 @@ describe('parseCurrency', () => {
 });
 
 describe('formatDate', () => {
-  it('should format date in short format', () => {
+  it('should format date in short format (Indian DD/MM/YY)', () => {
     const date = new Date('2024-01-15');
     const formatted = formatDate(date, 'short');
-    expect(formatted).toContain('Jan');
-    expect(formatted).toContain('2024');
+    expect(formatted).toMatch(/^\d{2}\/\d{2}\/\d{2}$/);   // e.g. 15/01/24
+    expect(formatted).toContain('/24');
   });
 
   it('should format date in long format', () => {
@@ -76,7 +76,7 @@ describe('formatDate', () => {
 
   it('should handle string dates', () => {
     const formatted = formatDate('2024-01-15');
-    expect(formatted).toContain('2024');
+    expect(formatted).toMatch(/^\d{2}\/\d{2}\/\d{2}$/);   // DD/MM/YY
   });
 });
 
