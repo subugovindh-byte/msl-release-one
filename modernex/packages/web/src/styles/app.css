@@ -663,7 +663,8 @@ a { color: var(--rust); text-decoration: none; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px 8px;
   margin-top: 8px;
 }
 .sl-add {
@@ -709,6 +710,7 @@ a { color: var(--rust); text-decoration: none; }
 }
 .sl-inline-total {
   margin-left: auto;
+  white-space: nowrap;
   font-family: 'IBM Plex Mono', monospace;
   font-size: 9px;
   color: var(--t2);
