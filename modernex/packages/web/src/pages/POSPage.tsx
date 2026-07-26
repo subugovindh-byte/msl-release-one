@@ -32,6 +32,13 @@ interface PosProduct {
 // POS sells finished, QA-cleared goods only — items still in-process (Raw Yard,
 // Gangsaw In/Out) or awaiting/failing QA must not appear for sale.
 const SELLABLE_LOCATIONS = ['FINISHED_YARD', 'SHOWROOM', 'SALES_HOLD', 'DISPATCH_AREA'];
+
+// Stock is a physical count for piece-based kinds (slabs/tiles/blocks/…) and a
+// weight for aggregate — so label it by kind, not by the selling UOM (sqft/cbm).
+function stockUnit(kind: string): string {
+  if (kind === 'chips' || kind === 'dust') return 'MT';
+  return ({ slab: 'slabs', tile: 'tiles', block: 'blocks' } as Record<string, string>)[kind] || 'pcs';
+}
 function isSellable(p: { current_location_id?: string | null; qa_status?: string | null }): boolean {
   return SELLABLE_LOCATIONS.includes(p.current_location_id || '')
     && p.qa_status !== 'pending' && p.qa_status !== 'failed';
@@ -420,7 +427,7 @@ export function POSPage() {
                       {getDisplaySqft(product) && (
                         <div className="sl-sqft">{Number(getDisplaySqft(product)).toFixed(2)} sqft</div>
                       )}
-                      <div className="sl-stk">Stock {product.stock} {product.uom}</div>
+                      <div className="sl-stk">Stock {product.stock} {stockUnit(product.kind)}</div>
                     </div>
                     {product.grade && (
                       <div className="bdg b-g">{product.grade}</div>
