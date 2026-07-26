@@ -53,6 +53,7 @@ import { msmeRouter } from './routes/msme.js';
 import { adminSampleTxRouter } from './routes/adminSampleTx.js';
 import { blockInspectionsRouter } from './routes/blockInspections.js';
 import { blockPriceMasterRouter } from './routes/blockPriceMaster.js';
+import { slabPriceMasterRouter } from './routes/slabPriceMaster.js';
 
 export function createApp() {
   const app = express();
@@ -135,6 +136,7 @@ export function createApp() {
   app.use('/api/grn', grnRouter);
   app.use('/api/block-inspections', blockInspectionsRouter);
   app.use('/api/block-price-master', blockPriceMasterRouter);
+  app.use('/api/slab-price-master', slabPriceMasterRouter);
   mountTransportUpdate(purchaseRouter);  // adds PATCH /api/purchase/:id/transport
   app.use('/api/tds', tdsRouter);
   app.use('/api/fixed-assets', fixedAssetsRouter);

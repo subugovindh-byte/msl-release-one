@@ -1275,3 +1275,22 @@ export function useDeleteBlockPrice() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['block-price-master'] }),
   });
 }
+
+export function useSlabPriceMaster() {
+  return useQuery({ queryKey: ['slab-price-master'], queryFn: () => api.get<any>('/slab-price-master') });
+}
+export function useUpsertSlabPrice() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (d: { variety: string; grade: string; thickness_mm: number; rate_per_sqft_paise: number; notes?: string }) =>
+      api.put<any>('/slab-price-master', d),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['slab-price-master'] }),
+  });
+}
+export function useDeleteSlabPrice() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => api.delete<any>(`/slab-price-master/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['slab-price-master'] }),
+  });
+}

@@ -1,9 +1,9 @@
 import { useState, useMemo, useRef } from 'react';
-import { useCustomers, useVendors, useCreateCustomer, useUpdateCustomer, useCreateVendor, useUpdateVendor, useVarietyMaster, useCreateVariety, useUpdateVarietyById, useDeleteVariety, useBlockPriceMaster, useUpsertBlockPrice, useDeleteBlockPrice } from '@/hooks/useApi';
+import { useCustomers, useVendors, useCreateCustomer, useUpdateCustomer, useCreateVendor, useUpdateVendor, useVarietyMaster, useCreateVariety, useUpdateVarietyById, useDeleteVariety, useBlockPriceMaster, useUpsertBlockPrice, useDeleteBlockPrice, useSlabPriceMaster, useUpsertSlabPrice, useDeleteSlabPrice } from '@/hooks/useApi';
 import { useToastStore } from '@/store';
 import { formatINR, numericInputValue, selectOnFocus } from '@/utils/format';
 
-type Tab = 'customers' | 'vendors' | 'varieties' | 'block-prices';
+type Tab = 'customers' | 'vendors' | 'varieties' | 'block-prices' | 'slab-prices';
 
 const REGIONS = ['Andhra Pradesh', 'Telangana', 'Tamil Nadu', 'Karnataka', 'Rajasthan', 'Other'];
 const BLANK_VARIETY = { variety_name: '', region: 'Other', hsn_default: '2516', uom_default: 'sqft', kind_default: 'slab', typical_grades: 'A,A+', notes: '', active: true, sort_order: 0 };
@@ -406,6 +406,9 @@ export function MastersPage() {
   const { data: pricesData } = useBlockPriceMaster();
   const upsertPrice = useUpsertBlockPrice();
   const deletePrice = useDeleteBlockPrice();
+  const { data: slabPricesData } = useSlabPriceMaster();
+  const upsertSlabPrice = useUpsertSlabPrice();
+  const deleteSlabPrice = useDeleteSlabPrice();
   const createCustomer = useCreateCustomer();
   const updateCustomer = useUpdateCustomer(editingCustomer?.id ?? '');
   const createVendor = useCreateVendor();
@@ -419,6 +422,7 @@ export function MastersPage() {
   const vendors: any[] = (vendorsData as any)?.vendors || [];
   const varieties: any[] = varietiesData?.varieties || [];
   const blockPrices: any[] = pricesData?.prices || [];
+  const slabPrices: any[] = slabPricesData?.prices || [];
 
   const [customerForm, setCustomerForm] = useState({ ...BLANK_CUSTOMER });
   const [editCustomerForm, setEditCustomerForm] = useState({ ...BLANK_CUSTOMER });
@@ -538,6 +542,24 @@ export function MastersPage() {
     });
   };
 
+  // Slab (finished-goods selling) prices state
+  const [slabForm, setSlabForm] = useState({ variety: '', grade: 'A' as 'A+' | 'A' | 'B', thickness_mm: 20, rate_per_sqft_paise: 0, notes: '' });
+  const handleUpsertSlab = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!slabForm.variety) { notify('Select a variety', 'error'); return; }
+    upsertSlabPrice.mutate(slabForm, {
+      onSuccess: () => { notify('Slab price saved', 'success'); setSlabForm(p => ({ ...p, rate_per_sqft_paise: 0, notes: '' })); },
+      onError: (err: any) => notify(err.response?.data?.error || 'Save failed', 'error'),
+    });
+  };
+  const handleDeleteSlab = (id: number) => {
+    if (!window.confirm('Remove this slab price entry?')) return;
+    deleteSlabPrice.mutate(id, {
+      onSuccess: () => notify('Removed', 'success'),
+      onError: (err: any) => notify(err.response?.data?.error || 'Failed', 'error'),
+    });
+  };
+
 
 
   return (
@@ -549,7 +571,7 @@ export function MastersPage() {
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: '4px', marginBottom: '24px', borderBottom: '2px solid var(--bd)' }}>
-        {(['customers', 'vendors', 'varieties', 'block-prices'] as Tab[]).map((tab) => (
+        {(['customers', 'vendors', 'varieties', 'block-prices', 'slab-prices'] as Tab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -562,7 +584,7 @@ export function MastersPage() {
               cursor: 'pointer', fontSize: '14px', marginBottom: '-2px', transition: 'all 0.2s',
             }}
           >
-            {{ customers: `Customers (${customers.length})`, vendors: `Vendors (${vendors.length})`, varieties: `Varieties (${varieties.length})`, 'block-prices': `Block Prices (${blockPrices.length})` }[tab]}
+            {{ customers: `Customers (${customers.length})`, vendors: `Vendors (${vendors.length})`, varieties: `Varieties (${varieties.length})`, 'block-prices': `Block Prices (${blockPrices.length})`, 'slab-prices': `Slab Prices (${slabPrices.length})` }[tab]}
           </button>
         ))}
       </div>
@@ -789,6 +811,102 @@ export function MastersPage() {
                         Edit
                       </button>
                       <button onClick={() => handleDeletePrice(p.id)}
+                        style={{ padding: '4px 10px', fontSize: 12, background: 'var(--redW)', color: 'var(--red)', border: '1px solid var(--redW)', borderRadius: 5, cursor: 'pointer' }}>
+                        ✕
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {/* Slab Price Master (finished-goods selling price) */}
+      {activeTab === 'slab-prices' && (
+        <div>
+          <p style={{ color: 'var(--t3)', fontSize: 13, marginBottom: 20 }}>
+            Set the standard <strong>selling</strong> rate per sq.ft for each variety × grade × thickness.
+            Producing a slab auto-fills its rate from here — you can still override it at production and per-line at POS.
+          </p>
+
+          {/* Add / update form */}
+          <form onSubmit={handleUpsertSlab} style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 24,
+            background: 'var(--bg1)', border: '1px solid var(--bd)', borderRadius: 8, padding: '14px 16px' }}>
+            <div style={{ flex: '1 1 150px' }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--t3)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.05em' }}>Variety *</label>
+              <select className="fi" value={slabForm.variety} onChange={e => setSlabForm(p => ({ ...p, variety: e.target.value }))} required>
+                <option value="">Select…</option>
+                {varieties.map((v: any) => <option key={v.id} value={v.variety_name}>{v.variety_name}</option>)}
+              </select>
+            </div>
+            <div style={{ flex: '0 0 80px' }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--t3)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.05em' }}>Grade *</label>
+              <select className="fi" value={slabForm.grade} onChange={e => setSlabForm(p => ({ ...p, grade: e.target.value as any }))}>
+                <option value="A+">A+</option><option value="A">A</option><option value="B">B</option>
+              </select>
+            </div>
+            <div style={{ flex: '0 0 110px' }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--t3)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.05em' }}>Thickness (mm)</label>
+              <input className="fi" list="slab-thk" type="number" min={0} step="1" value={numericInputValue(slabForm.thickness_mm)}
+                onFocus={selectOnFocus} onChange={e => setSlabForm(p => ({ ...p, thickness_mm: parseInt(e.target.value) || 0 }))} />
+              <datalist id="slab-thk">{[18, 20, 30, 40, 50].map(t => <option key={t} value={t} />)}</datalist>
+            </div>
+            <div style={{ flex: '1 1 130px' }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--t3)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.05em' }}>Rate / sq.ft (₹) *</label>
+              <input className="fi" type="number" min={0} step="0.01"
+                value={numericInputValue(slabForm.rate_per_sqft_paise / 100)}
+                onFocus={selectOnFocus}
+                onChange={e => setSlabForm(p => ({ ...p, rate_per_sqft_paise: Math.round((parseFloat(e.target.value) || 0) * 100) }))} />
+            </div>
+            <div style={{ flex: '2 1 180px' }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--t3)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.05em' }}>Notes</label>
+              <input className="fi" type="text" placeholder="e.g. export grade" value={slabForm.notes}
+                onChange={e => setSlabForm(p => ({ ...p, notes: e.target.value }))} />
+            </div>
+            <button type="submit" style={{ padding: '9px 20px', background: 'var(--rust)', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 600, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}
+              disabled={upsertSlabPrice.isPending}>
+              {upsertSlabPrice.isPending ? 'Saving…' : 'Save Price'}
+            </button>
+          </form>
+
+          {/* Price table */}
+          {slabPrices.length === 0 ? (
+            <p style={{ color: 'var(--t3)', textAlign: 'center', padding: '40px 0' }}>No slab prices set yet. Add the first one above.</p>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid var(--bd)', textAlign: 'left' }}>
+                  <th style={{ padding: '8px 12px', color: 'var(--t3)', fontWeight: 600, fontSize: 11, textTransform: 'uppercase' }}>Variety</th>
+                  <th style={{ padding: '8px 12px', color: 'var(--t3)', fontWeight: 600, fontSize: 11, textTransform: 'uppercase' }}>Grade</th>
+                  <th style={{ padding: '8px 12px', color: 'var(--t3)', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', textAlign: 'right' }}>Thickness</th>
+                  <th style={{ padding: '8px 12px', color: 'var(--t3)', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', textAlign: 'right' }}>Rate / sq.ft</th>
+                  <th style={{ padding: '8px 12px', color: 'var(--t3)', fontWeight: 600, fontSize: 11, textTransform: 'uppercase' }}>Notes</th>
+                  <th style={{ padding: '8px 4px' }}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {slabPrices.map((p: any) => (
+                  <tr key={p.id} style={{ borderBottom: '1px solid var(--bd)' }}>
+                    <td style={{ padding: '10px 12px', fontWeight: 600 }}>{p.variety}</td>
+                    <td style={{ padding: '10px 12px' }}>
+                      <span style={{ padding: '2px 10px', borderRadius: 20, fontWeight: 700, fontSize: 12,
+                        color: p.grade === 'A+' ? 'var(--sage)' : p.grade === 'A' ? 'var(--blue)' : 'var(--amber)',
+                        background: p.grade === 'A+' ? 'var(--sageW)' : p.grade === 'A' ? 'var(--blueW)' : 'var(--amberW)' }}>
+                        {p.grade}
+                      </span>
+                    </td>
+                    <td style={{ padding: '10px 12px', textAlign: 'right' }}>{p.thickness_mm ? `${p.thickness_mm} mm` : '—'}</td>
+                    <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700 }}>{formatINR(p.rate_per_sqft_paise)}</td>
+                    <td style={{ padding: '10px 12px', color: 'var(--t3)' }}>{p.notes ?? '—'}</td>
+                    <td style={{ padding: '10px 4px', whiteSpace: 'nowrap' }}>
+                      <button
+                        onClick={() => setSlabForm({ variety: p.variety, grade: p.grade, thickness_mm: p.thickness_mm, rate_per_sqft_paise: p.rate_per_sqft_paise, notes: p.notes ?? '' })}
+                        style={{ padding: '4px 10px', fontSize: 12, background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 5, cursor: 'pointer', marginRight: 6 }}>
+                        Edit
+                      </button>
+                      <button onClick={() => handleDeleteSlab(p.id)} title="Remove"
                         style={{ padding: '4px 10px', fontSize: 12, background: 'var(--redW)', color: 'var(--red)', border: '1px solid var(--redW)', borderRadius: 5, cursor: 'pointer' }}>
                         ✕
                       </button>

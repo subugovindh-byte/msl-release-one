@@ -6,7 +6,7 @@ import {
   useProducts, useCreateProduct, useCreateProductionJob, useChippingJob,
   useProductionJobs, useMoveProduct, usePurchaseOrders,
   useDeleteProduct, useUpdateProduct, useRecordDamage, useQaProduct, useReworkProduct,
-  useDeleteProductionJob, useProductionStageStats,
+  useDeleteProductionJob, useProductionStageStats, useSlabPriceMaster,
 } from '@/hooks/useApi';
 import { useToastStore, useAuthStore } from '@/store';
 
@@ -736,6 +736,19 @@ function CutSlabs({ rawBlocks, blockedCount = 0, notify, preselectId }: { rawBlo
   const isSlab = outputKind === 'slab';
   const size   = isSlab ? form.slab_size : form.tile_size;
   const sqft   = sqftFromSize(size);
+
+  // Auto-fill selling rate from the Slab Price Master (variety + grade + thickness).
+  const { data: slabPricesData } = useSlabPriceMaster();
+  const slabPrices: any[] = slabPricesData?.prices || [];
+  const thickness = +(isSlab ? form.slab_thickness : form.tile_thickness);
+  const masterRate = useMemo(() => {
+    const m = slabPrices.find(p => p.variety === selectedBlock?.variety && p.grade === form.grade && p.thickness_mm === thickness);
+    return m ? m.rate_per_sqft_paise / 100 : null;
+  }, [slabPrices, selectedBlock?.variety, form.grade, thickness]);
+  useEffect(() => {
+    if (masterRate != null) setForm(f => ({ ...f, rate_rs: String(masterRate) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [masterRate]);
 
   function buildOutput() {
     const variety = selectedBlock?.variety || '';
