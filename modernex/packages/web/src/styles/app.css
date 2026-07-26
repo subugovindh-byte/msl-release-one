@@ -920,7 +920,21 @@ a { color: var(--rust); text-decoration: none; }
   .page { padding: 14px; }
   .page-header { margin-bottom: 14px; gap: 10px; }
   .page-header h1 { font-size: 18px; min-width: 120px; }
-  .cart { display: none; }
+
+  /* POS cart becomes a bottom sheet on mobile (was hidden — blocked checkout). */
+  .cart {
+    position: fixed; left: 0; right: 0; bottom: 0; top: auto;
+    width: auto; max-height: 78vh;
+    border-left: none; border-top: 1px solid var(--bd);
+    box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.3); z-index: 150;
+  }
+  .cart-closed { width: auto; height: auto; }
+  /* Closed dock → a full-width horizontal "open cart" bar. */
+  .cart-dock { flex-direction: row; width: 100%; padding: 12px 16px; gap: 12px; justify-content: center; }
+  .cart-dock-total { writing-mode: horizontal-tb; transform: none; font-size: 13px; }
+  .cart-dock-arrow { transform: rotate(90deg); }
+  /* Keep last products reachable above the closed cart bar. */
+  .pos-cat { padding-bottom: 64px; }
   .modernex-grid {
     height: min(440px, calc(100dvh - 240px)) !important;
     --ag-font-size: 10px;
