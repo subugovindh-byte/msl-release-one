@@ -242,6 +242,8 @@ export default function BlockInspectionDetailPage() {
   const gradeMeta = GRADE_COLORS[insp.grade] ?? { color: 'var(--t2)', bg: 'var(--bg3)' };
   const isPending = insp.status === 'pending';
   const isApproved = insp.status === 'approved';
+  const isAdmin = role === 'admin';           // full access — may edit even after PO raised
+  const canEdit = canWrite && (isPending || isAdmin);
 
   return (
     <div style={{ maxWidth: 600, margin: '0 auto', padding: '16px', paddingBottom: 120 }}>
@@ -280,7 +282,7 @@ export default function BlockInspectionDetailPage() {
       <div style={{ ...card, marginTop: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 14 }}>
           <h3 style={{ margin: 0, fontSize: 15, flex: 1 }}>Details</h3>
-          {canWrite && isPending && !editing && (
+          {canEdit && !editing && (
             <button style={btn('var(--bg3)','var(--t2)','1px solid var(--bd)')} onClick={startEdit}>Edit</button>
           )}
         </div>

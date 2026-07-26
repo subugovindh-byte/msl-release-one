@@ -441,6 +441,7 @@ export default function BlockInspectionListPage() {
   const role = useAuthStore(s => s.user?.role);
   const canWrite = role === 'admin' || role === 'accounts' || role === 'yard';
   const canAdmin = role === 'admin' || role === 'accounts';
+  const isAdmin = role === 'admin';   // full access — can remove even PO-raised
 
   const [statusFilter, setStatusFilter] = useState('');
   const [showNew, setShowNew] = useState(false);
@@ -545,9 +546,10 @@ export default function BlockInspectionListPage() {
                         Reject
                       </button>
                     )}
-                    {canAdmin && insp.status !== 'po_raised' && (
+                    {(isAdmin || (canAdmin && insp.status !== 'po_raised')) && (
                       <button style={btn('var(--bg3)', 'var(--t2)', '1px solid var(--bd)')}
-                        onClick={() => handleDelete(insp.id)}>
+                        onClick={() => handleDelete(insp.id)}
+                        title={insp.status === 'po_raised' ? 'Admin override — PO stays intact (link cleared)' : 'Delete inspection'}>
                         ✕
                       </button>
                     )}

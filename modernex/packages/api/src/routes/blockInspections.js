@@ -109,7 +109,10 @@ blockInspectionsRouter.patch('/:id',
       const db = getDb();
       const existing = db.prepare('SELECT * FROM block_inspections WHERE id = ?').get(req.params.id);
       if (!existing) throw new NotFoundError('Inspection not found');
-      if (existing.status === 'po_raised') {
+      // Once a PO is raised the inspection is locked for normal users; an admin
+      // retains full access (e.g. to correct a detail).
+      const isAdmin = (req.user.roles ?? [req.user.role]).includes('admin');
+      if (existing.status === 'po_raised' && !isAdmin) {
         throw new AppError('Cannot edit an inspection after PO has been raised.', 409);
       }
       const editable = ['variety','block_count','est_cft','grade','defect_note','notes','quarry_location','vendor_id','date'];
@@ -297,7 +300,10 @@ blockInspectionsRouter.delete('/:id',
       const db = getDb();
       const existing = db.prepare('SELECT * FROM block_inspections WHERE id = ?').get(req.params.id);
       if (!existing) throw new NotFoundError('Inspection not found');
-      if (existing.status === 'po_raised') {
+      // PO-raised inspections are locked for normal users; admin has full access.
+      // The PO's inspection_id FK is ON DELETE SET NULL, so the PO is unaffected.
+      const isAdmin = (req.user.roles ?? [req.user.role]).includes('admin');
+      if (existing.status === 'po_raised' && !isAdmin) {
         throw new AppError(`Cannot delete — PO ${existing.po_id} was already raised from this inspection.`, 409);
       }
       db.prepare('DELETE FROM block_inspections WHERE id = ?').run(req.params.id);
