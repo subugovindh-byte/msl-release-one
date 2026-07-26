@@ -416,13 +416,13 @@ function ReceiveBlock({ notify }: { notify: any }) {
           </div>
           <div style={row3}>
             <Fld label="Length (cm)">
-              <Inp type="number" step="1" min="0" value={form.length_m} onChange={e => set('length_m', e.target.value)} placeholder="244" required />
+              <Inp type="number" step="any" min="0" value={form.length_m} onChange={e => set('length_m', e.target.value)} placeholder="244" required />
             </Fld>
             <Fld label="Width (cm)">
-              <Inp type="number" step="1" min="0" value={form.width_m} onChange={e => set('width_m', e.target.value)} placeholder="122" required />
+              <Inp type="number" step="any" min="0" value={form.width_m} onChange={e => set('width_m', e.target.value)} placeholder="122" required />
             </Fld>
             <Fld label="Height (cm)">
-              <Inp type="number" step="1" min="0" value={form.height_m} onChange={e => set('height_m', e.target.value)} placeholder="122" required />
+              <Inp type="number" step="any" min="0" value={form.height_m} onChange={e => set('height_m', e.target.value)} placeholder="122" required />
             </Fld>
           </div>
           {cft > 0 && (
@@ -505,6 +505,8 @@ function SplitBlock({ rawBlocks, blockedCount = 0, notify, preselectId }: { rawB
   const outputCft = mode === 'split' ? cft1 + cft2 : cft1;
   const volOver = parentCft > 0 && outputCft > parentCft * 1.03; // >3% over is a likely entry error
   const volWarn = parentCft > 0 && outputCft > parentCft * 0.98 && !volOver; // within 2% of parent (kerf loss OK)
+  // Wastage (kerf) is auto-calculated: source CBM − output CBM (never negative)
+  const autoWastage = parentCft > 0 && outputCft > 0 ? Math.max(0, +(parentCft - outputCft).toFixed(2)) : 0;
 
   function resetForm() {
     setForm({ block_id: '', sub1: { ...emptyDims }, sub2: { ...emptyDims }, labour_paise: '', damage_count: '', wastage_count: '', notes: '' });
@@ -528,7 +530,7 @@ function SplitBlock({ rawBlocks, blockedCount = 0, notify, preselectId }: { rawB
       labour_paise: form.labour_paise ? Math.round(+form.labour_paise * 100) : 0,
       power_paise: 0, consumables_paise: 0,
       damage_count: form.damage_count ? +form.damage_count : 0,
-      wastage_count: form.wastage_count ? +form.wastage_count : 0,
+      wastage_count: autoWastage,   // auto: source CBM − output CBM (kerf)
       notes: form.notes || null,
     };
     const mkBlock = (dims: typeof emptyDims) => ({
@@ -561,15 +563,15 @@ function SplitBlock({ rawBlocks, blockedCount = 0, notify, preselectId }: { rawB
         <div style={{ fontSize: 12, fontWeight: 700, color: oversize ? 'var(--red)' : 'var(--rust)' }}>{label}</div>
         <div style={row3}>
           <Fld label="Length (cm)">
-            <Inp type="number" step="1" min="0" value={dims.length_m} onChange={e => setSub(n, 'length_m', e.target.value)}
+            <Inp type="number" step="any" min="0" value={dims.length_m} onChange={e => setSub(n, 'length_m', e.target.value)}
               placeholder={parentDims.length_m ? String(Math.round(parentDims.length_m * 100)) : '244'} required />
           </Fld>
           <Fld label="Width (cm)">
-            <Inp type="number" step="1" min="0" value={dims.width_m} onChange={e => setSub(n, 'width_m', e.target.value)}
+            <Inp type="number" step="any" min="0" value={dims.width_m} onChange={e => setSub(n, 'width_m', e.target.value)}
               placeholder={parentDims.width_m ? String(Math.round(parentDims.width_m * 100)) : '122'} required />
           </Fld>
           <Fld label="Height (cm)">
-            <Inp type="number" step="1" min="0" value={dims.height_m} onChange={e => setSub(n, 'height_m', e.target.value)}
+            <Inp type="number" step="any" min="0" value={dims.height_m} onChange={e => setSub(n, 'height_m', e.target.value)}
               placeholder={parentDims.height_m ? String(Math.round(parentDims.height_m * 100)) : '60'} required />
           </Fld>
         </div>
@@ -684,8 +686,8 @@ function SplitBlock({ rawBlocks, blockedCount = 0, notify, preselectId }: { rawB
           <Fld label="Damaged pieces" hint="blocks cracked / broken">
             <Inp type="number" min="0" step="1" value={form.damage_count} onChange={e => set('damage_count', e.target.value)} placeholder="0" />
           </Fld>
-          <Fld label="Wastage (CBM)" hint="trim / kerf material removed">
-            <Inp type="number" min="0" step="1" value={form.wastage_count} onChange={e => set('wastage_count', e.target.value)} placeholder="0" />
+          <Fld label="Wastage (CBM)" hint="auto: source − output (kerf loss)">
+            <Inp type="number" value={autoWastage} readOnly disabled style={{ ...inputStyle, opacity: 0.75, cursor: 'not-allowed' }} />
           </Fld>
         </div>
       </div>
