@@ -11,6 +11,17 @@ import { useToastStore } from '@/store';
 
 const INVENTORY_GRADES = ['A+', 'A', 'B'];
 
+// Stock is a physical count for piece-based kinds — label by kind, not the
+// selling UOM (a slab batch is "69 slabs", not "69 sqft").
+function stockUnit(kind?: string): string {
+  if (kind === 'chips' || kind === 'dust') return 'MT';
+  return ({ slab: 'slabs', tile: 'tiles', block: 'blocks' } as Record<string, string>)[kind || ''] || 'pcs';
+}
+// The rate is per selling unit: sqft for slabs, CBM for blocks, MT for chips, etc.
+function rateUnit(kind?: string): string {
+  return ({ slab: 'sqft', cts: 'sqft', block: 'CBM', chips: 'MT', dust: 'MT', strip: 'rft' } as Record<string, string>)[kind || ''] || 'pc';
+}
+
 export function InventoryPage() {
   const { data: productsData, isLoading } = useProducts({ active: 'true' });
   const updateProduct = useUpdateProduct();
@@ -269,7 +280,7 @@ export function InventoryPage() {
       type: 'numericColumn',
       editable: true,
       valueParser: (params) => Number(params.newValue),
-      valueFormatter: (params) => `${params.value || 0} ${params.data?.uom || 'pc'}`,
+      valueFormatter: (params) => `${params.value || 0} ${stockUnit(params.data?.kind)}`,
     },
     {
       headerName: 'Rate (Rs)',
@@ -280,7 +291,7 @@ export function InventoryPage() {
       editable: true,
       valueGetter: (params) => Number(params.data?.rate_paise || 0) / 100,
       valueParser: (params) => Number(params.newValue),
-      valueFormatter: (params) => formatINR(Math.round(Number(params.value || 0) * 100)),
+      valueFormatter: (params) => `${formatINR(Math.round(Number(params.value || 0) * 100))}/${rateUnit(params.data?.kind)}`,
     },
     {
       headerName: 'Value',
