@@ -1657,8 +1657,10 @@ function PipelineInventory({ groups, onAction, onDelete }: { groups: Record<stri
   const stageActions: Record<string, Array<{ label: string; tab: string; color: string }>> = {
     RAW_YARD:      [{ label: 'Split →', tab: 'split', color: 'var(--amber)' }, { label: 'Cut →', tab: 'cut', color: 'var(--rust)' }],
     GANGSAW_IN:    [{ label: 'Cut →',   tab: 'cut',   color: 'var(--rust)' }],
-    GANGSAW_OUT:   [{ label: 'Polish →', tab: 'polish', color: 'var(--sage)' }],
-    FINISHED_YARD: [{ label: 'Route →', tab: 'route',  color: 'var(--gold)' }],
+    // After cutting: polish the slabs, and/or recover offcut waste into chips.
+    GANGSAW_OUT:   [{ label: 'Polish →', tab: 'polish', color: 'var(--sage)' }, { label: 'Chip →', tab: 'chipping', color: 'var(--gold)' }],
+    // Finished goods pass QA before they can be routed to sale.
+    FINISHED_YARD: [{ label: 'QA →', tab: 'qa', color: 'var(--blue)' }, { label: 'Route →', tab: 'route', color: 'var(--gold)' }],
     SHOWROOM:      [],
   };
 
