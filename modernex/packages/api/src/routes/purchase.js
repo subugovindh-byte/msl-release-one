@@ -214,7 +214,15 @@ purchaseRouter.delete('/:id',
         throw new AppError(`Cannot delete PO ${req.params.id} — a goods receipt (GRN) has been recorded. Remove the GRN first.`, 409);
       }
 
-      db.prepare('DELETE FROM purchase_orders WHERE id = ?').run(req.params.id);
+      db.transaction(() => {
+        // If this PO was raised from a block inspection, revert that inspection to
+        // 'approved' so a replacement PO can be raised from it again.
+        if (existing.inspection_id) {
+          db.prepare(`UPDATE block_inspections SET status = 'approved', po_id = NULL, updated_at = datetime('now')
+                      WHERE id = ? AND status = 'po_raised'`).run(existing.inspection_id);
+        }
+        db.prepare('DELETE FROM purchase_orders WHERE id = ?').run(req.params.id);
+      })();
       audit(req, 'PO_DELETE', 'purchase_orders', req.params.id, existing, null);
       res.json({ ok: true });
     } catch (err) { next(err); }

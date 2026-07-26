@@ -187,7 +187,15 @@ blockInspectionsRouter.post('/:id/raise-po',
       const insp = db.prepare('SELECT * FROM block_inspections WHERE id = ?').get(req.params.id);
       if (!insp) throw new NotFoundError('Inspection not found');
       if (insp.status === 'po_raised') {
-        throw new AppError(`PO already raised for inspection ${req.params.id} — see ${insp.po_id}.`, 409);
+        // Genuinely already raised only if that PO still exists. If it was deleted,
+        // revert to 'approved' and fall through so a replacement PO can be raised.
+        const existingPo = insp.po_id ? db.prepare('SELECT id FROM purchase_orders WHERE id = ?').get(insp.po_id) : null;
+        if (existingPo) {
+          throw new AppError(`PO already raised for inspection ${req.params.id} — see ${insp.po_id}.`, 409);
+        }
+        db.prepare("UPDATE block_inspections SET status = 'approved', po_id = NULL WHERE id = ?").run(req.params.id);
+        insp.status = 'approved';
+        insp.po_id = null;
       }
       if (insp.status === 'rejected') {
         throw new AppError(`Cannot raise PO — inspection ${req.params.id} was rejected.`, 409);
