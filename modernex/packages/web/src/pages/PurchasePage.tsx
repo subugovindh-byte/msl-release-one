@@ -46,9 +46,18 @@ const BLANK_FORM = (): POFormState => ({
 });
 const INCOTERMS = ['', 'EXW', 'FOB', 'CIF', 'DAP', 'DDP', 'FCA'];
 
-function POForm({ vendors, form, setForm, onSubmit, isPending, onCancel, title }: {
+// Strip fields that would fail server-side validation. `incoterm` is an enum on
+// the API, so an empty string (the "— none —" option) must be omitted, not sent
+// as '' — otherwise create/edit 400s. `date` isn't an editable PO field.
+function cleanPOPayload(form: POFormState): Record<string, unknown> {
+  const payload: Record<string, unknown> = { ...form };
+  if (!payload.incoterm) delete payload.incoterm;
+  return payload;
+}
+
+function POForm({ vendors, form, setForm, onSubmit, isPending, onCancel, title, submitLabel }: {
   vendors: any[]; form: POFormState; setForm: (f: POFormState) => void;
-  onSubmit: (e: React.FormEvent) => void; isPending: boolean; onCancel: () => void; title: string;
+  onSubmit: (e: React.FormEvent) => void; isPending: boolean; onCancel: () => void; title: string; submitLabel: string;
 }) {
   const [dims, setDims] = useState({ l: '', w: '', h: '' });
 
@@ -210,7 +219,7 @@ function POForm({ vendors, form, setForm, onSubmit, isPending, onCancel, title }
       <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
         <button type="button" onClick={onCancel} style={btn('transparent', 'var(--t2)', '1px solid var(--bd)')}>Cancel</button>
         <button type="submit" disabled={isPending} style={btn('var(--rust)')}>
-          {isPending ? 'Saving…' : title}
+          {isPending ? 'Saving…' : submitLabel}
         </button>
       </div>
     </form>
@@ -648,7 +657,7 @@ export function PurchasePage() {
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     try {
-      await createPO.mutateAsync(newForm);
+      await createPO.mutateAsync(cleanPOPayload(newForm));
       notify('Purchase order created', 'success');
       setModal(null);
       setNewForm(BLANK_FORM());
@@ -659,7 +668,7 @@ export function PurchasePage() {
     e.preventDefault();
     if (!editingPO) return;
     try {
-      await updatePO.mutateAsync({ id: editingPO.id, data: editForm });
+      await updatePO.mutateAsync({ id: editingPO.id, data: cleanPOPayload(editForm) });
       notify(`PO ${editingPO.id} updated`, 'success');
       setModal(null);
       setEditingPO(null);
@@ -844,7 +853,7 @@ export function PurchasePage() {
 
             {/* New PO */}
             {modal === 'new' && (
-              <POForm title="Create Purchase Order" vendors={vendors} form={newForm} setForm={setNewForm}
+              <POForm title="New Purchase Order" submitLabel="Create PO" vendors={vendors} form={newForm} setForm={setNewForm}
                 onSubmit={handleCreate} isPending={createPO.isPending} onCancel={() => setModal(null)} />
             )}
 
@@ -878,7 +887,7 @@ export function PurchasePage() {
 
             {/* Edit PO */}
             {modal === 'edit' && editingPO && (
-              <POForm title={`Edit ${editingPO.id}`} vendors={vendors} form={editForm} setForm={setEditForm}
+              <POForm title={`Edit ${editingPO.id}`} submitLabel="Save Changes" vendors={vendors} form={editForm} setForm={setEditForm}
                 onSubmit={handleUpdate} isPending={updatePO.isPending} onCancel={() => setModal(null)} />
             )}
 
