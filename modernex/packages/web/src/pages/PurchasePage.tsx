@@ -52,14 +52,15 @@ function POForm({ vendors, form, setForm, onSubmit, isPending, onCancel, title }
 }) {
   const [dims, setDims] = useState({ l: '', w: '', h: '' });
 
-  // Auto-calculate cbmt from L×W×H (cm) whenever any dimension changes
+  // Auto-calculate CBM (cubic metres) from L×W×H (cm) whenever any dimension changes.
+  // Blocks are priced per CBM; 1 m³ = 1,000,000 cm³.
   const handleDim = (k: 'l' | 'w' | 'h', v: string) => {
     const next = { ...dims, [k]: v };
     setDims(next);
     const l = parseFloat(next.l), w = parseFloat(next.w), h = parseFloat(next.h);
     if (l > 0 && w > 0 && h > 0) {
-      const cbmt = +(l * w * h / 28316.8).toFixed(2);
-      setForm({ ...form, cft: cbmt });
+      const cbm = +(l * w * h / 1_000_000).toFixed(3);
+      setForm({ ...form, cft: cbm });
     }
   };
 
@@ -131,17 +132,17 @@ function POForm({ vendors, form, setForm, onSubmit, isPending, onCancel, title }
       </div>
 
       <div>
-        <label style={lbl}>cbmt *</label>
+        <label style={lbl}>CBM *</label>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <input type="number" style={{ ...inp, flex: 1 }} min="0" step="0.01" value={numericInputValue(form.cft)}
+            <input type="number" style={{ ...inp, flex: 1 }} min="0" step="0.001" value={numericInputValue(form.cft)}
               onChange={e => { setDims({ l: '', w: '', h: '' }); setForm({ ...form, cft: parseFloat(e.target.value) || 0 }); }}
-              onFocus={selectOnFocus} placeholder="auto-filled from L×W×H or enter manually" required />
-            {form.cft > 0 && <div style={{ fontSize: 11, color: 'var(--t3)', whiteSpace: 'nowrap' }}>= {(form.cft * 0.0283168).toFixed(3)} CBM</div>}
+              onFocus={selectOnFocus} placeholder="auto-filled from L×W×H (cm) or enter m³" required />
+            {form.cft > 0 && <div style={{ fontSize: 11, color: 'var(--t3)', whiteSpace: 'nowrap' }}>= {(form.cft * 35.3147).toFixed(2)} CFT</div>}
           </div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div>
-          <label style={lbl}>Rate/cbmt (₹) *</label>
+          <label style={lbl}>Rate/CBM (₹) *</label>
           <input type="number" style={inp} min="0" step="0.01"
             value={numericInputValue(form.rate_per_cft_paise / 100)}
             onChange={e => setForm({ ...form, rate_per_cft_paise: Math.round((parseFloat(e.target.value) || 0) * 100) })}
@@ -272,7 +273,7 @@ function POCard({ po, canManage, onApprove, onCancel, onDelete, onPay, onEdit, o
             {po.vendor_name || po.vendor_id}
           </div>
           <div style={{ fontSize: 12, color: 'var(--t3)', marginTop: 2 }}>
-            {po.variety} · <strong style={{ color: 'var(--t2)' }}>{po.blocks} block{po.blocks !== 1 ? 's' : ''}</strong> · {po.cft} cbmt
+            {po.variety} · <strong style={{ color: 'var(--t2)' }}>{po.blocks} block{po.blocks !== 1 ? 's' : ''}</strong> · {po.cft} CBM
           </div>
         </div>
 

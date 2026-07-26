@@ -25,9 +25,11 @@ export function computeDerivedDims(kind, dims) {
   const d = { ...dims };
 
   if (kind === 'block') {
-    // Metres → cubic feet: 1 m³ = 35.3147 cft
+    // Blocks are measured/priced in CBM (cubic metres). Dimensions are stored in
+    // metres, so volume in m³ = L×W×H directly. (The column is named `cft` for
+    // legacy reasons but now holds CBM.)
     if (d.length_m && d.width_m && d.height_m && d.cft == null) {
-      d.cft = +(d.length_m * d.width_m * d.height_m * 35.3147).toFixed(2);
+      d.cft = +(d.length_m * d.width_m * d.height_m).toFixed(3);
     }
   }
 

@@ -242,7 +242,7 @@ function renderSlabLabel(p, qr, qrClass) {
 }
 
 function renderBlockLabel(p, qr, qrClass) {
-  const vol = p.cft ? `${p.cft} cbmt` : '';
+  const vol = p.cft ? `${p.cft} CBM` : '';
   const dims = [p.length_m, p.width_m, p.height_m].filter(Boolean).join('×') + (p.length_m ? ' m' : '');
   return `
     <div class="label">
@@ -253,7 +253,7 @@ function renderBlockLabel(p, qr, qrClass) {
         <div class="var">${escapeHtml(p.variety)}</div>
         <div class="dim">${dims} · ${vol}</div>
         <div class="lot">Lot ${p.lot_id || '—'} · ${escapeHtml(p.source_quarry || 'Own quarry')}</div>
-        <div class="hsn">HSN ${p.hsn} · UOM: cbmt</div>
+        <div class="hsn">HSN ${p.hsn} · UOM: CBM</div>
       </div>
     </div>`;
 }

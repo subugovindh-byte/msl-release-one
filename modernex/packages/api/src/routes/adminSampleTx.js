@@ -199,11 +199,11 @@ adminSampleTxRouter.post('/', (req, res, next) => {
       // ── Production ──
       const blockId = nextProductId();
       const [BL, BW, BH] = [2.440, 1.220, 1.220];
-      const blockCft = +(BL * BW * BH * 35.3147).toFixed(2);
+      const blockCft = +(BL * BW * BH).toFixed(3);   // m³ = CBM
       db.prepare(`INSERT INTO products (id,kind,variety,hsn,uom,lot_id,current_location_id,rate_paise,stock,active,created_by)
         VALUES (?,'block','Paradiso Classic','2516','cft','LOT-001','RAW_YARD',50000,1,1,'sample-tx')`).run(blockId);
       db.prepare(`INSERT INTO product_blocks (product_id,length_m,width_m,height_m,cft) VALUES (?,?,?,?,?)`).run(blockId,BL,BW,BH,blockCft);
-      seeded.push(`Block ${blockId} (${blockCft} CFT)`);
+      seeded.push(`Block ${blockId} (${blockCft} CBM)`);
 
       const jobId = nextJobId();
       const slabId = nextProductId();

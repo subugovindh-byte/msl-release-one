@@ -17,9 +17,12 @@ function sqftFromSize(sizeStr: string) {
   return +((l * w) / 92903.04).toFixed(2);
 }
 
+// Blocks are measured in CBM (cubic metres). Dimensions come in metres, so
+// volume in m³ = L×W×H. cftFromM is kept (same name, wide call-sites) but now
+// returns CBM so downstream yield/kerf math stays in one consistent unit.
 function cftFromM(l: number, w: number, h: number) {
   if (!l || !w || !h) return 0;
-  return +((l * w * h) * 35.3147).toFixed(2);
+  return +(l * w * h).toFixed(3);
 }
 
 function cbmFromM(l: number, w: number, h: number) {
@@ -27,8 +30,8 @@ function cbmFromM(l: number, w: number, h: number) {
   return +(l * w * h).toFixed(3);
 }
 
-function volLabel(cft: number, cbm: number) {
-  return `${cft} cbmt · ${cbm} CBM`;
+function volLabel(_cft: number, cbm: number) {
+  return `${cbm} CBM`;
 }
 
 // Shown in Split/Cut when some Raw-Yard blocks are withheld from job work
@@ -354,7 +357,7 @@ function ReceiveBlock({ notify }: { notify: any }) {
             <option value="">— select approved PO —</option>
             {pos.map((po: any) => (
               <option key={po.id} value={po.id}>
-                {po.id} · {po.variety} · {po.blocks} blk · {po.cft} cbmt [{po.status}]
+                {po.id} · {po.variety} · {po.blocks} blk · {po.cft} CBM [{po.status}]
               </option>
             ))}
           </Sel>
@@ -368,8 +371,8 @@ function ReceiveBlock({ notify }: { notify: any }) {
           <div style={{ background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 6, padding: '8px 14px', fontSize: 12, color: 'var(--t2)', display: 'flex', gap: 20, flexWrap: 'wrap' }}>
             <span><span style={{ color: 'var(--t3)' }}>Vendor:</span> <strong>{po.vendor_name || po.vendor_id}</strong></span>
             <span><span style={{ color: 'var(--t3)' }}>Variety:</span> <strong>{po.variety}</strong></span>
-            <span><span style={{ color: 'var(--t3)' }}>Ordered:</span> <strong>{po.blocks} blk · {po.cft} cbmt</strong></span>
-            <span><span style={{ color: 'var(--t3)' }}>Rate:</span> <strong>₹{(po.rate_per_cft_paise / 100).toLocaleString()}/cbmt</strong></span>
+            <span><span style={{ color: 'var(--t3)' }}>Ordered:</span> <strong>{po.blocks} blk · {po.cft} CBM</strong></span>
+            <span><span style={{ color: 'var(--t3)' }}>Rate:</span> <strong>₹{(po.rate_per_cft_paise / 100).toLocaleString()}/CBM</strong></span>
           </div>
         );
       })()}
@@ -442,7 +445,7 @@ function ReceiveBlock({ notify }: { notify: any }) {
         )}
 
         <div style={row2}>
-          <Fld label="Rate per cbmt (₹)" hint="auto-filled from PO">
+          <Fld label="Rate per CBM (₹)" hint="auto-filled from PO">
             <Inp type="number" min="0" value={form.rate_paise} onChange={e => set('rate_paise', e.target.value)} placeholder="500" />
           </Fld>
           <Fld label="Notes" hint="optional">
@@ -658,8 +661,8 @@ function SplitBlock({ rawBlocks, blockedCount = 0, notify, preselectId }: { rawB
           color: volOver ? 'var(--red)' : volWarn ? 'var(--sage)' : 'var(--t3)',
         }}>
           {volOver
-            ? `Output ${outputCft.toFixed(1)} cbmt > source ${parentCft.toFixed(1)} cbmt — check for typos in dimensions`
-            : `Output ${outputCft.toFixed(1)} cbmt vs source ${parentCft.toFixed(1)} cbmt (${((outputCft/parentCft)*100).toFixed(1)}% yield — kerf loss ${(parentCft - outputCft).toFixed(1)} cbmt)`
+            ? `Output ${outputCft.toFixed(2)} CBM > source ${parentCft.toFixed(2)} CBM — check for typos in dimensions`
+            : `Output ${outputCft.toFixed(2)} CBM vs source ${parentCft.toFixed(2)} CBM (${((outputCft/parentCft)*100).toFixed(1)}% yield — kerf loss ${(parentCft - outputCft).toFixed(2)} CBM)`
           }
         </div>
       )}
@@ -681,7 +684,7 @@ function SplitBlock({ rawBlocks, blockedCount = 0, notify, preselectId }: { rawB
           <Fld label="Damaged pieces" hint="blocks cracked / broken">
             <Inp type="number" min="0" step="1" value={form.damage_count} onChange={e => set('damage_count', e.target.value)} placeholder="0" />
           </Fld>
-          <Fld label="Wastage (cbmt)" hint="trim / kerf material removed">
+          <Fld label="Wastage (CBM)" hint="trim / kerf material removed">
             <Inp type="number" min="0" step="1" value={form.wastage_count} onChange={e => set('wastage_count', e.target.value)} placeholder="0" />
           </Fld>
         </div>

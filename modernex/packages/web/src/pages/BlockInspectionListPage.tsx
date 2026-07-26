@@ -156,7 +156,7 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
     setDims(next);
     const l = parseFloat(next.l), w = parseFloat(next.w), h = parseFloat(next.h);
     if (l > 0 && w > 0 && h > 0) {
-      setForm(f => ({ ...f, est_cft: +(l * w * h / 28316.8).toFixed(2) }));
+      setForm(f => ({ ...f, est_cft: +(l * w * h / 1_000_000).toFixed(3) }));   // cm³ → CBM (m³)
     }
   };
 
@@ -305,7 +305,7 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
             </div>
           </div>
           <div>
-            <label style={lbl}>Est. cbmt</label>
+            <label style={lbl}>Est. CBM</label>
             <datalist id="insp-dim-sizes">
               {Array.from({ length: 36 }, (_, i) => 50 + i * 10).map(v => <option key={v} value={v} />)}
             </datalist>
@@ -320,13 +320,13 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
               ))}
             </div>
             <input style={{ ...inp, fontSize:13 }} type="number" min={0} step="0.01"
-              placeholder="cbmt (auto-filled from L×W×H or enter manually)"
+              placeholder="CBM (auto-filled from L×W×H or enter m³)"
               value={numericInputValue(form.est_cft)}
               onFocus={selectOnFocus} onChange={e => { setDims({ l:'', w:'', h:'' }); set('est_cft', parseFloat(e.target.value) || 0); }} />
             {form.est_cft > 0 && (
               <div style={{ fontSize:11, color:'var(--t3)', marginTop:4 }}>
-                {form.est_cft} cbmt = {(form.est_cft * 0.0283168).toFixed(3)} CBM
-                {form.block_count > 1 && <span> · total {(form.est_cft * form.block_count).toFixed(2)} cbmt for {form.block_count} blocks</span>}
+                {form.est_cft} CBM = {(form.est_cft * 35.3147).toFixed(2)} CFT
+                {form.block_count > 1 && <span> · total {(form.est_cft * form.block_count).toFixed(3)} CBM for {form.block_count} blocks</span>}
               </div>
             )}
           </div>
@@ -515,7 +515,7 @@ export default function BlockInspectionListPage() {
                 <div style={{ flex: 1, minWidth: 160 }}>
                   <div style={{ fontWeight: 700, fontSize: 14 }}>{insp.id}</div>
                   <div style={{ color: 'var(--t2)', fontSize: 12, marginTop: 2 }}>
-                    {insp.variety} · {insp.block_count} block{insp.block_count !== 1 ? 's' : ''} · {insp.est_cft} cbmt
+                    {insp.variety} · {insp.block_count} block{insp.block_count !== 1 ? 's' : ''} · {insp.est_cft} CBM
                   </div>
                   {insp.vendor_name && <div style={{ color: 'var(--t3)', fontSize: 11, marginTop: 2 }}>{insp.vendor_name}</div>}
                   {insp.quarry_location && <div style={{ color: 'var(--t3)', fontSize: 11 }}>📍 {insp.quarry_location}</div>}

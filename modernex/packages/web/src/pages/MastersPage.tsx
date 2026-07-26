@@ -184,9 +184,9 @@ function VarietyList({ varieties, loading, onCreate, onUpdate, onDelete, notify 
                 </select>
               </div>
               <div><label className="fl" title="Harmonised System of Nomenclature code — 2516 is standard for granite, used on invoices">HSN Code</label><input type="text" value={editForm.hsn_default} onChange={e => setEditForm({ ...editForm, hsn_default: e.target.value })} maxLength={8} className="fi" /></div>
-              <div><label className="fl" title="Unit of Measure — sqft for slabs, cbmt for blocks, kg for chips">Default UOM</label>
+              <div><label className="fl" title="Unit of Measure — sqft for slabs, CBM for blocks, kg for chips">Default UOM</label>
                 <select value={editForm.uom_default} onChange={e => setEditForm({ ...editForm, uom_default: e.target.value })} className="fsel">
-                  {['sqft','cbmt','mt','kg','nos'].map(u => <option key={u} value={u}>{u}</option>)}
+                  {['sqft','cbm','mt','kg','nos'].map(u => <option key={u} value={u}>{u}</option>)}
                 </select>
               </div>
               <div><label className="fl" title="Product kind: slab, tile, block, chips, cobble, kerb, etc.">Default Kind</label>
@@ -712,7 +712,7 @@ export function MastersPage() {
       {activeTab === 'block-prices' && (
         <div>
           <p style={{ color: 'var(--t3)', fontSize: 13, marginBottom: 20 }}>
-            Set the standard rate per cbmt for each variety × grade combination.
+            Set the standard rate per CBM for each variety × grade combination.
             When raising a PO from an inspection the rate is auto-filled from here — you can still override it at the time of PO creation.
             The rate that ends up on the PO is locked at that moment.
           </p>
@@ -736,7 +736,7 @@ export function MastersPage() {
               </select>
             </div>
             <div style={{ flex: '1 1 140px' }}>
-              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--t3)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.05em' }}>Rate / cbmt (₹) *</label>
+              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--t3)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.05em' }}>Rate / CBM (₹) *</label>
               <input className="fi" type="number" min={0} step="0.01"
                 value={numericInputValue(priceForm.rate_per_cft_paise / 100)}
                 onFocus={selectOnFocus}
@@ -762,7 +762,7 @@ export function MastersPage() {
                 <tr style={{ borderBottom: '2px solid var(--bd)', textAlign: 'left' }}>
                   <th style={{ padding: '8px 12px', color: 'var(--t3)', fontWeight: 600, fontSize: 11, textTransform: 'uppercase' }}>Variety</th>
                   <th style={{ padding: '8px 12px', color: 'var(--t3)', fontWeight: 600, fontSize: 11, textTransform: 'uppercase' }}>Grade</th>
-                  <th style={{ padding: '8px 12px', color: 'var(--t3)', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', textAlign: 'right' }}>Rate / cbmt</th>
+                  <th style={{ padding: '8px 12px', color: 'var(--t3)', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', textAlign: 'right' }}>Rate / CBM</th>
                   <th style={{ padding: '8px 12px', color: 'var(--t3)', fontWeight: 600, fontSize: 11, textTransform: 'uppercase' }}>Notes</th>
                   <th style={{ padding: '8px 12px', color: 'var(--t3)', fontWeight: 600, fontSize: 11, textTransform: 'uppercase' }}>Updated</th>
                   <th style={{ padding: '8px 4px' }}></th>

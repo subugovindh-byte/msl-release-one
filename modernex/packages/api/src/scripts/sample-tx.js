@@ -299,7 +299,7 @@ db.transaction(() => {
   // A1. Raw block at Raw Yard  (2440×1220×1220 mm, ≈44.3 CFT)
   const blockId = nextProductId();
   const [BL, BW, BH] = [2.440, 1.220, 1.220];
-  const blockCft = +(BL * BW * BH * 35.3147).toFixed(2);
+  const blockCft = +(BL * BW * BH).toFixed(3);   // m³ = CBM
   db.prepare(`
     INSERT INTO products
       (id, kind, variety, hsn, uom, lot_id, current_location_id, rate_paise, stock, active, created_by)
@@ -307,7 +307,7 @@ db.transaction(() => {
   `).run(blockId);
   db.prepare(`INSERT INTO product_blocks (product_id, length_m, width_m, height_m, cft) VALUES (?,?,?,?,?)`)
     .run(blockId, BL, BW, BH, blockCft);
-  console.log(`   ✓ Block       ${blockId}  Paradiso Classic  ${BL*1000|0}×${BW*1000|0}×${BH*1000|0} mm  (${blockCft} CFT)  @ Raw Yard`);
+  console.log(`   ✓ Block       ${blockId}  Paradiso Classic  ${BL*1000|0}×${BW*1000|0}×${BH*1000|0} mm  (${blockCft} CBM)  @ Raw Yard`);
 
   // A2. Cut job → 15 slabs → Gangsaw Out
   const jobId  = nextJobId();
