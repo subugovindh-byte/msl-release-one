@@ -3,7 +3,7 @@ import { useProducts, useCustomers, useCreateInvoice, useCreateCustomer } from '
 import { CGST_RATE_LABEL, IGST_RATE_LABEL, SGST_RATE_LABEL, calculateInvoice, INDIAN_STATES } from '@modernex/shared';
 import { formatCurrency } from '@/utils/format';
 import { useToastStore, useCartStore } from '@/store';
-import type { CartProduct } from '@/store';
+import type { CartProduct, CartItem } from '@/store';
 import type { ProductKind, Customer } from '@/types';
 
 interface PosProduct {
@@ -61,6 +61,7 @@ export function POSPage() {
     adjustQuantity,
     setQuantity,
     setRate,
+    setPriceUnit,
     setCustomerId,
     clearCart,
     toggleCart,
@@ -218,6 +219,12 @@ export function POSPage() {
     }
     return 1;
   };
+  // Per-unit multiplier for a cart line, respecting its price unit: 'slab' prices
+  // per piece (multiplier 1), 'sqft' prices per area (multiplier = sqft/slab).
+  const lineUomQty = (item: CartItem) =>
+    (item.priceUnit ?? 'sqft') === 'slab' ? 1 : getUomQty(item.product);
+  // Does this kind support the slab/sqft toggle? (only area-priced goods)
+  const hasSqftToggle = (p: CartProduct) => (p.kind === 'slab' || p.kind === 'cts') && !!p.dimensions?.sqft;
 
   // Filter products by variety
   const filteredProducts = useMemo(() => {
@@ -273,7 +280,7 @@ export function POSPage() {
         product_id: item.product.id,
         hsn: item.product.hsn,
         uom: item.product.uom,
-        uom_qty: getUomQty(item.product),
+        uom_qty: lineUomQty(item),
         qty: item.quantity,
         rate_paise: getCartRatePaise(item),
       })),
@@ -312,8 +319,8 @@ export function POSPage() {
       product_kind: item.product.kind,
       variety: item.product.variety,
       hsn: item.product.hsn,
-      uom: item.product.uom,
-      uom_qty: getUomQty(item.product),
+      uom: (item.priceUnit ?? 'sqft') === 'slab' ? 'pc' : item.product.uom,
+      uom_qty: lineUomQty(item),
       qty: item.quantity,
       rate_paise: getCartRatePaise(item),
       dimension_snapshot: item.product.dimensions || {},
@@ -400,7 +407,7 @@ export function POSPage() {
               const cartItem = cart.find((item) => item.product.id === product.id);
               const inCart = Boolean(cartItem);
               const lineTotal = cartItem
-                ? getCartRatePaise(cartItem) * getUomQty(cartItem.product) * cartItem.quantity
+                ? getCartRatePaise(cartItem) * lineUomQty(cartItem) * cartItem.quantity
                 : getRatePaise(product) * getUomQty(product);
               
               return (
@@ -608,8 +615,32 @@ export function POSPage() {
                       <button className="ci-rm" title="Remove from cart" onClick={() => removeItem(item.product.id)}>×</button>
                     </div>
                     <div className="ci-dt">{item.product.id} • {getDisplaySize(item.product)}</div>
+                    {hasSqftToggle(item.product) && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
+                        {(['sqft', 'slab'] as const).map(u => (
+                          <button key={u} type="button"
+                            onClick={() => setPriceUnit(item.product.id, u)}
+                            title={u === 'sqft' ? 'Price per sq.ft' : 'Price per slab'}
+                            style={{
+                              fontSize: 10, fontWeight: 700, padding: '2px 10px', borderRadius: 10, cursor: 'pointer',
+                              border: '1px solid var(--bd)',
+                              background: (item.priceUnit ?? 'sqft') === u ? 'var(--rust)' : 'transparent',
+                              color: (item.priceUnit ?? 'sqft') === u ? '#fff' : 'var(--t2)',
+                            }}>
+                            {u === 'sqft' ? '₹/sq.ft' : '₹/slab'}
+                          </button>
+                        ))}
+                        {item.product.dimensions?.sqft && (
+                          <span style={{ fontSize: 10, color: 'var(--t3)', marginLeft: 'auto' }}>
+                            {(item.product.dimensions.sqft * item.quantity).toFixed(2)} sqft total
+                          </span>
+                        )}
+                      </div>
+                    )}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
-                      <label style={{ fontSize: '10px', color: 'var(--t3)', minWidth: '48px' }}>Rate</label>
+                      <label style={{ fontSize: '10px', color: 'var(--t3)', minWidth: '48px' }}>
+                        {(item.priceUnit ?? 'sqft') === 'slab' ? '₹/slab' : '₹/sqft'}
+                      </label>
                       <CartRateInput
                         ratePaise={getCartRatePaise(item)}
                         productId={item.product.id}
@@ -628,7 +659,7 @@ export function POSPage() {
                         <button className="qb" onClick={() => adjustQuantity(item.product.id, 1)} title="Increase">+</button>
                       </div>
                       <div className="ci-tot">
-                        {formatCurrency(getCartRatePaise(item) * getUomQty(item.product) * item.quantity)}
+                        {formatCurrency(getCartRatePaise(item) * lineUomQty(item) * item.quantity)}
                       </div>
                     </div>
                   </div>

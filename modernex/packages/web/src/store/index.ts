@@ -231,6 +231,7 @@ export interface CartItem {
   product: CartProduct;
   quantity: number;
   ratePaise: number;
+  priceUnit?: 'sqft' | 'slab';   // how ratePaise is interpreted (default 'sqft')
 }
 
 interface CartState {
@@ -242,6 +243,7 @@ interface CartState {
   adjustQuantity: (productId: string, delta: number) => void;
   setQuantity: (productId: string, quantity: number) => void;
   setRate: (productId: string, rateRupees: number) => void;
+  setPriceUnit: (productId: string, unit: 'sqft' | 'slab') => void;
   setCustomerId: (id: string) => void;
   clearCart: () => void;
   toggleCart: () => void;
@@ -265,7 +267,7 @@ export const useCartStore = create<CartState>()(
           return 'updated';
         }
         if (maxStock < 1) return 'max_stock';
-        set({ items: [...items, { product, quantity: 1, ratePaise: product.rate_paise ?? product.unit_cost_paise ?? 0 }] });
+        set({ items: [...items, { product, quantity: 1, ratePaise: product.rate_paise ?? product.unit_cost_paise ?? 0, priceUnit: 'sqft' }] });
         return 'added';
       },
 
@@ -295,6 +297,23 @@ export const useCartStore = create<CartState>()(
           items: get().items.map((i) =>
             i.product.id === productId ? { ...i, ratePaise: Math.round(rateRupees * 100) } : i
           ),
+        });
+      },
+
+      // Switch a line between per-sqft and per-slab pricing. Converts the rate via
+      // sqft-per-slab so the line total is preserved on toggle (rate stays editable).
+      setPriceUnit: (productId, unit) => {
+        set({
+          items: get().items.map((i) => {
+            if (i.product.id !== productId) return i;
+            const sqftPerSlab = i.product.dimensions?.sqft || 0;
+            const current = i.priceUnit ?? 'sqft';
+            if (current === unit || sqftPerSlab <= 0) return { ...i, priceUnit: unit };
+            const ratePaise = unit === 'slab'
+              ? Math.round(i.ratePaise * sqftPerSlab)   // ₹/sqft → ₹/slab
+              : Math.round(i.ratePaise / sqftPerSlab);  // ₹/slab → ₹/sqft
+            return { ...i, priceUnit: unit, ratePaise };
+          }),
         });
       },
 
