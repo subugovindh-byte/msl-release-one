@@ -934,7 +934,14 @@ a { color: var(--rust); text-decoration: none; }
   .dt th, .dt td { padding: 5px 6px; }
   .btn { padding: 6px 10px; font-size: 8px; white-space: nowrap; }
   .btn-sm { padding: 4px 8px; font-size: 7px; }
+
+  /* Global fallback: any table (incl. pages not using the .dt/.tw pattern)
+     scrolls horizontally instead of overflowing the page. */
+  .page table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
 }
+
+/* Never let a page cause horizontal scroll of the whole document. */
+#root, .page { max-width: 100%; }
 
 /* Mobile Portrait */
 @media (max-width: 640px) {
