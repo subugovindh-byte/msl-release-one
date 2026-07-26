@@ -185,7 +185,7 @@ export function ChartOfAccountsPage() {
                   <input type="number" step="0.01" value={numericInputValue(entry.credit_paise)} onChange={(e) => updateEntry(i, 'credit_paise', parseFloat(e.target.value) || 0)} onFocus={selectOnFocus} className="fi" placeholder="0.00" />
                   <input type="text" value={entry.narration} onChange={(e) => updateEntry(i, 'narration', e.target.value)} className="fi" placeholder="Line narration" />
                   {jvForm.entries.length > 2 && (
-                    <button type="button" onClick={() => removeEntry(i)} style={{ padding: '0 10px', border: '1px solid var(--bd)', borderRadius: 4, backgroundColor: 'transparent', color: 'var(--rust)', cursor: 'pointer' }}>✕</button>
+                    <button type="button" title="Remove entry" onClick={() => removeEntry(i)} style={{ padding: '0 10px', border: '1px solid var(--bd)', borderRadius: 4, backgroundColor: 'transparent', color: 'var(--rust)', cursor: 'pointer' }}>✕</button>
                   )}
                 </div>
               ))}

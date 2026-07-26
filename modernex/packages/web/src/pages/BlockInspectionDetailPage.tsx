@@ -53,7 +53,7 @@ function PhotoThumb({ inspId, photoId, caption, canDelete, onDelete }:
           : <span style={{ fontSize: 28 }}>⊡️</span>}
       </div>
       {canDelete && (
-        <button onClick={onDelete} style={{
+        <button title="Remove photo" onClick={onDelete} style={{
           position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: '50%',
           background: 'var(--red)', color: '#fff', border: 'none', fontSize: 12, cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1,

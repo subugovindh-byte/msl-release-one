@@ -1793,7 +1793,7 @@ function PipelineInventory({ groups, onAction, onDelete }: { groups: Record<stri
                                     onError: (err: any) => notify(err.message || 'Failed', 'error'),
                                   });
                                 }} style={{ background: 'var(--red)', color: '#fff', border: 'none', borderRadius: 3, padding: '2px 7px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>✓</button>
-                                <button onClick={() => setDamageId(null)} style={{ background: 'transparent', color: 'var(--t3)', border: '1px solid var(--bd)', borderRadius: 3, padding: '2px 5px', fontSize: 10, cursor: 'pointer' }}>✕</button>
+                                <button title="Cancel" onClick={() => setDamageId(null)} style={{ background: 'transparent', color: 'var(--t3)', border: '1px solid var(--bd)', borderRadius: 3, padding: '2px 5px', fontSize: 10, cursor: 'pointer' }}>✕</button>
                               </div>
                             ) : (
                               <button onClick={() => { setDamageId(p.id); setDamageForm({ qty: '1', reason: 'damage', notes: '' }); }}

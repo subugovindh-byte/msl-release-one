@@ -149,7 +149,7 @@ function FilingCalendar() {
                         <option value="pending">Pending</option>
                       </select>
                       <button onClick={() => handleSave(p.id)} style={{ padding: '3px 10px', backgroundColor: 'var(--rust)', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 11 }}>Save</button>
-                      <button onClick={() => setEditId(null)} style={{ padding: '3px 8px', border: '1px solid var(--bd)', borderRadius: 4, cursor: 'pointer', fontSize: 11, backgroundColor: 'transparent', color: 'var(--t2)' }}>×</button>
+                      <button title="Cancel" onClick={() => setEditId(null)} style={{ padding: '3px 8px', border: '1px solid var(--bd)', borderRadius: 4, cursor: 'pointer', fontSize: 11, backgroundColor: 'transparent', color: 'var(--t2)' }}>×</button>
                     </div>
                   ) : (
                     <button onClick={() => { setEditId(p.id); setEditForm({ filed_date: p.filed_date || '', status: 'filed', notes: p.notes || '' }); }}

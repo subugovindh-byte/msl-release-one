@@ -338,7 +338,7 @@ export function ConsumablesPage() {
                     <div style={{ padding: '0 8px', fontSize: 13, fontWeight: 600, color: 'var(--t1)' }}>
                       {formatINR(it.amount_paise)}
                     </div>
-                    <button type="button" onClick={() => removeItem(i)} disabled={items.length === 1}
+                    <button type="button" title="Remove item" onClick={() => removeItem(i)} disabled={items.length === 1}
                       style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--red)', fontSize: 16, fontWeight: 700, padding: 0 }}>×</button>
                   </div>
                 ))}

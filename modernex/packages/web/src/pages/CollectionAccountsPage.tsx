@@ -199,7 +199,7 @@ export function CollectionAccountsPage() {
               <span style={{ fontWeight: 700, fontSize: '14px' }}>
                 {showModal === 'new' ? 'New Collection Account' : `Edit ${accounts.find((a) => a.id === editingId)?.name}`}
               </span>
-              <button onClick={() => setShowModal(null)} style={{ color: 'var(--t3)', fontSize: '15px', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
+              <button title="Close" onClick={() => setShowModal(null)} style={{ color: 'var(--t3)', fontSize: '15px', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
             </div>
 
             <form onSubmit={handleSave} style={{ padding: '14px 16px' }}>

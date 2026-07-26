@@ -598,7 +598,7 @@ export function POSPage() {
                   <div key={item.product.id} className="ci">
                     <div className="ci-top">
                       <div className="ci-nm">{item.product.variety}</div>
-                      <button className="ci-rm" onClick={() => removeItem(item.product.id)}>×</button>
+                      <button className="ci-rm" title="Remove from cart" onClick={() => removeItem(item.product.id)}>×</button>
                     </div>
                     <div className="ci-dt">{item.product.id} • {getDisplaySize(item.product)}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>

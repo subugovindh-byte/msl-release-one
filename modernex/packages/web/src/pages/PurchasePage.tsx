@@ -756,12 +756,12 @@ export function PurchasePage() {
   }
 
   const TABS = [
-    { key: 'all', label: 'All' },
-    { key: 'new', label: 'New' },
-    { key: 'received', label: 'Received' },
-    { key: 'approved', label: 'Approved' },
-    { key: 'closed', label: 'Closed' },
-    { key: 'cancelled', label: 'Cancelled' },
+    { key: 'all', label: 'All', hint: 'All purchase orders' },
+    { key: 'new', label: 'New', hint: 'Draft PO — not yet approved (editable/deletable)' },
+    { key: 'received', label: 'Received', hint: 'Blocks received via GRN — pending approval' },
+    { key: 'approved', label: 'Approved', hint: 'Approved — ready for payment & production' },
+    { key: 'closed', label: 'Closed', hint: 'Completed — three-way matched & fully paid' },
+    { key: 'cancelled', label: 'Cancelled', hint: 'Cancelled / voided PO' },
   ];
 
   return (
@@ -822,7 +822,7 @@ export function PurchasePage() {
       {/* Status filter tabs */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 16, borderBottom: '1px solid var(--bd)', paddingBottom: 0 }}>
         {TABS.map(t => (
-          <button key={t.key} onClick={() => { setStatusFilter(t.key); setSelectedIds(new Set()); }} style={{
+          <button key={t.key} title={t.hint} onClick={() => { setStatusFilter(t.key); setSelectedIds(new Set()); }} style={{
             padding: '7px 16px', border: 'none', borderRadius: '5px 5px 0 0', cursor: 'pointer',
             fontSize: 12, fontWeight: 600, transition: 'all 0.15s',
             background: statusFilter === t.key ? 'var(--rust)' : 'transparent',
