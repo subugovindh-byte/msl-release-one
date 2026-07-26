@@ -437,22 +437,17 @@ productionRouter.delete('/:id',
   }
 );
 
-// ─── POST /production/chipping ─── waste → chips product (side-branch)
-// Chipping recovers offcut/waste (from split/cut) into a chips/aggregate batch.
-// Waste isn't tracked inventory, so this mints a chips product (tonnes) and a
-// job_type='chipping' record rather than consuming a product input. An optional
-// source_product_id links the block/lot the waste came from (not decremented).
+// ─── POST /production/chipping ─── slab handling / dressing (records loss)
+// After cutting, a slab batch is handled/dressed; some pieces break. Records the
+// handling damage + wastage on a job_type='chipping' record and decrements the
+// batch by that loss — the recovered pieces stay in the batch and go on to
+// polish. No new product is created.
 const chippingSchema = z.object({
-  lot_id: z.string().min(1).max(30),
-  variety: z.string().min(1).max(50),
-  source_product_id: z.string().max(20).optional().nullable(),
-  tonnes: z.number().positive(),
-  rate_paise: z.number().int().nonnegative(),
+  source_product_id: z.string().min(1).max(20),
+  damage_count: z.number().int().nonnegative().default(0),   // broken during handling
+  wastage_count: z.number().int().nonnegative().default(0),  // chipped / unusable
   labour_paise: z.number().int().nonnegative().default(0),
   power_paise: z.number().int().nonnegative().default(0),
-  consumables_paise: z.number().int().nonnegative().default(0),
-  wastage_count: z.number().int().nonnegative().default(0),   // dust / fines lost
-  mesh_size_mm: z.number().positive().optional().nullable(),
   notes: z.string().max(500).optional().nullable(),
 });
 productionRouter.post('/chipping',
@@ -462,45 +457,40 @@ productionRouter.post('/chipping',
     try {
       const db = getDb();
       const b = req.body;
-      if (b.source_product_id && !loadProduct(db, b.source_product_id)) {
-        throw new AppError(`Source product ${b.source_product_id} not found`, 400);
+      const source = loadProduct(db, b.source_product_id);
+      if (!source) throw new AppError(`Source product ${b.source_product_id} not found`, 400);
+      if (!source.active) throw new AppError(`Product ${source.id} is inactive`, 400);
+      const loss = (b.damage_count || 0) + (b.wastage_count || 0);
+      if (loss <= 0) throw new AppError('Record at least one damaged or wasted piece.', 400);
+      if (source.stock < loss) {
+        throw new AppError(`Handling loss (${loss}) exceeds available stock (${source.stock}) for ${source.id}.`, 400);
       }
+      const recovered = source.stock - loss;
       const jobId = nextJobId(db);
-      const productId = nextProductId(db);
-      const hsn = hsnForKind('chips');
-      const conversionCost = (b.labour_paise || 0) + (b.power_paise || 0) + (b.consumables_paise || 0);
-      const unitCost = b.tonnes > 0 ? Math.round(conversionCost / b.tonnes) : 0;
+      const unitCost = source.unit_cost_paise ?? source.rate_paise ?? 0;
 
-      const tx = db.transaction(() => {
+      db.transaction(() => {
         db.prepare(`
           INSERT INTO production_jobs
-            (id, lot_id, stage, job_type, status, labour_paise, power_paise, consumables_paise, wastage_count, notes, created_by)
+            (id, lot_id, stage, job_type, status, labour_paise, power_paise, damage_count, wastage_count, notes, created_by)
           VALUES (?, ?, 'done', 'chipping', 'Complete', ?, ?, ?, ?, ?, ?)
-        `).run(jobId, b.lot_id, b.labour_paise || 0, b.power_paise || 0, b.consumables_paise || 0, b.wastage_count || 0, b.notes || null, req.user.username);
-
-        db.prepare(`
-          INSERT INTO products
-            (id, kind, variety, hsn, uom, lot_id, current_location_id, rate_paise, stock,
-             source_job_id, source_product_id, unit_cost_paise, active, created_by)
-          VALUES (?, 'chips', ?, ?, 'tonne', ?, 'RAW_YARD', ?, ?, ?, ?, ?, 1, ?)
-        `).run(productId, b.variety, hsn, b.lot_id, b.rate_paise, b.tonnes, jobId, b.source_product_id || null, unitCost, req.user.username);
-
-        insertDimensions(db, productId, 'chips', { mesh_size_mm: b.mesh_size_mm ?? null });
-        db.prepare(`INSERT INTO production_job_outputs (job_id, product_id, qty_produced, unit_cost_paise) VALUES (?, ?, ?, ?)`)
-          .run(jobId, productId, b.tonnes, unitCost);
+        `).run(jobId, source.lot_id, b.labour_paise || 0, b.power_paise || 0, b.damage_count || 0, b.wastage_count || 0, b.notes || null, req.user.username);
+        // The handled batch is the input; consume only the loss — recovered pieces remain.
+        db.prepare(`INSERT INTO production_job_inputs (job_id, product_id, qty_consumed, unit_cost_paise) VALUES (?, ?, ?, ?)`)
+          .run(jobId, source.id, loss, unitCost);
+        db.prepare('UPDATE products SET stock = stock - ? WHERE id = ?').run(loss, source.id);
         recordInventoryMove(db, {
-          productId, qty: b.tonnes, fromLocationId: null, toLocationId: 'RAW_YARD',
-          moveType: 'produce', stage: 'done', jobId,
-          notes: `Chipping recovery from ${b.source_product_id || 'waste'}`,
-          createdBy: req.user.username, scanInAt: new Date().toISOString(),
+          productId: source.id, qty: loss, fromLocationId: source.current_location_id || null, toLocationId: null,
+          moveType: 'consume', stage: 'done', jobId,
+          notes: `Handling loss (chipping): ${b.damage_count || 0} damaged, ${b.wastage_count || 0} wastage`,
+          createdBy: req.user.username, scanOutAt: new Date().toISOString(),
         });
-      });
-      tx();
+      })();
 
-      const product = loadProduct(db, productId);
+      const product = loadProduct(db, source.id);
       const job = db.prepare('SELECT * FROM production_jobs WHERE id = ?').get(jobId);
-      audit(req, 'PRODUCTION_CHIPPING', 'production_jobs', jobId, null, { job, product });
-      res.status(201).json({ job, product });
+      audit(req, 'PRODUCTION_CHIPPING', 'production_jobs', jobId, null, { job, recovered });
+      res.status(201).json({ job, product, recovered });
     } catch (err) { next(err); }
   }
 );

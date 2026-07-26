@@ -944,82 +944,85 @@ function CutSlabs({ rawBlocks, blockedCount = 0, notify, preselectId }: { rawBlo
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TAB 4 — CHIPPING (waste → chips product, side-branch)
+// TAB 4 — CHIPPING (slab handling / dressing — records handling loss)
 // ─────────────────────────────────────────────────────────────────────────────
-function Chipping({ blocks, notify }: { blocks: any[]; notify: any }) {
+function Chipping({ slabs, notify }: { slabs: any[]; notify: any }) {
   const chip = useChippingJob();
-  const [form, setForm] = useState({
-    variety: VARIETIES[0], lot_id: '', source_product_id: '',
-    tonnes: '', rate_rs: '', labour_rs: '', power_rs: '', mesh_mm: '', notes: '',
-  });
+  const [form, setForm] = useState({ source_id: '', damage: '', wastage: '', labour_rs: '', power_rs: '', notes: '' });
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
+
+  const source = slabs.find(s => s.id === form.source_id);
+  const stock = source?.stock ?? 0;
+  const loss = (+form.damage || 0) + (+form.wastage || 0);
+  const recovered = Math.max(0, stock - loss);
 
   async function submit(e: any) {
     e.preventDefault();
-    if (!form.variety || !form.lot_id || !form.tonnes || +form.tonnes <= 0) {
-      notify('Fill variety, lot ID and a positive tonnage', 'error'); return;
-    }
+    if (!form.source_id) { notify('Select a slab batch', 'error'); return; }
+    if (loss <= 0) { notify('Record at least one damaged or wasted piece', 'error'); return; }
+    if (loss > stock) { notify(`Loss (${loss}) exceeds available ${stock} pcs`, 'error'); return; }
     try {
-      const res = await chip.mutateAsync({
-        lot_id: form.lot_id,
-        variety: form.variety,
-        source_product_id: form.source_product_id || undefined,
-        tonnes: +form.tonnes,
-        rate_paise: form.rate_rs ? Math.round(+form.rate_rs * 100) : 0,
+      await chip.mutateAsync({
+        source_product_id: form.source_id,
+        damage_count: +form.damage || 0,
+        wastage_count: +form.wastage || 0,
         labour_paise: form.labour_rs ? Math.round(+form.labour_rs * 100) : 0,
         power_paise: form.power_rs ? Math.round(+form.power_rs * 100) : 0,
-        mesh_size_mm: form.mesh_mm ? +form.mesh_mm : undefined,
         notes: form.notes || undefined,
       });
-      notify(`Chips batch ${(res as any)?.product?.id ?? ''} recovered — ${form.tonnes} MT at Raw Yard`, 'success');
-      setForm(f => ({ ...f, lot_id: '', source_product_id: '', tonnes: '', rate_rs: '', labour_rs: '', power_rs: '', mesh_mm: '', notes: '' }));
+      notify(`Handling recorded — ${recovered} pc(s) recovered, ${loss} lost`, 'success');
+      setForm({ source_id: '', damage: '', wastage: '', labour_rs: '', power_rs: '', notes: '' });
     } catch (err: any) {
       notify(err.message || 'Chipping failed', 'error');
     }
   }
 
-  const conv = (+form.labour_rs || 0) + (+form.power_rs || 0);
-  const unitCost = form.tonnes && +form.tonnes > 0 ? (conv / +form.tonnes).toFixed(2) : '0';
+  if (slabs.length === 0) {
+    return <div style={{ ...card, color: 'var(--t3)', fontSize: 13 }}>No cut slabs at Gangsaw Out to handle. Run a cut job first.</div>;
+  }
 
   return (
     <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 560 }}>
       <p style={{ margin: 0, fontSize: 13, color: 'var(--t3)' }}>
-        Recover offcut/waste into a <strong style={{ color: 'var(--t1)' }}>chips / aggregate</strong> batch (HSN 2517). It branches off the slab line and lands at <strong style={{ color: 'var(--t1)' }}>Raw Yard</strong> as sellable stock in tonnes.
+        Handling / dressing of cut slabs. Record pieces <strong style={{ color: 'var(--t1)' }}>damaged</strong> or <strong style={{ color: 'var(--t1)' }}>wasted</strong> during handling — the recovered pieces stay in the batch and continue to polish.
       </p>
-      <div style={row2}>
-        <Fld label="Variety">
-          <Sel value={form.variety} onChange={e => set('variety', e.target.value)}>
-            {VARIETIES.map(v => <option key={v}>{v}</option>)}
-          </Sel>
-        </Fld>
-        <Fld label="Lot ID"><Inp value={form.lot_id} onChange={e => set('lot_id', e.target.value)} placeholder="LOT-024" required /></Fld>
-      </div>
-      {blocks.length > 0 && (
-        <Fld label="Source block (optional)" hint="lineage only — not consumed">
-          <Sel value={form.source_product_id} onChange={e => set('source_product_id', e.target.value)}>
-            <option value="">— none —</option>
-            {blocks.map((b: any) => <option key={b.id} value={b.id}>{b.id} · {b.variety} {b.lot_id ? `(${b.lot_id})` : ''}</option>)}
-          </Sel>
-        </Fld>
+      <Fld label="Slab batch">
+        <Sel value={form.source_id} onChange={e => set('source_id', e.target.value)} required>
+          <option value="">— select slab batch —</option>
+          {slabs.map((s: any) => (
+            <option key={s.id} value={s.id}>
+              {s.id} · {s.variety} {s.dimensions?.size_lw ? `· ${s.dimensions.size_lw}` : ''}{s.grade ? ` · Gr.${s.grade}` : ''} · {s.stock} pcs
+            </option>
+          ))}
+        </Sel>
+      </Fld>
+      {source && (
+        <div style={{ fontSize: 12, color: 'var(--t3)' }}>Available: <strong style={{ color: 'var(--t1)' }}>{stock} pcs</strong></div>
       )}
-      <div style={row2}>
-        <Fld label="Tonnes recovered (MT)"><Inp type="number" step="0.01" min="0" value={form.tonnes} onChange={e => set('tonnes', e.target.value)} placeholder="12.5" required /></Fld>
-        <Fld label="Rate per MT (₹)"><Inp type="number" min="0" value={form.rate_rs} onChange={e => set('rate_rs', e.target.value)} placeholder="900" /></Fld>
-      </div>
-      <div style={row3}>
-        <Fld label="Labour (₹)"><Inp type="number" min="0" value={form.labour_rs} onChange={e => set('labour_rs', e.target.value)} placeholder="2000" /></Fld>
-        <Fld label="Power (₹)"><Inp type="number" min="0" value={form.power_rs} onChange={e => set('power_rs', e.target.value)} placeholder="500" /></Fld>
-        <Fld label="Mesh size (mm)" hint="optional"><Inp type="number" step="0.1" min="0" value={form.mesh_mm} onChange={e => set('mesh_mm', e.target.value)} placeholder="20" /></Fld>
-      </div>
-      {conv > 0 && (
-        <div style={{ fontSize: 13, color: 'var(--gold)', fontWeight: 600 }}>
-          Conversion cost ≈ ₹{conv.toLocaleString('en-IN')} → ₹{unitCost}/MT COGS
+      <div style={{ borderTop: '1px solid var(--bd)', paddingTop: 12 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--red)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          Handling loss
         </div>
-      )}
-      <Fld label="Notes" hint="optional"><Inp value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Crushed from LOT-024 offcuts…" /></Fld>
+        <div style={row3}>
+          <Fld label="Damaged pieces" hint="broken during handling">
+            <Inp type="number" min="0" step="1" value={form.damage} onChange={e => set('damage', e.target.value)} placeholder="0" />
+          </Fld>
+          <Fld label="Wastage pieces" hint="chipped / unusable">
+            <Inp type="number" min="0" step="1" value={form.wastage} onChange={e => set('wastage', e.target.value)} placeholder="0" />
+          </Fld>
+          <Fld label="Slabs recovered" hint="auto: batch − loss">
+            <Inp type="number" value={recovered} readOnly disabled style={{ ...inputStyle, opacity: 0.75, cursor: 'not-allowed' }} />
+          </Fld>
+        </div>
+      </div>
+      <div style={row2}>
+        <Fld label="Labour (₹)" hint="optional"><Inp type="number" min="0" value={form.labour_rs} onChange={e => set('labour_rs', e.target.value)} placeholder="0" /></Fld>
+        <Fld label="Power (₹)" hint="optional"><Inp type="number" min="0" value={form.power_rs} onChange={e => set('power_rs', e.target.value)} placeholder="0" /></Fld>
+      </div>
+      <Fld label="Notes" hint="optional"><Inp value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="e.g. edge chipping during shifting…" /></Fld>
       <div>
         <button type="submit" style={btnPrimary} disabled={chip.isPending}>
-          {chip.isPending ? 'Recording…' : 'Record Chips Batch'}
+          {chip.isPending ? 'Recording…' : 'Record Handling'}
         </button>
       </div>
     </form>
@@ -1343,8 +1346,8 @@ function RouteToSale({ finishedSlabs, notify, preselectId }: { finishedSlabs: an
         <Fld label="Destination">
           <Sel value={destination} onChange={e => setDestination(e.target.value)} style={{ ...selectStyle, minWidth: 160 }}>
             <option value="SHOWROOM">Showroom</option>
-            <option value="FINISHED_YARD">Finished Yard</option>
-            <option value="RAW_YARD">Raw Yard</option>
+            <option value="SALES_HOLD">Sales Hold</option>
+            <option value="DISPATCH_AREA">Dispatch Area</option>
           </Sel>
         </Fld>
         <div style={{ marginTop: 20 }}>
@@ -2056,7 +2059,7 @@ export function ProductionPage() {
             <CutSlabs rawBlocks={jobEligibleBlocks} blockedCount={blockedBlockCount} notify={notify} preselectId={preselectId} />
           </div>
           <div style={{ display: tab === 'chipping' ? 'block' : 'none' }}>
-            <Chipping blocks={jobEligibleBlocks} notify={notify} />
+            <Chipping slabs={gangsawSlabs} notify={notify} />
           </div>
           <div style={{ display: tab === 'polish' ? 'block' : 'none' }}>
             <PolishGrade gangsawSlabs={gangsawSlabs} notify={notify} preselectId={preselectId} />
