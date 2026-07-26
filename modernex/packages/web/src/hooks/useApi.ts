@@ -1282,7 +1282,7 @@ export function useSlabPriceMaster() {
 export function useUpsertSlabPrice() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (d: { variety: string; grade: string; thickness_mm: number; rate_per_sqft_paise: number; notes?: string }) =>
+    mutationFn: (d: { kind: string; variety: string; grade: string; thickness_mm: number; rate_paise: number; notes?: string }) =>
       api.put<any>('/slab-price-master', d),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['slab-price-master'] }),
   });

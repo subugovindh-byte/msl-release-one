@@ -11,37 +11,42 @@ slabPriceMasterRouter.get('/', (_req, res, next) => {
   try {
     const db = getDb();
     const rows = db.prepare(
-      `SELECT * FROM slab_price_master ORDER BY variety, grade, thickness_mm`
+      `SELECT * FROM slab_price_master ORDER BY kind, variety, grade, thickness_mm`
     ).all();
     res.json({ prices: rows });
   } catch (err) { next(err); }
 });
 
-// PUT /slab-price-master — upsert a variety+grade+thickness price
+const FINISHED_KINDS = ['slab', 'cts', 'tile', 'monument', 'kerb', 'cobble', 'strip'];
+
+// PUT /slab-price-master — upsert a kind+variety+grade+thickness price
 slabPriceMasterRouter.put('/',
   requireRole('admin', 'accounts'),
   (req, res, next) => {
     try {
       const db = getDb();
-      const { variety, grade, thickness_mm, rate_per_sqft_paise, notes } = req.body;
+      const { kind = 'slab', variety, grade, thickness_mm, rate_paise, notes } = req.body;
       if (!variety || !grade) {
         return res.status(400).json({ error: 'variety and grade are required' });
       }
       if (!['A+', 'A', 'B'].includes(grade)) {
         return res.status(400).json({ error: 'grade must be A+, A, or B' });
       }
+      if (!FINISHED_KINDS.includes(kind)) {
+        return res.status(400).json({ error: `kind must be one of ${FINISHED_KINDS.join(', ')}` });
+      }
       const thickness = Number.isFinite(+thickness_mm) ? Math.round(+thickness_mm) : 0;
       db.prepare(`
-        INSERT INTO slab_price_master (variety, grade, thickness_mm, rate_per_sqft_paise, notes, updated_at)
-        VALUES (?, ?, ?, ?, ?, datetime('now'))
-        ON CONFLICT(variety, grade, thickness_mm) DO UPDATE SET
-          rate_per_sqft_paise = excluded.rate_per_sqft_paise,
+        INSERT INTO slab_price_master (kind, variety, grade, thickness_mm, rate_paise, notes, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+        ON CONFLICT(kind, variety, grade, thickness_mm) DO UPDATE SET
+          rate_paise = excluded.rate_paise,
           notes = excluded.notes,
           updated_at = datetime('now')
-      `).run(variety, grade, thickness, rate_per_sqft_paise || 0, notes || null);
+      `).run(kind, variety, grade, thickness, rate_paise || 0, notes || null);
       const row = db.prepare(
-        `SELECT * FROM slab_price_master WHERE variety = ? AND grade = ? AND thickness_mm = ?`
-      ).get(variety, grade, thickness);
+        `SELECT * FROM slab_price_master WHERE kind = ? AND variety = ? AND grade = ? AND thickness_mm = ?`
+      ).get(kind, variety, grade, thickness);
       res.json({ price: row });
     } catch (err) { next(err); }
   }

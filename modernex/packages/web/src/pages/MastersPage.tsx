@@ -20,6 +20,13 @@ const INDIAN_STATES = [
 const BLANK_VENDOR = { name: '', gstin: '', state: 'Tamil Nadu', contact: '', type: 'Quarry', msme: false, msme_number: '', contact_person: '', address: '', pincode: '', email: '' };
 const BLANK_CUSTOMER = { name: '', gstin: '', state: 'Tamil Nadu', address: '', contact: '', email: '', credit_days: 0 };
 
+// Finished-goods kinds priced in the Slab/Finished Price Master, with their unit.
+const FINISHED_KINDS = ['slab', 'cts', 'tile', 'monument', 'kerb', 'cobble', 'strip'];
+const finishedRateUnit = (kind: string): string =>
+  (kind === 'slab' || kind === 'cts') ? 'sqft' : kind === 'strip' ? 'rft' : 'pc';
+// Thickness matters for flat goods; not for cobble/kerb/monument blocks.
+const kindHasThickness = (kind: string): boolean => ['slab', 'cts', 'tile', 'strip'].includes(kind);
+
 function CustomerCard({ customer, onEdit }: { customer: any; onEdit: (c: any) => void }) {
   return (
     <div style={{
@@ -542,13 +549,13 @@ export function MastersPage() {
     });
   };
 
-  // Slab (finished-goods selling) prices state
-  const [slabForm, setSlabForm] = useState({ variety: '', grade: 'A' as 'A+' | 'A' | 'B', thickness_mm: 20, rate_per_sqft_paise: 0, notes: '' });
+  // Finished-goods selling prices state
+  const [slabForm, setSlabForm] = useState({ kind: 'slab', variety: '', grade: 'A' as 'A+' | 'A' | 'B', thickness_mm: 20, rate_paise: 0, notes: '' });
   const handleUpsertSlab = (e: React.FormEvent) => {
     e.preventDefault();
     if (!slabForm.variety) { notify('Select a variety', 'error'); return; }
     upsertSlabPrice.mutate(slabForm, {
-      onSuccess: () => { notify('Slab price saved', 'success'); setSlabForm(p => ({ ...p, rate_per_sqft_paise: 0, notes: '' })); },
+      onSuccess: () => { notify('Price saved', 'success'); setSlabForm(p => ({ ...p, rate_paise: 0, notes: '' })); },
       onError: (err: any) => notify(err.response?.data?.error || 'Save failed', 'error'),
     });
   };
@@ -827,14 +834,21 @@ export function MastersPage() {
       {activeTab === 'slab-prices' && (
         <div>
           <p style={{ color: 'var(--t3)', fontSize: 13, marginBottom: 20 }}>
-            Set the standard <strong>selling</strong> rate per sq.ft for each variety × grade × thickness.
-            Producing a slab auto-fills its rate from here — you can still override it at production and per-line at POS.
+            Set the standard <strong>selling</strong> rate for each finished-goods kind × variety × grade (× thickness).
+            Slabs/cut-to-size price per sq.ft, tiles/monuments/kerbs/cobbles per piece, strips per rft.
+            Producing an item auto-fills its rate from here — still overridable at production and per-line at POS.
           </p>
 
           {/* Add / update form */}
           <form onSubmit={handleUpsertSlab} style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 24,
             background: 'var(--bg1)', border: '1px solid var(--bd)', borderRadius: 8, padding: '14px 16px' }}>
-            <div style={{ flex: '1 1 150px' }}>
+            <div style={{ flex: '0 0 120px' }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--t3)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.05em' }}>Kind *</label>
+              <select className="fi" value={slabForm.kind} onChange={e => setSlabForm(p => ({ ...p, kind: e.target.value }))}>
+                {FINISHED_KINDS.map(k => <option key={k} value={k}>{k}</option>)}
+              </select>
+            </div>
+            <div style={{ flex: '1 1 140px' }}>
               <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--t3)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.05em' }}>Variety *</label>
               <select className="fi" value={slabForm.variety} onChange={e => setSlabForm(p => ({ ...p, variety: e.target.value }))} required>
                 <option value="">Select…</option>
@@ -847,20 +861,22 @@ export function MastersPage() {
                 <option value="A+">A+</option><option value="A">A</option><option value="B">B</option>
               </select>
             </div>
-            <div style={{ flex: '0 0 110px' }}>
-              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--t3)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.05em' }}>Thickness (mm)</label>
-              <input className="fi" list="slab-thk" type="number" min={0} step="1" value={numericInputValue(slabForm.thickness_mm)}
-                onFocus={selectOnFocus} onChange={e => setSlabForm(p => ({ ...p, thickness_mm: parseInt(e.target.value) || 0 }))} />
-              <datalist id="slab-thk">{[18, 20, 30, 40, 50].map(t => <option key={t} value={t} />)}</datalist>
-            </div>
+            {kindHasThickness(slabForm.kind) && (
+              <div style={{ flex: '0 0 110px' }}>
+                <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--t3)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.05em' }}>Thickness (mm)</label>
+                <input className="fi" list="slab-thk" type="number" min={0} step="1" value={numericInputValue(slabForm.thickness_mm)}
+                  onFocus={selectOnFocus} onChange={e => setSlabForm(p => ({ ...p, thickness_mm: parseInt(e.target.value) || 0 }))} />
+                <datalist id="slab-thk">{[18, 20, 30, 40, 50].map(t => <option key={t} value={t} />)}</datalist>
+              </div>
+            )}
             <div style={{ flex: '1 1 130px' }}>
-              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--t3)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.05em' }}>Rate / sq.ft (₹) *</label>
+              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--t3)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.05em' }}>Rate / {finishedRateUnit(slabForm.kind)} (₹) *</label>
               <input className="fi" type="number" min={0} step="0.01"
-                value={numericInputValue(slabForm.rate_per_sqft_paise / 100)}
+                value={numericInputValue(slabForm.rate_paise / 100)}
                 onFocus={selectOnFocus}
-                onChange={e => setSlabForm(p => ({ ...p, rate_per_sqft_paise: Math.round((parseFloat(e.target.value) || 0) * 100) }))} />
+                onChange={e => setSlabForm(p => ({ ...p, rate_paise: Math.round((parseFloat(e.target.value) || 0) * 100) }))} />
             </div>
-            <div style={{ flex: '2 1 180px' }}>
+            <div style={{ flex: '2 1 160px' }}>
               <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--t3)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.05em' }}>Notes</label>
               <input className="fi" type="text" placeholder="e.g. export grade" value={slabForm.notes}
                 onChange={e => setSlabForm(p => ({ ...p, notes: e.target.value }))} />
@@ -873,15 +889,16 @@ export function MastersPage() {
 
           {/* Price table */}
           {slabPrices.length === 0 ? (
-            <p style={{ color: 'var(--t3)', textAlign: 'center', padding: '40px 0' }}>No slab prices set yet. Add the first one above.</p>
+            <p style={{ color: 'var(--t3)', textAlign: 'center', padding: '40px 0' }}>No finished-goods prices set yet. Add the first one above.</p>
           ) : (
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ borderBottom: '2px solid var(--bd)', textAlign: 'left' }}>
+                  <th style={{ padding: '8px 12px', color: 'var(--t3)', fontWeight: 600, fontSize: 11, textTransform: 'uppercase' }}>Kind</th>
                   <th style={{ padding: '8px 12px', color: 'var(--t3)', fontWeight: 600, fontSize: 11, textTransform: 'uppercase' }}>Variety</th>
                   <th style={{ padding: '8px 12px', color: 'var(--t3)', fontWeight: 600, fontSize: 11, textTransform: 'uppercase' }}>Grade</th>
                   <th style={{ padding: '8px 12px', color: 'var(--t3)', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', textAlign: 'right' }}>Thickness</th>
-                  <th style={{ padding: '8px 12px', color: 'var(--t3)', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', textAlign: 'right' }}>Rate / sq.ft</th>
+                  <th style={{ padding: '8px 12px', color: 'var(--t3)', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', textAlign: 'right' }}>Rate</th>
                   <th style={{ padding: '8px 12px', color: 'var(--t3)', fontWeight: 600, fontSize: 11, textTransform: 'uppercase' }}>Notes</th>
                   <th style={{ padding: '8px 4px' }}></th>
                 </tr>
@@ -889,6 +906,7 @@ export function MastersPage() {
               <tbody>
                 {slabPrices.map((p: any) => (
                   <tr key={p.id} style={{ borderBottom: '1px solid var(--bd)' }}>
+                    <td style={{ padding: '10px 12px', fontWeight: 600, textTransform: 'capitalize' }}>{p.kind}</td>
                     <td style={{ padding: '10px 12px', fontWeight: 600 }}>{p.variety}</td>
                     <td style={{ padding: '10px 12px' }}>
                       <span style={{ padding: '2px 10px', borderRadius: 20, fontWeight: 700, fontSize: 12,
@@ -898,11 +916,11 @@ export function MastersPage() {
                       </span>
                     </td>
                     <td style={{ padding: '10px 12px', textAlign: 'right' }}>{p.thickness_mm ? `${p.thickness_mm} mm` : '—'}</td>
-                    <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700 }}>{formatINR(p.rate_per_sqft_paise)}</td>
+                    <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700 }}>{formatINR(p.rate_paise)}/{finishedRateUnit(p.kind)}</td>
                     <td style={{ padding: '10px 12px', color: 'var(--t3)' }}>{p.notes ?? '—'}</td>
                     <td style={{ padding: '10px 4px', whiteSpace: 'nowrap' }}>
                       <button
-                        onClick={() => setSlabForm({ variety: p.variety, grade: p.grade, thickness_mm: p.thickness_mm, rate_per_sqft_paise: p.rate_per_sqft_paise, notes: p.notes ?? '' })}
+                        onClick={() => setSlabForm({ kind: p.kind, variety: p.variety, grade: p.grade, thickness_mm: p.thickness_mm, rate_paise: p.rate_paise, notes: p.notes ?? '' })}
                         style={{ padding: '4px 10px', fontSize: 12, background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 5, cursor: 'pointer', marginRight: 6 }}>
                         Edit
                       </button>

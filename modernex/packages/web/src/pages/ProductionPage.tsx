@@ -742,9 +742,10 @@ function CutSlabs({ rawBlocks, blockedCount = 0, notify, preselectId }: { rawBlo
   const slabPrices: any[] = slabPricesData?.prices || [];
   const thickness = +(isSlab ? form.slab_thickness : form.tile_thickness);
   const masterRate = useMemo(() => {
-    const m = slabPrices.find(p => p.variety === selectedBlock?.variety && p.grade === form.grade && p.thickness_mm === thickness);
-    return m ? m.rate_per_sqft_paise / 100 : null;
-  }, [slabPrices, selectedBlock?.variety, form.grade, thickness]);
+    const outKind = isSlab ? 'slab' : 'tile';
+    const m = slabPrices.find(p => p.kind === outKind && p.variety === selectedBlock?.variety && p.grade === form.grade && p.thickness_mm === thickness);
+    return m ? m.rate_paise / 100 : null;
+  }, [slabPrices, isSlab, selectedBlock?.variety, form.grade, thickness]);
   useEffect(() => {
     if (masterRate != null) setForm(f => ({ ...f, rate_rs: String(masterRate) }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
