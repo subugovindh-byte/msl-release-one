@@ -123,8 +123,10 @@ export function createApp() {
   app.use('/api/payments', paymentsRouter);
   app.use('/api/reports', reportsRouter);
   app.use('/api/backups', backupsRouter);
+  // selfService first: its literal /me routes must match before usersRouter's /:id
+  // (otherwise GET /users/me is treated as user id "me" → 404).
+  app.use('/api/users', selfServiceRouter);     // /me, /me/change-password (any auth'd user)
   app.use('/api/users', usersRouter);           // admin user management (admin-only)
-  app.use('/api/users', selfServiceRouter);     // /me/change-password (any auth'd user)
   app.use('/api/roles', rolesRouter);           // role CRUD (admin-only)
   app.use('/api/permissions', permissionsRouter); // permission list (admin-only)
   app.use('/api/consumable-purchases', consumablesRouter);

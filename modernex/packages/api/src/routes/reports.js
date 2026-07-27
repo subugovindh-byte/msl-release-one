@@ -67,7 +67,7 @@ reportsRouter.get('/pnl', requireRole('admin', 'accounts'), (req, res) => {
 
   const revenue     = db.prepare(`SELECT COALESCE(SUM(taxable_paise),0) as v FROM invoices i WHERE 1=1${dr.sql}`).get(...dr.params).v;
   const rawMat      = db.prepare(`SELECT COALESCE(SUM(taxable_paise),0) as v FROM purchase_orders po WHERE 1=1${podr.sql}`).get(...podr.params).v;
-  const production  = db.prepare(`SELECT COALESCE(SUM(labour_paise+power_paise+consumables_paise),0) as v FROM production_jobs WHERE 1=1${dr.sql.replace('i.','')}`).get(...dr.params).v;
+  const production  = db.prepare(`SELECT COALESCE(SUM(labour_paise+power_paise+consumables_paise),0) as v FROM production_jobs WHERE 1=1${dr.sql.replaceAll('i.','')}`).get(...dr.params).v;
   const transport   = db.prepare(`SELECT COALESCE(SUM(transport_paise),0) as v FROM purchase_orders po WHERE 1=1${podr.sql}`).get(...podr.params).v;
   const cpTotal     = db.prepare(`SELECT COALESCE(SUM(total_paise),0) as v FROM consumable_purchases cp WHERE status != 'cancelled' AND 1=1${cpdr.sql}`).get(...cpdr.params).v;
 
