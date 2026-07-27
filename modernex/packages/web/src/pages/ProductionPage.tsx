@@ -240,10 +240,22 @@ function ReceiveBlock({ notify }: { notify: any }) {
   const createProduct = useCreateProduct();
   const { data: posData }      = usePurchaseOrders({});
   const { data: allProdsData } = useProducts({});
-  // Only approved/closed POs can be used to receive blocks
   const allPos   = posData?.purchase_orders || [];
-  const pos      = allPos.filter((p: any) => ['approved', 'closed'].includes(p.status));
   const allProds = allProdsData?.products   || [];
+  // Blocks already received against each PO — count original receipts only (not
+  // job outputs); a block consumed by a split still counts. The products list is
+  // active-only, so a deleted receipt frees its quota back up.
+  const receivedByPo = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const p of allProds as any[]) {
+      if (p.kind === 'block' && p.po_id && !p.source_job_id) m[p.po_id] = (m[p.po_id] || 0) + 1;
+    }
+    return m;
+  }, [allProds]);
+  // Only approved/closed POs that still have unreceived blocks can be received against.
+  const pos = allPos.filter((p: any) =>
+    ['approved', 'closed'].includes(p.status) && (receivedByPo[p.id] || 0) < (p.blocks || 0)
+  );
 
   const suggested = useMemo(() => nextLotId(allProds, allPos), [allProds, allPos]);
 
@@ -349,17 +361,20 @@ function ReceiveBlock({ notify }: { notify: any }) {
 
       {pos.length === 0 ? (
         <div style={{ background: 'rgba(220,50,50,0.08)', border: '1px solid var(--red)', borderRadius: 6, padding: '12px 16px', fontSize: 13, color: 'var(--red)', fontWeight: 600 }}>
-          No approved Purchase Orders found. Go to <strong>Purchase</strong> and approve a PO before receiving blocks.
+          No approved Purchase Orders with unreceived blocks. Approve a PO in <strong>Purchase</strong>, or raise a new one — a PO's blocks can only be received once.
         </div>
       ) : (
         <Fld label="Purchase Order *" hint="only approved/closed POs shown">
           <Sel value={form.po_id} onChange={e => onPoChange(e.target.value)} required>
             <option value="">— select approved PO —</option>
-            {pos.map((po: any) => (
-              <option key={po.id} value={po.id}>
-                {po.id} · {po.variety} · {po.blocks} blk · {po.cft} CBM [{po.status}]
-              </option>
-            ))}
+            {pos.map((po: any) => {
+              const remaining = (po.blocks || 0) - (receivedByPo[po.id] || 0);
+              return (
+                <option key={po.id} value={po.id}>
+                  {po.id} · {po.variety} · {remaining} of {po.blocks} blk left · {po.cft} CBM [{po.status}]
+                </option>
+              );
+            })}
           </Sel>
         </Fld>
       )}

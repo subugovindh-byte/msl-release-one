@@ -146,7 +146,7 @@ productsRouter.post('/',
             400
           );
         }
-        const po = db.prepare('SELECT id, status, variety FROM purchase_orders WHERE id = ?').get(b.po_id);
+        const po = db.prepare('SELECT id, status, variety, blocks FROM purchase_orders WHERE id = ?').get(b.po_id);
         if (!po) throw new AppError(`Purchase Order ${b.po_id} not found.`, 404);
         if (!['approved', 'closed'].includes(po.status)) {
           throw new AppError(
@@ -155,6 +155,25 @@ productsRouter.post('/',
             `Approve the PO in Purchase first.`,
             409
           );
+        }
+        // Receipt-quota gate: a PO covers a fixed number of blocks. Don't let a PO
+        // be received against more times than it was raised for — otherwise a PO
+        // that's already been received, split, cut and sold could keep spawning new
+        // blocks. Count original receipts (source_job_id IS NULL), including ones
+        // already consumed into job work (stock 0 but still active).
+        const quota = po.blocks ?? 0;
+        if (quota > 0) {
+          const received = db.prepare(
+            `SELECT COUNT(*) AS n FROM products
+              WHERE kind = 'block' AND po_id = ? AND active = 1 AND source_job_id IS NULL`
+          ).get(b.po_id).n;
+          if (received >= quota) {
+            throw new AppError(
+              `PO ${po.id} covers ${quota} block${quota === 1 ? '' : 's'} and ${received} ` +
+              `already received. No further blocks can be received against this PO.`,
+              409
+            );
+          }
         }
       }
 
