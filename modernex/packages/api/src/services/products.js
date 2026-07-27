@@ -141,6 +141,28 @@ export function nextProductId(db) {
 }
 
 /**
+ * SINGLE SOURCE OF TRUTH — how many of a PO's blocks have been received into
+ * inventory. A "received" block is an original receipt (not a job output), still
+ * active, linked to the PO by po_id (or, for legacy blocks predating the po_id
+ * link, by the "From PO <id>" note). Consumed-by-split blocks (stock 0) still
+ * count — the PO's block was received, it just moved downstream.
+ *
+ * `poExpr` is the SQL expression for the PO id (a bound '?' or an outer column
+ * like `po.id`), so the exact same definition backs both the PO endpoints
+ * (remaining quota) and the block-receipt guard. Keep this the ONLY place that
+ * decides what "received against a PO" means.
+ */
+export function receivedBlocksCountSql(poExpr) {
+  return `(SELECT COUNT(*) FROM products
+           WHERE kind = 'block' AND active = 1 AND source_job_id IS NULL
+             AND (po_id = ${poExpr} OR (po_id IS NULL AND notes = 'From PO ' || ${poExpr})))`;
+}
+
+export function blocksReceivedForPo(db, poId) {
+  return db.prepare(`SELECT ${receivedBlocksCountSql('?')} AS n`).get(poId, poId).n;
+}
+
+/**
  * Compute the "sellable quantity" representation for an item.
  * Returns { uom_qty, qty, displayLabel } — how this product should appear on an invoice line.
  *

@@ -289,19 +289,14 @@ function ReceiveBlock({ notify }: { notify: any }) {
   const { data: allProdsData } = useProducts({});
   const allPos   = posData?.purchase_orders || [];
   const allProds = allProdsData?.products   || [];
-  // Blocks already received against each PO — count original receipts only (not
-  // job outputs); a block consumed by a split still counts. The products list is
-  // active-only, so a deleted receipt frees its quota back up.
-  const receivedByPo = useMemo(() => {
-    const m: Record<string, number> = {};
-    for (const p of allProds as any[]) {
-      if (p.kind === 'block' && p.po_id && !p.source_job_id) m[p.po_id] = (m[p.po_id] || 0) + 1;
-    }
-    return m;
-  }, [allProds]);
+  // blocks_remaining comes from the server (single source of truth for how many
+  // of a PO's blocks are still unreceived). Fall back to the full count only if an
+  // older API build didn't send it.
+  const remainingOf = (p: any) =>
+    p.blocks_remaining != null ? p.blocks_remaining : (p.blocks || 0);
   // Only approved/closed POs that still have unreceived blocks can be received against.
   const pos = allPos.filter((p: any) =>
-    ['approved', 'closed'].includes(p.status) && (receivedByPo[p.id] || 0) < (p.blocks || 0)
+    ['approved', 'closed'].includes(p.status) && remainingOf(p) > 0
   );
 
   const suggested = useMemo(() => nextLotId(allProds, allPos), [allProds, allPos]);
@@ -414,14 +409,11 @@ function ReceiveBlock({ notify }: { notify: any }) {
         <Fld label="Purchase Order *" hint="only approved/closed POs shown">
           <Sel value={form.po_id} onChange={e => onPoChange(e.target.value)} required>
             <option value="">— select approved PO —</option>
-            {pos.map((po: any) => {
-              const remaining = (po.blocks || 0) - (receivedByPo[po.id] || 0);
-              return (
-                <option key={po.id} value={po.id}>
-                  {po.id} · {po.variety} · {remaining} of {po.blocks} blk left · {po.cft} CBM [{po.status}]
-                </option>
-              );
-            })}
+            {pos.map((po: any) => (
+              <option key={po.id} value={po.id}>
+                {po.id} · {po.variety} · {remainingOf(po)} of {po.blocks} blk left · {po.cft} CBM [{po.status}]
+              </option>
+            ))}
           </Sel>
         </Fld>
       )}

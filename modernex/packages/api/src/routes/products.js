@@ -10,7 +10,7 @@ import { audit } from '../services/audit.js';
 import { loadProductTrace, recordInventoryMove } from '../services/inventoryMoves.js';
 import {
   insertDimensions, updateDimensions,
-  loadProduct, nextProductId,
+  loadProduct, nextProductId, blocksReceivedForPo,
 } from '../services/products.js';
 
 export const productsRouter = Router();
@@ -159,14 +159,10 @@ productsRouter.post('/',
         // Receipt-quota gate: a PO covers a fixed number of blocks. Don't let a PO
         // be received against more times than it was raised for — otherwise a PO
         // that's already been received, split, cut and sold could keep spawning new
-        // blocks. Count original receipts (source_job_id IS NULL), including ones
-        // already consumed into job work (stock 0 but still active).
+        // blocks. Uses the single source of truth (blocksReceivedForPo).
         const quota = po.blocks ?? 0;
         if (quota > 0) {
-          const received = db.prepare(
-            `SELECT COUNT(*) AS n FROM products
-              WHERE kind = 'block' AND po_id = ? AND active = 1 AND source_job_id IS NULL`
-          ).get(b.po_id).n;
+          const received = blocksReceivedForPo(db, b.po_id);
           if (received >= quota) {
             throw new AppError(
               `PO ${po.id} covers ${quota} block${quota === 1 ? '' : 's'} and ${received} ` +

@@ -6,6 +6,7 @@ import { poCreateSchema, GST_RATE } from '@modernex/shared';
 import { NotFoundError, AppError } from '../middleware/error.js';
 import { audit } from '../services/audit.js';
 import { nextPOId } from '../services/idGenerator.js';
+import { receivedBlocksCountSql } from '../services/products.js';
 
 export const purchaseRouter = Router();
 
@@ -30,7 +31,8 @@ purchaseRouter.get('/', requireRole('admin', 'accounts', 'yard'), (req, res) => 
   let sql = `
     SELECT po.*,
            v.name AS vendor_name,
-           ${PAID_SUBQUERY} AS paid_paise
+           ${PAID_SUBQUERY} AS paid_paise,
+           ${receivedBlocksCountSql('po.id')} AS blocks_received
     FROM purchase_orders po
     LEFT JOIN vendors v ON v.id = po.vendor_id
     WHERE 1=1
@@ -47,6 +49,7 @@ purchaseRouter.get('/', requireRole('admin', 'accounts', 'yard'), (req, res) => 
     payment_status: r.paid_paise === 0 ? 'unpaid'
                   : r.paid_paise >= r.total_paise ? 'paid'
                   : 'partial',
+    blocks_remaining: Math.max(0, (r.blocks || 0) - (r.blocks_received || 0)),
   }));
   res.json({ purchase_orders: rows });
 });
@@ -64,7 +67,8 @@ purchaseRouter.get('/:id', requireRole('admin', 'accounts', 'yard'), (req, res, 
              v.type        AS vendor_type,
              v.msme        AS vendor_msme,
              v.msme_number AS vendor_msme_number,
-             ${PAID_SUBQUERY} AS paid_paise
+             ${PAID_SUBQUERY} AS paid_paise,
+             ${receivedBlocksCountSql('po.id')} AS blocks_received
       FROM purchase_orders po
       LEFT JOIN vendors v ON v.id = po.vendor_id
       WHERE po.id = ?
@@ -82,6 +86,7 @@ purchaseRouter.get('/:id', requireRole('admin', 'accounts', 'yard'), (req, res, 
         payment_status: po.paid_paise === 0 ? 'unpaid'
                       : po.paid_paise >= po.total_paise ? 'paid'
                       : 'partial',
+        blocks_remaining: Math.max(0, (po.blocks || 0) - (po.blocks_received || 0)),
       },
       payments,
     });
