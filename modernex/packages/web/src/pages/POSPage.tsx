@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useProducts, useCustomers, useCreateInvoice, useCreateCustomer } from '@/hooks/useApi';
 import { CGST_RATE_LABEL, IGST_RATE_LABEL, SGST_RATE_LABEL, calculateInvoice, INDIAN_STATES } from '@modernex/shared';
-import { formatCurrency } from '@/utils/format';
+import { formatCurrency, sizeLwCm } from '@/utils/format';
 import { useToastStore, useCartStore } from '@/store';
 import type { CartProduct, CartItem } from '@/store';
 import type { ProductKind, Customer } from '@/types';
@@ -207,7 +207,8 @@ export function POSPage() {
 
   const getRatePaise = (product: PosProduct | CartProduct) => product.rate_paise ?? product.unit_cost_paise ?? 0;
   const getDisplayPhoto = (product: PosProduct) => product.effective_photo_url || product.photo_url;
-  const getDisplaySize = (product: PosProduct | CartProduct) => product.dimensions?.size_lw || 'N/A';
+  const getDisplaySize = (product: PosProduct | CartProduct) =>
+    product.dimensions?.size_lw ? sizeLwCm(product.dimensions.size_lw) : 'N/A';
   const getDisplayThickness = (product: PosProduct | CartProduct) => product.dimensions?.thickness_mm;
   const getDisplaySqft = (product: PosProduct | CartProduct) => product.dimensions?.sqft;
   const getCartRatePaise = (item: { product: CartProduct; ratePaise: number }) => item.ratePaise ?? getRatePaise(item.product);
@@ -433,7 +434,7 @@ export function POSPage() {
                   <div className="sl-lot">{product.id}</div>
                   {getDisplaySize(product) !== 'N/A' && (
                     <div className="sl-dims">
-                      {getDisplaySize(product)}{getDisplayThickness(product) ? ` × ${getDisplayThickness(product)}cm` : ''}
+                      {getDisplaySize(product)}{getDisplayThickness(product) ? ` × ${getDisplayThickness(product)} mm` : ''}
                     </div>
                   )}
                   <div className="sl-bot">

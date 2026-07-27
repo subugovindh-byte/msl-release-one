@@ -6,7 +6,7 @@ import { useProducts, useUpdateProduct, useDeleteProduct } from '@/hooks/useApi'
 import { useAuthStore } from '@/store';
 import { DataGridTable } from '@/components/DataGridTable';
 import { useViewport } from '@/hooks/useViewport';
-import { formatINR } from '@/utils/format';
+import { formatINR, sizeLwCm } from '@/utils/format';
 import { useToastStore } from '@/store';
 
 const INVENTORY_GRADES = ['A+', 'A', 'B'];
@@ -153,9 +153,9 @@ export function InventoryPage() {
       case 'block':
         return `${p.length_mm || 0}×${p.width_mm || 0}×${p.height_mm || 0}cm`;
       case 'slab':
-        return `${p.size_lw || '—'} · ${p.thickness_mm || 0}cm${p.grade ? ` · Gr.${p.grade}` : ''}`;
+        return `${sizeLwCm(p.size_lw) || '—'} · ${p.thickness_mm || 0} mm${p.grade ? ` · Gr.${p.grade}` : ''}`;
       case 'tile':
-        return `${p.size_lw || '—'} · ${p.thickness_mm || 0}cm`;
+        return `${sizeLwCm(p.size_lw) || '—'} · ${p.thickness_mm || 0} mm`;
       case 'cts':
         return `${p.length_mm || 0}×${p.width_mm || 0}cm`;
       case 'strip':
@@ -167,7 +167,7 @@ export function InventoryPage() {
       case 'chips':
         return `${p.mesh_size_mm || 0}cm mesh`;
       case 'monument':
-        return `${p.monument_type || '—'} · ${p.thickness_mm || 0}cm`;
+        return `${p.monument_type || '—'} · ${p.thickness_mm || 0} mm`;
       default:
         return '—';
     }

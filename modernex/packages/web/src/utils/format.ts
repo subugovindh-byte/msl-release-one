@@ -177,6 +177,18 @@ export function generateId(prefix = 'id'): string {
 }
 
 /**
+ * Slab/tile L×W (`size_lw`) is stored in millimetres, e.g. "3048×914".
+ * Show it in centimetres (how the yard measures), e.g. "305×91 cm".
+ * Falls back to the raw string if it can't be parsed.
+ */
+export function sizeLwCm(sizeLw?: string | null): string {
+  if (!sizeLw) return '';
+  const [l, w] = String(sizeLw).split(/[×xX*]/).map((s) => Number(String(s).trim()));
+  if (!l || !w) return String(sizeLw);
+  return `${Math.round(l / 10)}×${Math.round(w / 10)} cm`;
+}
+
+/**
  * For controlled number inputs: show blank instead of 0 so the user can type freely.
  * blankWhenZero=true (default) clears the field when the value is 0.
  */

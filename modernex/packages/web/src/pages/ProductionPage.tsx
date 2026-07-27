@@ -9,6 +9,7 @@ import {
   useDeleteProductionJob, useProductionStageStats, useSlabPriceMaster,
 } from '@/hooks/useApi';
 import { useToastStore, useAuthStore } from '@/store';
+import { sizeLwCm } from '@/utils/format';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 function sqftFromSize(sizeStr: string) {
@@ -60,7 +61,7 @@ async function printLabel(p: any) {
     const hmm = d.height_m ? Math.round(d.height_m * 100) : null;
     if (lmm && wmm && hmm) dimStr = `${lmm}×${wmm}×${hmm} cm · ${volLabel(cftFromM(d.length_m,d.width_m,d.height_m), cbmFromM(d.length_m,d.width_m,d.height_m))}`;
   } else if (d.size_lw) {
-    dimStr = `${d.size_lw}${d.thickness_mm ? ` · ${d.thickness_mm}cm` : ''}${d.sqft ? ` · ${d.sqft} sqft` : ''}${d.sqft_per_tile ? ` · ${d.sqft_per_tile} sqft/tile` : ''}`;
+    dimStr = `${sizeLwCm(d.size_lw)}${d.thickness_mm ? ` · ${d.thickness_mm} mm` : ''}${d.sqft ? ` · ${d.sqft} sqft` : ''}${d.sqft_per_tile ? ` · ${d.sqft_per_tile} sqft/tile` : ''}`;
   }
   const loc  = LOCATION_LABEL[p.current_location_id] || p.current_location_id || '';
   const rate = p.rate_paise ? `₹${(p.rate_paise/100).toLocaleString('en-IN')}` : '';
@@ -161,6 +162,52 @@ function Fld({ label, hint, children }: { label: string; hint?: string; children
       <Lbl>{label}</Lbl>
       {children}
       {hint && <Hint>{hint}</Hint>}
+    </div>
+  );
+}
+
+// Custom L×W entry in centimetres (how the yard measures). Stores the millimetre
+// `size_lw` string the rest of the app expects (cm×10). Keeps local draft so
+// decimals type cleanly, and flags values outside the given cm range.
+function SizeCmInput({ value, onChange, lRange, wRange, autoFocus, inputWidth }: {
+  value: string;
+  onChange: (mm: string) => void;
+  lRange?: [number, number];
+  wRange?: [number, number];
+  autoFocus?: boolean;
+  inputWidth?: number;
+}) {
+  const wStyle = inputWidth ? { width: inputWidth } : {};
+  const [lmm0, wmm0] = String(value).split(/[×xX*]/).map(s => Number(s) || 0);
+  const [l, setL] = useState(lmm0 ? String(+(lmm0 / 10).toFixed(1)) : '');
+  const [w, setW] = useState(wmm0 ? String(+(wmm0 / 10).toFixed(1)) : '');
+  const commit = (lc: string, wc: string) => {
+    const lm = Math.round((parseFloat(lc) || 0) * 10);
+    const wm = Math.round((parseFloat(wc) || 0) * 10);
+    onChange(lm || wm ? `${lm}×${wm}` : '');
+  };
+  const lNum = parseFloat(l), wNum = parseFloat(w);
+  const lBad = !!lRange && l !== '' && (lNum < lRange[0] || lNum > lRange[1]);
+  const wBad = !!wRange && w !== '' && (wNum < wRange[0] || wNum > wRange[1]);
+  return (
+    <div style={{ marginTop: 4 }}>
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <Inp style={{ ...inputStyle, ...wStyle, ...(lBad ? { borderColor: 'var(--red)' } : {}) }} type="number" step="any"
+          value={l} autoFocus={autoFocus}
+          onChange={e => { setL(e.target.value); commit(e.target.value, w); }}
+          placeholder={lRange ? `L cm (${lRange[0]}–${lRange[1]})` : 'L cm'} />
+        <span style={{ color: 'var(--t3)' }}>×</span>
+        <Inp style={{ ...inputStyle, ...wStyle, ...(wBad ? { borderColor: 'var(--red)' } : {}) }} type="number" step="any"
+          value={w}
+          onChange={e => { setW(e.target.value); commit(l, e.target.value); }}
+          placeholder={wRange ? `W cm (${wRange[0]}–${wRange[1]})` : 'W cm'} />
+      </div>
+      {(lBad || wBad) && (
+        <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 3 }}>
+          {lBad && `Length is usually ${lRange![0]}–${lRange![1]} cm. `}
+          {wBad && `Width is usually ${wRange![0]}–${wRange![1]} cm.`}
+        </div>
+      )}
     </div>
   );
 }
@@ -873,17 +920,17 @@ function CutSlabs({ rawBlocks, blockedCount = 0, notify, preselectId }: { rawBlo
         </Fld>
 
         {isSlab ? (
-          <Fld label="Slab Size" hint={!SLAB_SIZES.includes(form.slab_size) && form.slab_size ? `${sqftFromSize(form.slab_size)} sqft` : undefined}>
+          <Fld label="Slab Size" hint={!SLAB_SIZES.includes(form.slab_size) && form.slab_size ? `${sqftFromSize(form.slab_size)} sqft` : 'L 90–310 · W 60–200 cm'}>
             <Sel value={SLAB_SIZES.includes(form.slab_size) ? form.slab_size : '__custom__'}
               onChange={e => set('slab_size', e.target.value === '__custom__' ? '' : e.target.value)}>
               {SLAB_SIZES.map(s => (
-                <option key={s} value={s}>{s} ({sqftFromSize(s)} sqft)</option>
+                <option key={s} value={s}>{sizeLwCm(s)} ({sqftFromSize(s)} sqft)</option>
               ))}
               <option value="__custom__">Custom size…</option>
             </Sel>
             {!SLAB_SIZES.includes(form.slab_size) && (
-              <Inp style={{ ...inputStyle, marginTop: 4 }} value={form.slab_size}
-                onChange={e => set('slab_size', e.target.value)} placeholder="L×W cm e.g. 3200×1500" autoFocus />
+              <SizeCmInput value={form.slab_size} onChange={v => set('slab_size', v)}
+                lRange={[90, 310]} wRange={[60, 200]} autoFocus />
             )}
           </Fld>
         ) : (
@@ -891,27 +938,26 @@ function CutSlabs({ rawBlocks, blockedCount = 0, notify, preselectId }: { rawBlo
             <Sel value={TILE_SIZES.includes(form.tile_size) ? form.tile_size : '__custom__'}
               onChange={e => set('tile_size', e.target.value === '__custom__' ? '' : e.target.value)}>
               {TILE_SIZES.map(s => (
-                <option key={s} value={s}>{s} ({sqftFromSize(s)} sqft/tile)</option>
+                <option key={s} value={s}>{sizeLwCm(s)} ({sqftFromSize(s)} sqft/tile)</option>
               ))}
               <option value="__custom__">Custom size…</option>
             </Sel>
             {!TILE_SIZES.includes(form.tile_size) && (
-              <Inp style={{ ...inputStyle, marginTop: 4 }} value={form.tile_size}
-                onChange={e => set('tile_size', e.target.value)} placeholder="L×W cm e.g. 45×45" autoFocus />
+              <SizeCmInput value={form.tile_size} onChange={v => set('tile_size', v)} autoFocus />
             )}
           </Fld>
         )}
       </div>
 
       <div style={row3}>
-        <Fld label="Thickness (cm)">
+        <Fld label="Thickness (mm)">
           {isSlab ? (
             <Sel value={form.slab_thickness} onChange={e => set('slab_thickness', e.target.value)}>
-              {SLAB_THICKNESSES.map(t => <option key={t} value={t}>{t} cm</option>)}
+              {SLAB_THICKNESSES.map(t => <option key={t} value={t}>{t} mm</option>)}
             </Sel>
           ) : (
             <Sel value={form.tile_thickness} onChange={e => set('tile_thickness', e.target.value)}>
-              {TILE_THICKNESSES.map(t => <option key={t} value={t}>{t} cm</option>)}
+              {TILE_THICKNESSES.map(t => <option key={t} value={t}>{t} mm</option>)}
             </Sel>
           )}
         </Fld>
@@ -1020,7 +1066,7 @@ function Chipping({ slabs, notify }: { slabs: any[]; notify: any }) {
           <option value="">— select slab batch —</option>
           {slabs.map((s: any) => (
             <option key={s.id} value={s.id}>
-              {s.id} · {s.variety} {s.dimensions?.size_lw ? `· ${s.dimensions.size_lw}` : ''}{s.grade ? ` · Gr.${s.grade}` : ''} · {s.stock} pcs
+              {s.id} · {s.variety} {s.dimensions?.size_lw ? `· ${sizeLwCm(s.dimensions.size_lw)}` : ''}{s.grade ? ` · Gr.${s.grade}` : ''} · {s.stock} pcs
             </option>
           ))}
         </Sel>
@@ -1147,7 +1193,7 @@ function PolishGrade({ gangsawSlabs, notify, preselectId }: { gangsawSlabs: any[
             const dims = s.dimensions || {};
             return (
               <option key={s.id} value={s.id}>
-                {s.id} [{s.kind}] · {s.variety} {dims.size_lw ? `${dims.size_lw}` : ''} {dims.thickness_mm ? `${dims.thickness_mm}cm` : ''} {s.grade ? `[${s.grade}]` : ''} · {s.stock} pcs
+                {s.id} [{s.kind}] · {s.variety} {dims.size_lw ? `${sizeLwCm(dims.size_lw)}` : ''} {dims.thickness_mm ? `${dims.thickness_mm} mm` : ''} {s.grade ? `[${s.grade}]` : ''} · {s.stock} pcs
               </option>
             );
           })}
@@ -1157,7 +1203,7 @@ function PolishGrade({ gangsawSlabs, notify, preselectId }: { gangsawSlabs: any[
       {selectedSlab && (
         <div style={{ fontSize: 12, color: 'var(--t3)' }}>
           Available: <strong style={{ color: 'var(--t1)' }}>{selectedSlab.stock} pcs</strong>
-          {selectedSlab.dimensions?.size_lw && <> · {selectedSlab.dimensions.size_lw} · {selectedSlab.dimensions.thickness_mm}cm</>}
+          {selectedSlab.dimensions?.size_lw && <> · {sizeLwCm(selectedSlab.dimensions.size_lw)} · {selectedSlab.dimensions.thickness_mm} mm</>}
         </div>
       )}
 
@@ -1281,7 +1327,7 @@ function QACheck({ qaPending, notify }: { qaPending: any[]; notify: any }) {
                   {failed && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: 'var(--red)' }}>QA FAILED</span>}
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--t3)' }}>
-                  {d.size_lw || ''}{d.thickness_mm ? ` · ${d.thickness_mm}cm` : ''}{p.grade ? ` · Gr.${p.grade}` : ''} · stock {p.stock}
+                  {sizeLwCm(d.size_lw) || ''}{d.thickness_mm ? ` · ${d.thickness_mm} mm` : ''}{p.grade ? ` · Gr.${p.grade}` : ''} · stock {p.stock}
                 </div>
               </div>
               {!failed && (
@@ -1409,7 +1455,7 @@ function RouteToSale({ finishedSlabs, notify, preselectId }: { finishedSlabs: an
               <div>
                 <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--t1)' }}>{s.id}</span>
                 <span style={{ fontSize: 12, color: 'var(--t3)', marginLeft: 10 }}>
-                  {s.variety} · {dims.size_lw || ''} · {s.grade || ''} · {s.stock} pcs
+                  {s.variety} · {sizeLwCm(dims.size_lw) || ''} · {s.grade || ''} · {s.stock} pcs
                 </span>
               </div>
               <div style={{
@@ -1768,7 +1814,7 @@ function PipelineInventory({ groups, onAction, onDelete }: { groups: Record<stri
                           dimStr = `${lmm}×${wmm}×${hmm} cm · ${volLabel(cft, cbm)}`;
                         }
                       } else if (d.size_lw) {
-                        dimStr = `${d.size_lw} · ${d.thickness_mm || '?'}cm`;
+                        dimStr = `${sizeLwCm(d.size_lw)} · ${d.thickness_mm || '?'} mm`;
                         if (d.sqft)          dimStr += ` · ${d.sqft} sqft`;
                         if (d.sqft_per_tile) dimStr += ` · ${d.sqft_per_tile} sqft/tile`;
                       }
@@ -1927,13 +1973,15 @@ function PipelineInventory({ groups, onAction, onDelete }: { groups: Record<stri
                                 {(p.kind === 'slab' || p.kind === 'tile' || p.kind === 'cts') && (<>
                                   <div style={{ width: 1, background: 'var(--bd)', alignSelf: 'stretch', margin: '0 2px' }} />
                                   <div style={fieldStyle}>
-                                    <label style={labelStyle}>Size (L×W)</label>
-                                    <input style={{ ...inputStyle, width: 110 }} value={editForm.size_lw}
-                                      onChange={e => setEditForm((f: any) => ({ ...f, size_lw: e.target.value }))}
-                                      placeholder="2600×1600" />
+                                    <label style={labelStyle}>Size L×W (cm)</label>
+                                    <SizeCmInput value={editForm.size_lw}
+                                      onChange={v => setEditForm((f: any) => ({ ...f, size_lw: v }))}
+                                      lRange={p.kind === 'slab' ? [90, 310] : undefined}
+                                      wRange={p.kind === 'slab' ? [60, 200] : undefined}
+                                      inputWidth={64} />
                                   </div>
                                   <div style={fieldStyle}>
-                                    <label style={labelStyle}>Thick (cm)</label>
+                                    <label style={labelStyle}>Thick (mm)</label>
                                     <input style={{ ...inputStyle, width: 70 }} type="number" min="0" value={editForm.thickness_mm}
                                       onChange={e => setEditForm((f: any) => ({ ...f, thickness_mm: e.target.value }))} />
                                   </div>
