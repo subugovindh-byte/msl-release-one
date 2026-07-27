@@ -232,6 +232,7 @@ export interface CartItem {
   quantity: number;
   ratePaise: number;
   priceUnit?: 'sqft' | 'slab';   // how ratePaise is interpreted (default 'sqft')
+  sqftOverride?: number;          // sqft mode: bill this exact total area instead of (area/slab × qty)
 }
 
 interface CartState {
@@ -244,6 +245,7 @@ interface CartState {
   setQuantity: (productId: string, quantity: number) => void;
   setRate: (productId: string, rateRupees: number) => void;
   setPriceUnit: (productId: string, unit: 'sqft' | 'slab') => void;
+  setLineSqft: (productId: string, sqft: number) => void;
   setCustomerId: (id: string) => void;
   clearCart: () => void;
   toggleCart: () => void;
@@ -308,11 +310,24 @@ export const useCartStore = create<CartState>()(
             if (i.product.id !== productId) return i;
             const sqftPerSlab = i.product.dimensions?.sqft || 0;
             const current = i.priceUnit ?? 'sqft';
-            if (current === unit || sqftPerSlab <= 0) return { ...i, priceUnit: unit };
+            // A sqft-total override only applies to sqft pricing; drop it on switch to slab.
+            const sqftOverride = unit === 'slab' ? undefined : i.sqftOverride;
+            if (current === unit || sqftPerSlab <= 0) return { ...i, priceUnit: unit, sqftOverride };
             const ratePaise = unit === 'slab'
               ? Math.round(i.ratePaise * sqftPerSlab)   // ₹/sqft → ₹/slab
               : Math.round(i.ratePaise / sqftPerSlab);  // ₹/slab → ₹/sqft
-            return { ...i, priceUnit: unit, ratePaise };
+            return { ...i, priceUnit: unit, ratePaise, sqftOverride };
+          }),
+        });
+      },
+
+      // sqft mode: set the exact total area to bill (blank/≤0 reverts to area/slab × qty).
+      setLineSqft: (productId, sqft) => {
+        set({
+          items: get().items.map((i) => {
+            if (i.product.id !== productId) return i;
+            const v = Number(sqft);
+            return { ...i, sqftOverride: Number.isFinite(v) && v > 0 ? v : undefined };
           }),
         });
       },

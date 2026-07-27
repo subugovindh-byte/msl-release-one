@@ -62,6 +62,7 @@ export function POSPage() {
     setQuantity,
     setRate,
     setPriceUnit,
+    setLineSqft,
     setCustomerId,
     clearCart,
     toggleCart,
@@ -219,10 +220,18 @@ export function POSPage() {
     }
     return 1;
   };
+  // Total sqft billed on a line: the user's override if set, else area/slab × qty.
+  const lineTotalSqft = (item: CartItem) =>
+    item.sqftOverride != null ? item.sqftOverride : getUomQty(item.product) * item.quantity;
   // Per-unit multiplier for a cart line, respecting its price unit: 'slab' prices
-  // per piece (multiplier 1), 'sqft' prices per area (multiplier = sqft/slab).
-  const lineUomQty = (item: CartItem) =>
-    (item.priceUnit ?? 'sqft') === 'slab' ? 1 : getUomQty(item.product);
+  // per piece (multiplier 1), 'sqft' prices per area. With a sqft override the
+  // multiplier is total-sqft ÷ qty, so the line bills rate × override while stock
+  // still deducts whole slabs (qty).
+  const lineUomQty = (item: CartItem) => {
+    if ((item.priceUnit ?? 'sqft') === 'slab') return 1;
+    if (item.sqftOverride != null && item.quantity > 0) return item.sqftOverride / item.quantity;
+    return getUomQty(item.product);
+  };
   // Does this kind support the slab/sqft toggle? (only area-priced goods)
   const hasSqftToggle = (p: CartProduct) => (p.kind === 'slab' || p.kind === 'cts') && !!p.dimensions?.sqft;
 
@@ -632,9 +641,21 @@ export function POSPage() {
                           </button>
                         ))}
                         {item.product.dimensions?.sqft && (
-                          <span style={{ fontSize: 10, color: 'var(--t3)', marginLeft: 'auto' }}>
-                            {(item.product.dimensions.sqft * item.quantity).toFixed(2)} sqft total
-                          </span>
+                          (item.priceUnit ?? 'sqft') === 'sqft' ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 'auto' }}>
+                              <CartSqftInput
+                                productId={item.product.id}
+                                value={lineTotalSqft(item)}
+                                overridden={item.sqftOverride != null}
+                                onCommit={setLineSqft}
+                              />
+                              <span style={{ fontSize: 10, color: 'var(--t3)' }}>sqft total</span>
+                            </div>
+                          ) : (
+                            <span style={{ fontSize: 10, color: 'var(--t3)', marginLeft: 'auto' }}>
+                              {(item.product.dimensions.sqft * item.quantity).toFixed(2)} sqft total
+                            </span>
+                          )
                         )}
                       </div>
                     )}
@@ -830,6 +851,46 @@ function CartQtyInput({ quantity, max, productId, onCommit }: {
       style={{
         width: 48, textAlign: 'center', border: '1px solid var(--bd)', borderRadius: 5,
         background: 'var(--bg1)', color: 'var(--t1)', fontSize: 13, fontWeight: 700, padding: '4px 2px',
+      }}
+    />
+  );
+}
+
+// Editable total-sqft for a line (sqft pricing). Typing an area bills rate × area
+// while stock still deducts whole slabs; blank/≤0 reverts to (area/slab × qty).
+function CartSqftInput({ value, overridden, productId, onCommit }: {
+  value: number; overridden: boolean; productId: string; onCommit: (id: string, sqft: number) => void;
+}) {
+  const [draft, setDraft] = useState('');
+  const ref = useRef<HTMLInputElement>(null);
+
+  // Reflect the derived/override value when not actively typing.
+  useEffect(() => {
+    if (document.activeElement !== ref.current) setDraft(value ? value.toFixed(2) : '');
+  }, [value]);
+
+  const commit = () => {
+    const v = parseFloat(draft);
+    onCommit(productId, draft.trim() === '' || !Number.isFinite(v) || v <= 0 ? 0 : v);
+  };
+
+  return (
+    <input
+      ref={ref}
+      type="number"
+      min="0"
+      step="0.01"
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onFocus={(e) => e.target.select()}
+      onBlur={commit}
+      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commit(); ref.current?.blur(); } }}
+      title={overridden ? 'Custom total sqft — clear to reset to area × slabs' : 'Total sqft — edit to bill an exact area'}
+      style={{
+        width: 62, textAlign: 'right',
+        border: `1px solid ${overridden ? 'var(--rustB)' : 'var(--bd)'}`,
+        borderRadius: 4, background: 'var(--bg1)', color: 'var(--t1)',
+        fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, fontWeight: 600, padding: '3px 5px',
       }}
     />
   );
