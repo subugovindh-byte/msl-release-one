@@ -289,11 +289,19 @@ function ReceiveBlock({ notify }: { notify: any }) {
   const { data: allProdsData } = useProducts({});
   const allPos   = posData?.purchase_orders || [];
   const allProds = allProdsData?.products   || [];
-  // blocks_remaining comes from the server (single source of truth for how many
-  // of a PO's blocks are still unreceived). Fall back to the full count only if an
-  // older API build didn't send it.
+  // blocks_remaining comes from the server (single source of truth). If an older
+  // API build hasn't sent it yet, fall back to counting from the products list
+  // using the SAME rule the server uses: original block receipts (not job outputs),
+  // still active, linked by po_id or the legacy "From PO <id>" note.
+  const receivedFromList = (poId: string) =>
+    (allProds as any[]).filter(x =>
+      x.kind === 'block' && x.active !== 0 && !x.source_job_id &&
+      (x.po_id === poId || (!x.po_id && x.notes === `From PO ${poId}`))
+    ).length;
   const remainingOf = (p: any) =>
-    p.blocks_remaining != null ? p.blocks_remaining : (p.blocks || 0);
+    p.blocks_remaining != null
+      ? p.blocks_remaining
+      : Math.max(0, (p.blocks || 0) - receivedFromList(p.id));
   // Only approved/closed POs that still have unreceived blocks can be received against.
   const pos = allPos.filter((p: any) =>
     ['approved', 'closed'].includes(p.status) && remainingOf(p) > 0
