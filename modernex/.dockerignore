@@ -5,7 +5,8 @@ build
 *.tsbuildinfo
 
 # Dependencies
-package-lock.json
+# NOTE: package-lock.json must NOT be ignored — `npm ci` requires it, and it is
+# what makes the image build reproducible. Excluding it silently broke the build.
 yarn.lock
 pnpm-lock.yaml
 
@@ -47,3 +48,12 @@ data/*.db-shm
 tmp
 temp
 *.tmp
+
+# Deployment / CI artifacts — never belong in the build context
+deploy.zip
+logs.zip
+LogFiles
+deployments
+test-results
+playwright-report
+docs
