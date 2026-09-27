@@ -1,3 +1,14 @@
+# Builds a container image and points the App Service at it.
+#
+# WHY NOT ZIP DEPLOY: this workflow used to ship a zip WITHOUT node_modules and
+# let Oryx install dependencies on the server. That made the native addons
+# (better-sqlite3, bcrypt) compile against whichever Node ran npm — Oryx, Kudu
+# (Node 18) or the runtime (Node 22) — and took prod down twice in 2026. The
+# image now carries its own dependencies, so the runtime is fixed at build time.
+#
+# NOTE: GitHub only reads workflows from .github/workflows/ at the REPOSITORY
+# ROOT. This is the file that actually runs; a copy under modernex/ would be
+# silently ignored.
 name: Deploy to Azure
 
 on:
@@ -8,6 +19,9 @@ on:
 env:
   AZURE_WEBAPP_NAME: modernex-prod
   AZURE_RG: modernex-rg
+  ACR_NAME: modernexacr
+  IMAGE_REPO: modernex/api
+  # Matches the Dockerfile runtime, so CI tests on the same Node as production.
   NODE_VERSION: '22.x'
 
 defaults:
@@ -40,93 +54,56 @@ jobs:
       - name: Unit tests
         run: npm test
 
-      - name: Build frontend
-        run: npm run build -w @modernex/web
-
-      - name: Create production package
-        run: |
-          mkdir -p ../deploy/packages/api
-          mkdir -p ../deploy/packages/web/dist
-
-          # API — source + migrations + seed assets
-          cp -r packages/api/src         ../deploy/packages/api/
-          cp -r packages/api/migrations  ../deploy/packages/api/
-          cp -r packages/api/seed-assets ../deploy/packages/api/
-          cp    packages/api/package.json ../deploy/packages/api/
-
-          # Build an npm-compatible tarball for @modernex/shared.
-          # Background: Oryx extracts node_modules.tar.gz to /node_modules (filesystem root).
-          # Workspace symlinks (/node_modules/@modernex/shared -> ../../packages/shared) then
-          # resolve to /packages/shared (doesn't exist) causing ERR_MODULE_NOT_FOUND.
-          # file:<tgz> deps are installed as real extracted files (no symlink), bypassing this.
-          # We use tar directly instead of npm pack to avoid workspace-root interference.
-          mkdir -p /tmp/shared-pack/package
-          cp -r packages/shared/src /tmp/shared-pack/package/src
-          cp    packages/shared/package.json /tmp/shared-pack/package/package.json
-          tar czf ../deploy/shared-pkg.tgz -C /tmp/shared-pack package
-
-          # Built frontend (served as static files by the API)
-          cp -r packages/web/dist/. ../deploy/packages/web/dist/
-
-          # Root package.json: API deps with @modernex/shared as a tgz file dep (no workspaces)
-          python3 -c "
-          import json
-          with open('packages/api/package.json') as f:
-              api = json.load(f)
-          deps = dict(api['dependencies'])
-          deps['@modernex/shared'] = 'file:./shared-pkg.tgz'
-          root = {'name':'modernex-prod','version':'2.0.0','type':'module',
-                  'scripts':{'start':'node packages/api/src/server.js'},
-                  'engines':{'node':'>=22.0.0'},'dependencies':deps}
-          print(json.dumps(root, indent=2))
-          " > ../deploy/package.json
-
-          # Lock file — Oryx builds natively on Azure (avoids ABI issues with better-sqlite3)
-          cd ../deploy && npm install --package-lock-only --ignore-scripts 2>&1 | tail -5
-
-          # Zip: source + shared-pkg.tgz + lock file; NO node_modules (Oryx installs natively)
-          zip -ry ../deploy.zip . -x "*.git*" "*.DS_Store*" "*.pid" "*/node_modules/*" "node_modules/*"
-
       - name: Login to Azure
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Stop app before deploy (avoid 409 conflict)
+      # Built by ACR on linux/amd64. The image runs `tsc && vite build` itself,
+      # so the web bundle and the API ship as one artifact. No server-side build,
+      # and prod is never stopped — the swap to the new image is the deploy.
+      - name: Build and push image
+        id: build
         run: |
-          az webapp stop --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RG }} || true
-          sleep 10
+          TAG="${GITHUB_SHA::12}-$(date -u +%Y%m%d%H%M%S)"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          az acr build \
+            --registry "$ACR_NAME" \
+            --image "$IMAGE_REPO:$TAG" \
+            --image "$IMAGE_REPO:latest" \
+            --file Dockerfile .
 
-      - name: Deploy to Azure App Service
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          package: deploy.zip
-
-      - name: Start app after deploy
-        if: always()
+      # Pinned to the immutable tag, never :latest — so the running version is
+      # always identifiable and rollback is just pointing at the previous tag.
+      - name: Point App Service at the new image
         run: |
-          az webapp start --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RG }} || true
+          az webapp config container set \
+            -g "$AZURE_RG" -n "$AZURE_WEBAPP_NAME" \
+            --container-image-name "$ACR_NAME.azurecr.io/$IMAGE_REPO:${{ steps.build.outputs.tag }}"
 
-      - name: Post-deploy health check
+      # A health check alone cannot tell "deployed and healthy" from "deploy did
+      # nothing and the OLD version is healthy" — that false green is exactly how
+      # the previous pipeline hid a broken deploy. Assert the image identity.
+      - name: Verify the running image is the one just built
         run: |
-          sleep 40
-          for i in 1 2 3 4 5; do
-            if curl -fsS "https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/api/health"; then
-              echo "✓ Deployment healthy"
-              exit 0
-            fi
-            echo "Attempt $i failed, retrying in 15s..."
-            sleep 15
+          expected="DOCKER|$ACR_NAME.azurecr.io/$IMAGE_REPO:${{ steps.build.outputs.tag }}"
+          running=$(az webapp config show -g "$AZURE_RG" -n "$AZURE_WEBAPP_NAME" \
+            --query linuxFxVersion -o tsv)
+          echo "expected: $expected"
+          echo "running:  $running"
+          if [ "$running" != "$expected" ]; then
+            echo "::error::App Service is not running the image this job built"
+            exit 1
+          fi
+
+      - name: Wait for health
+        run: |
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -m 20 \
+              "https://$AZURE_WEBAPP_NAME.azurewebsites.net/api/health" || true)
+            echo "attempt $i: HTTP $code"
+            if [ "$code" = "200" ]; then echo "healthy"; exit 0; fi
+            sleep 10
           done
-          echo "✗ Health check failed after 5 attempts"
+          echo "::error::health check never returned 200"
           exit 1
-
-      - name: Upload deployment log on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: deploy-logs-${{ github.sha }}
-          path: modernex/packages/api/logs/
-          if-no-files-found: ignore
-          retention-days: 7
