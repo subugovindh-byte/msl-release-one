@@ -75,35 +75,42 @@ jobs:
 
       # Pinned to the immutable tag, never :latest — so the running version is
       # always identifiable and rollback is just pointing at the previous tag.
+      # APP_BUILD_TAG is what /api/health echoes back, which is how the last
+      # step proves the new container is the one actually serving traffic.
       - name: Point App Service at the new image
         run: |
+          TAG="${{ steps.build.outputs.tag }}"
+          az webapp config appsettings set \
+            -g "$AZURE_RG" -n "$AZURE_WEBAPP_NAME" \
+            --settings "APP_BUILD_TAG=$TAG" -o none
           az webapp config container set \
             -g "$AZURE_RG" -n "$AZURE_WEBAPP_NAME" \
-            --container-image-name "$ACR_NAME.azurecr.io/$IMAGE_REPO:${{ steps.build.outputs.tag }}"
+            --container-image-name "$ACR_NAME.azurecr.io/$IMAGE_REPO:$TAG" -o none
 
-      # A health check alone cannot tell "deployed and healthy" from "deploy did
-      # nothing and the OLD version is healthy" — that false green is exactly how
-      # the previous pipeline hid a broken deploy. Assert the image identity.
-      - name: Verify the running image is the one just built
-        run: |
-          expected="DOCKER|$ACR_NAME.azurecr.io/$IMAGE_REPO:${{ steps.build.outputs.tag }}"
-          running=$(az webapp config show -g "$AZURE_RG" -n "$AZURE_WEBAPP_NAME" \
-            --query linuxFxVersion -o tsv)
-          echo "expected: $expected"
-          echo "running:  $running"
-          if [ "$running" != "$expected" ]; then
-            echo "::error::App Service is not running the image this job built"
-            exit 1
-          fi
+      # Setting the image updates configuration only. App Service does not
+      # reliably recycle the container on a tag change, so the previous build
+      # can keep serving indefinitely while config claims otherwise. Restart
+      # explicitly rather than hoping.
+      - name: Restart so the new image is pulled
+        run: az webapp restart -g "$AZURE_RG" -n "$AZURE_WEBAPP_NAME"
 
-      - name: Wait for health
+      # The gate that matters. A 200 from /api/health proves *something* is
+      # healthy, and `linuxFxVersion` only proves what config says — both are
+      # green when the old container is still serving. Asserting the build tag
+      # reported BY the running process is the only check that distinguishes
+      # "deployed" from "deploy silently did nothing".
+      - name: Verify the running build is the one just built
         run: |
-          for i in $(seq 1 30); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' -m 20 \
-              "https://$AZURE_WEBAPP_NAME.azurewebsites.net/api/health" || true)
-            echo "attempt $i: HTTP $code"
-            if [ "$code" = "200" ]; then echo "healthy"; exit 0; fi
-            sleep 10
+          TAG="${{ steps.build.outputs.tag }}"
+          for i in $(seq 1 40); do
+            body=$(curl -s -m 20 "https://$AZURE_WEBAPP_NAME.azurewebsites.net/api/health" || true)
+            running=$(printf '%s' "$body" | jq -r '.build // empty' 2>/dev/null || true)
+            echo "attempt $i: build=${running:-<none>} expected=$TAG"
+            if [ "$running" = "$TAG" ]; then
+              echo "deployed and serving: $TAG"
+              exit 0
+            fi
+            sleep 15
           done
-          echo "::error::health check never returned 200"
+          echo "::error::$AZURE_WEBAPP_NAME never reported build $TAG — the new image is not serving"
           exit 1

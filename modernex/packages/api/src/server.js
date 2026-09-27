@@ -93,10 +93,15 @@ export function createApp() {
   }));
 
   // ── HEALTH CHECK ──
+  // `build` is the image tag CI deployed, injected as an app setting. It is the
+  // only way a deploy can prove the NEW code is actually serving: App Service
+  // config can point at a new image while the old container keeps running, and
+  // a plain 200 here looks identical in both cases.
   app.get('/api/health', (req, res) => {
     res.json({
       status: 'ok',
       env: config.env,
+      build: process.env.APP_BUILD_TAG || null,
       uptime: process.uptime(),
       timestamp: new Date().toISOString(),
     });
