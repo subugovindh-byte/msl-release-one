@@ -112,9 +112,11 @@ a { color: var(--rust); text-decoration: none; }
   display: flex; align-items: center; justify-content: space-between;
   padding: 0 18px; flex-shrink: 0; gap: 8px;
 }
+/* Same 14.5px as .tn-sec / .tn-item — the chrome reads at one size, with
+   weight and colour (not scale) carrying the hierarchy. */
 .tb-brand {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 16px; font-weight: 700;
+  font-size: 14.5px; font-weight: 700;
   letter-spacing: -0.5px; color: var(--rust);
   background: linear-gradient(135deg, var(--rust) 0%, #b8401f 100%);
   -webkit-background-clip: text;
@@ -153,113 +155,117 @@ a { color: var(--rust); text-decoration: none; }
 
 .body-wrap { display: flex; flex: 1; overflow: hidden; min-height: 0; }
 
-/* ─── SIDEBAR ─── */
-.sidebar {
-  width: var(--sidebar-w); flex-shrink: 0; background: var(--bg1);
-  border-right: 1px solid var(--bd);
-  display: flex; flex-direction: column; overflow-y: auto;
+/* ─── TOPBAR USER ─── */
+.tb-user {
+  display: flex; align-items: center; gap: 7px;
+  padding: 3px 9px 3px 3px; border-radius: 20px;
+  border: 1.5px solid var(--bd); background: var(--bg3);
+  text-decoration: none; cursor: pointer; max-width: 190px;
+  transition: background var(--dur), border-color var(--dur);
 }
-.sb-user {
-  padding: 9px 12px; border-bottom: 1px solid var(--bd);
-  display: flex; align-items: center; gap: 8px;
-}
-.sb-av {
-  width: 26px; height: 26px; border-radius: 50%;
+.tb-user:hover { background: var(--rustW); border-color: var(--rustB); }
+.tb-av {
+  width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
   background: var(--rustW); border: 1px solid var(--rustB);
   display: flex; align-items: center; justify-content: center;
-  font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700;
-  color: var(--rust); flex-shrink: 0;
+  font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700; color: var(--rust);
 }
-.sb-name { font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600; color: var(--t1); letter-spacing: -0.2px; }
-.sb-role {
-  font-family: 'IBM Plex Mono', monospace; font-size: 8px;
-  letter-spacing: 1px; text-transform: uppercase; color: var(--t2); margin-top: 1px;
+.tb-user-meta { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
+.tb-user-name {
+  font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600;
+  color: var(--t1); letter-spacing: -0.2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.sb-sec {
-  padding: 13px 12px 4px; font-family: 'Inter', sans-serif;
-  font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--t1); font-weight: 700;
-  display: flex; align-items: center; gap: 8px; margin-top: 4px;
-  background: none; border: none; cursor: pointer; width: 100%; text-align: left;
-  transition: color 0.15s;
+.tb-user-role {
+  font-family: 'IBM Plex Mono', monospace; font-size: 7.5px;
+  letter-spacing: 1px; text-transform: uppercase; color: var(--t2);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.sb-sec:hover { color: var(--t2); }
-.sb-sec::after { content: ''; flex: 1; height: 1px; background: var(--bd); order: 1; }
-.sb-sec-chevron {
-  flex-shrink: 0; order: 2;
-  width: 6px; height: 6px; opacity: 0.5;
+.tb-logout {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 50%; cursor: pointer; flex-shrink: 0;
+  border: 1.5px solid var(--bd); background: var(--bg3); color: var(--t2);
+  font-size: 14px; line-height: 1;
+  transition: background var(--dur), color var(--dur), border-color var(--dur);
+}
+.tb-logout:hover { background: var(--rustW); border-color: var(--rustB); color: var(--rust); }
+
+/* ─── TOP NAV ───
+   Horizontal menu bar. 25 destinations across 7 sections is far too many to
+   lay out flat, so each section is a click-opened dropdown. Click-to-open
+   (not hover) keeps it usable on touch and avoids menus firing on passthrough. */
+.topnav {
+  flex-shrink: 0; background: var(--bg1);
+  border-bottom: 1px solid var(--bd);
+  position: relative; z-index: 120;
+}
+/* No overflow here: `overflow-x: auto` would compute overflow-y to `auto` too
+   and clip the dropdowns inside a 34px-tall scroll box. Sections wrap instead. */
+.topnav-inner {
+  display: flex; align-items: stretch; flex-wrap: wrap; gap: 2px;
+  padding: 0 14px;
+}
+
+.tn-group { position: relative; flex-shrink: 0; }
+/* Typography intentionally matches .tn-item so the bar and its menus read as
+   one system — section labels render as written, not upper-cased. */
+.tn-sec {
+  display: flex; align-items: center; gap: 7px;
+  padding: 10px 13px; border: none; background: none; cursor: pointer;
+  font-family: 'Inter', sans-serif; font-size: 14.5px; font-weight: 600;
+  letter-spacing: -0.1px; text-transform: none; color: var(--t2);
+  border-bottom: 2px solid transparent; white-space: nowrap;
+  transition: color var(--dur), background var(--dur), border-color var(--dur);
+}
+.tn-sec:hover { color: var(--t1); background: var(--rustW); }
+/* Section owning the current route stays marked once its menu closes. */
+.tn-sec--active { color: var(--rust); border-bottom-color: var(--rust); }
+.tn-group--open .tn-sec { color: var(--t1); background: var(--rustW); }
+
+.tn-chevron {
+  width: 5px; height: 5px; flex-shrink: 0; opacity: 0.55;
   border-right: 1.5px solid currentColor;
   border-bottom: 1.5px solid currentColor;
-  transform: rotate(-45deg);
+  transform: rotate(45deg); margin-bottom: 2px;
   transition: transform 0.22s ease, opacity 0.15s;
-  margin-bottom: 1px;
 }
-.sb-sec--collapsed .sb-sec-chevron { transform: rotate(45deg); }
-.sb-sec:hover .sb-sec-chevron { opacity: 0.9; }
-.sb-group-items { overflow: hidden; max-height: 600px; transition: max-height 0.25s ease; }
-.sb-group-items--closed { max-height: 0; }
-.sb-nav {
-  display: flex; align-items: center; padding: 8px 14px; gap: 10px;
-  border-left: 3px solid transparent; cursor: pointer; color: var(--t1);
-  font-family: 'Inter', sans-serif; font-size: 13px; letter-spacing: -0.1px;
-  text-transform: none; transition: background var(--dur), color var(--dur), border-color var(--dur); font-weight: 500;
-  line-height: 1; border-radius: 0 6px 6px 0; margin: 1px 6px 1px 0;
+.tn-group--open .tn-chevron { transform: rotate(-135deg); margin-bottom: -2px; opacity: 0.9; }
+
+.tn-menu {
+  display: none; position: absolute; top: 100%; left: 0; z-index: 130;
+  min-width: 210px; padding: 5px;
+  background: var(--bg1); border: 1px solid var(--bd);
+  border-radius: 0 0 8px 8px; border-top: none;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
 }
-.sb-nav .sb-icon {
-  font-size: 14px;
-  opacity: 0.85;
-  transition: all 0.2s ease;
-  min-width: 16px;
-  text-align: center;
-  line-height: 1;
-}
-.sb-nav > span:last-child,
-.sb-logout > span:last-child {
-  display: inline-flex;
-  align-items: center;
-  line-height: 1;
-}
-.sb-nav:hover { background: var(--rustW); color: var(--t1); border-left-color: var(--rustB); }
-.sb-nav:hover .sb-icon { opacity: 1; }
-.sb-nav-active { border-left-color: var(--rust); background: var(--rustW); color: var(--rust); font-weight: 600; }
-.sb-nav-active .sb-icon { opacity: 1; color: var(--rust); }
-.sb-item {
-  display: flex; align-items: center; gap: 8px; padding: 7px 12px;
-  border-left: 2px solid transparent; cursor: pointer; color: var(--t2);
-}
-.sb-item:hover { background: var(--rustW); color: var(--t1); }
-.sb-item.active { border-left-color: var(--rust); background: var(--rustW); color: var(--t1); }
-.sb-icon { font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: var(--t3); }
-.sb-item.active .sb-icon { color: var(--rust); }
-.sb-label { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; }
-.sb-badge {
-  margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-size: 8px;
-  padding: 1px 5px; border-radius: 8px; min-width: 15px; text-align: center;
-}
-.sb-badge-r { background: var(--rust); color: #fff; }
-.sb-badge-g { background: var(--gold); color: #fff; }
-.sb-foot { margin-top: auto; padding: 11px 12px; border-top: 1px solid var(--bd); }
-.sb-foot-txt {
-  font-family: 'IBM Plex Mono', monospace; font-size: 8px;
-  color: var(--t3); line-height: 1.9;
-}
-.sb-logout {
-  font-family: 'Inter', sans-serif; font-size: 13px; letter-spacing: -0.1px;
-  text-transform: none; color: var(--t3); padding: 10px 16px; margin-top: 8px;
+.tn-group--open .tn-menu { display: block; }
+/* Last sections would overflow the viewport's right edge. */
+.tn-group:nth-last-child(-n+2) .tn-menu { left: auto; right: 0; }
+
+.tn-item {
   display: flex; align-items: center; gap: 10px;
-  border: none; background: transparent; cursor: pointer; width: 100%;
-  transition: all 0.2s ease;
-  line-height: 1;
+  padding: 9px 11px; border-radius: 6px;
+  color: var(--t1); text-decoration: none; cursor: pointer;
+  font-family: 'Inter', sans-serif; font-size: 14.5px; font-weight: 500;
+  letter-spacing: -0.1px; line-height: 1; white-space: nowrap;
+  transition: background var(--dur), color var(--dur);
 }
-.sb-logout .sb-icon {
-  font-size: 14px;
-  opacity: 0.7;
-  transition: all 0.2s ease;
-  min-width: 16px;
-  text-align: center;
-  line-height: 1;
+.tn-item:hover { background: var(--rustW); }
+.tn-item--active { background: var(--rustW); color: var(--rust); font-weight: 600; }
+.tn-icon {
+  font-size: 15px; opacity: 0.85; min-width: 16px;
+  text-align: center; line-height: 1; flex-shrink: 0;
 }
-.sb-logout:hover { color: var(--rust); }
-.sb-logout:hover .sb-icon { opacity: 1; }
+.tn-item--active .tn-icon { opacity: 1; color: var(--rust); }
+.tn-label { display: inline-flex; align-items: center; line-height: 1; }
+
+.tn-badge {
+  min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px;
+  background: var(--rust); color: #fff;
+  font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.tn-badge--item { margin-left: auto; }
 
 .page-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; position: relative; }
 .pw { padding: 16px 18px 28px; overflow-y: auto; flex: 1; }
@@ -850,74 +856,60 @@ a { color: var(--rust); text-decoration: none; }
   .nav-toggle { display: flex; }
   .nav-overlay { display: block; }
 
-  /* Sidebar: hidden off-screen left, slides in when .open */
-  .sidebar {
+  /* A horizontal menu bar has nowhere to go on a phone, so the top nav
+     becomes the slide-in drawer and its dropdowns become accordions. */
+  .topnav {
     position: fixed;
     top: 0;
     left: 0;
     bottom: 0;
-    width: 240px;
+    width: 260px;
     height: 100dvh;
     z-index: 200;
     transform: translateX(-100%);
     transition: transform 0.24s cubic-bezier(0.4, 0, 0.2, 1),
                 box-shadow 0.24s ease;
-    /* Restore vertical column layout */
-    flex-direction: column;
+    border-bottom: none;
+    border-right: 1px solid var(--bd);
     overflow-y: auto;
     overflow-x: hidden;
-    border-right: 1px solid var(--bd);
   }
-  .sidebar.open {
+  .topnav.open {
     transform: translateX(0);
     box-shadow: 6px 0 28px rgba(0, 0, 0, 0.28);
   }
-
-  /* Restore normal sidebar item styles */
-  .sb-user { display: flex !important; }
-  .sb-sec  { display: block !important; }
-  .sb-nav {
-    flex-direction: row;
-    min-width: auto;
-    font-size: 13px;
-    padding: 8px 14px;
-    gap: 10px;
-    border-left: 3px solid transparent;
-    border-top: none;
-    text-align: left;
-  }
-  .sb-nav-active {
-    border-left-color: var(--rust);
-    border-top-color: transparent;
-  }
-  .sb-nav .sb-icon { font-size: 14px; min-width: 16px; }
-  .sb-nav > span:last-child {
-    font-family: inherit;
-    font-size: 13px;
-    letter-spacing: -0.1px;
-    text-transform: none;
-    white-space: nowrap;
+  .topnav-inner {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 8px 0;
     overflow: visible;
-    max-width: none;
-    text-overflow: clip;
   }
-  .sb-logout {
-    flex-direction: row;
-    min-width: auto;
-    padding: 10px 16px;
-    gap: 10px;
-    border-top: none;
-    margin-top: 8px;
+
+  .tn-group { width: 100%; }
+  .tn-sec {
     width: 100%;
-    font-size: 13px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--bd);
+    border-left: 3px solid transparent;
   }
-  .sb-logout .sb-icon { font-size: 14px; }
-  .sb-logout > span:last-child {
-    font-family: inherit;
-    font-size: 13px;
-    letter-spacing: -0.1px;
-    text-transform: none;
+  .tn-sec--active { border-bottom-color: var(--bd); border-left-color: var(--rust); }
+  .tn-chevron { margin-left: auto; }
+  .tn-group--open .tn-chevron { margin-bottom: 2px; }
+
+  /* Static, not a popover: the drawer scrolls instead. */
+  .tn-menu {
+    position: static;
+    min-width: 0;
+    border: none;
+    border-bottom: 1px solid var(--bd);
+    border-radius: 0;
+    box-shadow: none;
+    background: var(--bg0);
+    padding: 4px 8px;
   }
+  .tn-group:nth-last-child(-n+2) .tn-menu { right: auto; }
+  .tn-item { border-radius: 6px; padding: 10px; white-space: normal; }
 
   .page { padding: 14px; }
   .page-header { margin-bottom: 14px; gap: 10px; }
@@ -961,6 +953,12 @@ a { color: var(--rust); text-decoration: none; }
 
 /* Mobile Portrait */
 @media (max-width: 640px) {
+  /* Topbar is tight here — keep the avatar as the profile affordance. */
+  .tb-user { padding: 3px; max-width: none; }
+  .tb-user-meta { display: none; }
+  .chip { display: none; }
+  .theme-btn span:last-child { display: none; }
+
   .page { padding: 12px; }
   .app-footer { padding: 10px 12px; align-items: flex-start; }
   .app-footer__brand, .app-footer__meta { width: 100%; }

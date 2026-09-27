@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Routes, Route, Navigate, NavLink, useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Routes, Route, Navigate, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useQueryClient, useIsFetching } from '@tanstack/react-query';
 import { useAuthStore, useThemeStore, useToastStore, useCartStore } from '@/store';
 import { LoginPage } from '@/pages/LoginPage';
@@ -101,6 +101,23 @@ const NAV: NavSection[] = [
 
 const NAV_GROUPS = buildGroups(NAV);
 
+// Company names come out of the data upper-cased ("MODERNEX STONES LLP").
+// Title-case them for the topbar, but leave legal/technical acronyms alone —
+// a naive title-case would render "LLP" as "Llp".
+const ACRONYMS = new Set(['LLP', 'LLC', 'PLC', 'GST', 'HSN', 'UPI', 'ERP', 'PVT']);
+
+function titleCaseName(value: string): string {
+  return value
+    .split(/(\s+)/)
+    .map(word => {
+      if (!word.trim()) return word;
+      const letters = word.replace(/[^A-Za-z]/g, '').toUpperCase();
+      if (ACRONYMS.has(letters)) return word.toUpperCase();
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    })
+    .join('');
+}
+
 function formatDate(): string {
   return new Date().toLocaleDateString('en-IN', {
     day: '2-digit',
@@ -116,16 +133,17 @@ export function App() {
   const cartCount = useCartStore((s) => s.items.reduce((n, i) => n + i.quantity, 0));
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState<Set<string>>(
-    () => new Set(NAV_GROUPS.map(g => g.sec))
-  );
+  // Which section is expanded. Only ever one: on desktop these are dropdown
+  // menus in the top bar, on mobile they're accordions inside the drawer.
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const navRef = useRef<HTMLElement>(null);
+  const { pathname } = useLocation();
 
-  const toggleGroup = (sec: string) =>
-    setCollapsed(prev => {
-      const next = new Set(prev);
-      next.has(sec) ? next.delete(sec) : next.add(sec);
-      return next;
-    });
+  const closeAll = () => {
+    setOpenMenu(null);
+    setMenuOpen(false);
+  };
+
   const queryClient = useQueryClient();
   const isFetching = useIsFetching();
   const { data: companyData } = useCompany();
@@ -138,6 +156,26 @@ export function App() {
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
+
+  // Dropdowns open on click, so they need an explicit way back out.
+  useEffect(() => {
+    if (!openMenu && !menuOpen) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (navRef.current && !navRef.current.contains(e.target as Node)) setOpenMenu(null);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setOpenMenu(null);
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [openMenu, menuOpen]);
 
   if (loading) {
     return (
@@ -188,7 +226,7 @@ export function App() {
             <span></span><span></span><span></span>
           </button>
           <div>
-            <div className="tb-brand">{COMPANY}</div>
+            <div className="tb-brand">{titleCaseName(COMPANY)}</div>
             <div className="tb-sub">
               GST {GSTIN} · HSN {HSN} · FY 2025-26
             </div>
@@ -208,60 +246,65 @@ export function App() {
             <span>{theme === 'dark' ? '☀' : '🌙'}</span>
             <span>{theme === 'dark' ? ' Day' : ' Night'}</span>
           </button>
+          <NavLink
+            to="/profile"
+            className="tb-user"
+            onClick={closeAll}
+            title="My Profile & Settings"
+          >
+            <span className="tb-av">{user.fullName?.[0] || user.username[0]}</span>
+            <span className="tb-user-meta">
+              <span className="tb-user-name">{user.fullName || user.username}</span>
+              <span className="tb-user-role">{user.role}</span>
+            </span>
+          </NavLink>
+          <button
+            className="tb-logout"
+            onClick={handleLogout}
+            aria-label="Sign out"
+            title="Sign out"
+          >
+            ⎋
+          </button>
         </div>
       </div>
 
       <div className={`nav-overlay${menuOpen ? ' open' : ''}`} onClick={() => setMenuOpen(false)} />
 
-      <div className="body-wrap">
-        <div className={`sidebar${menuOpen ? ' open' : ''}`}>
-          <NavLink
-            to="/profile"
-            className="sb-user"
-            onClick={() => setMenuOpen(false)}
-            style={{ textDecoration: 'none', cursor: 'pointer' }}
-            title="My Profile & Settings"
-          >
-            <div className="sb-av">
-              {user.fullName?.[0] || user.username[0]}
-            </div>
-            <div style={{ minWidth: 0 }}>
-              <div className="sb-name">{user.fullName || user.username}</div>
-              <div className="sb-role">{user.role} · Settings</div>
-            </div>
-          </NavLink>
-
+      <nav className={`topnav${menuOpen ? ' open' : ''}`} ref={navRef} aria-label="Main">
+        <div className="topnav-inner">
           {NAV_GROUPS.map(({ sec, items }) => {
-            const isCollapsed = collapsed.has(sec);
+            const isOpen = openMenu === sec;
+            // Highlight the section owning the current route, so the active
+            // page stays discoverable once its menu is closed.
+            const hasActive = items.some(i => i.path === pathname);
+            const groupCount = sec === 'Daily Ops' ? cartCount : 0;
             return (
-              <div key={sec}>
+              <div className={`tn-group${isOpen ? ' tn-group--open' : ''}`} key={sec}>
                 <button
-                  className={`sb-sec${isCollapsed ? ' sb-sec--collapsed' : ''}`}
-                  onClick={() => toggleGroup(sec)}
+                  className={`tn-sec${hasActive ? ' tn-sec--active' : ''}`}
+                  onClick={() => setOpenMenu(o => (o === sec ? null : sec))}
+                  aria-expanded={isOpen}
+                  aria-haspopup="true"
                 >
-                  {sec}
-                  <span className="sb-sec-chevron" />
+                  <span>{sec}</span>
+                  {groupCount > 0 && !isOpen && <span className="tn-badge">{groupCount}</span>}
+                  <span className="tn-chevron" />
                 </button>
-                <div className={`sb-group-items${isCollapsed ? ' sb-group-items--closed' : ''}`}>
+
+                <div className="tn-menu" role="menu">
                   {items.map(item => (
                     <NavLink
                       key={item.id}
                       to={item.path!}
-                      className={({ isActive }) => `sb-nav${isActive ? ' sb-nav-active' : ''}`}
-                      onClick={() => setMenuOpen(false)}
+                      role="menuitem"
+                      className={({ isActive }) => `tn-item${isActive ? ' tn-item--active' : ''}`}
+                      onClick={closeAll}
                     >
-                      <span className="sb-icon">{item.icon}</span>
-                      <span>{item.lbl}</span>
+                      <span className="tn-icon">{item.icon}</span>
+                      <span className="tn-label">{item.lbl}</span>
                       {item.id === 'pos' && cartCount > 0 && (
-                        <span style={{
-                          marginLeft: 'auto', minWidth: 16, height: 16,
-                          background: 'var(--t1)', color: 'var(--bg1)',
-                          borderRadius: 8, fontSize: 9, fontWeight: 700,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          padding: '0 4px', fontFamily: "'IBM Plex Mono', monospace",
-                        }}>
-                          {cartCount}
-                        </span>
+                        <span className="tn-badge tn-badge--item">{cartCount}</span>
                       )}
                     </NavLink>
                   ))}
@@ -269,13 +312,10 @@ export function App() {
               </div>
             );
           })}
-
-          <button className="sb-logout" onClick={() => { setMenuOpen(false); handleLogout(); }}>
-            <span className="sb-icon">◉</span>
-            <span>Sign Out</span>
-          </button>
         </div>
+      </nav>
 
+      <div className="body-wrap">
         <div className="main-content">
           <div className="main-scroll">
             <Routes>
