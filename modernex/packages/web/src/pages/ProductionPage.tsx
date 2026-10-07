@@ -235,30 +235,90 @@ const TABS: { id: Tab; label: string; step?: string }[] = [
   { id: 'history',  label: 'Job History' },
 ];
 
+// Steps 1-7 are a pipeline, so they read as one: numbered nodes joined by a
+// rail that fills up to wherever you are. Job History is not part of the flow,
+// so it sits outside the rail behind a divider.
 function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void }) {
+  const steps = TABS.filter(t => t.step);
+  const aside = TABS.filter(t => !t.step);
+  const activeIdx = steps.findIndex(t => t.id === active);
+
   return (
-    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 20 }}>
-      {TABS.map(t => (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 14,
+      flexWrap: 'wrap', marginBottom: 20,
+    }}>
+      <ol style={{
+        display: 'flex', alignItems: 'flex-start', listStyle: 'none',
+        margin: 0, padding: 0, flex: '1 1 520px', minWidth: 0,
+      }}>
+        {steps.map((t, i) => {
+          const isActive = active === t.id;
+          const passed = activeIdx > -1 && i < activeIdx;
+          return (
+            <li key={t.id} style={{ display: 'flex', alignItems: 'flex-start', flex: '1 1 0', minWidth: 0 }}>
+              <button
+                onClick={() => onChange(t.id)}
+                aria-current={isActive ? 'step' : undefined}
+                title={`Step ${t.step} — ${t.label}`}
+                style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                  background: 'none', border: 'none', padding: '0 4px',
+                  cursor: 'pointer', minWidth: 0, flexShrink: 0,
+                }}
+              >
+                <span style={{
+                  width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 12, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
+                  background: isActive ? 'var(--rust)' : 'transparent',
+                  color: isActive ? 'var(--on-primary)' : (passed ? 'var(--t1)' : 'var(--t3)'),
+                  border: `1px solid ${isActive || passed ? 'var(--rust)' : 'var(--bd)'}`,
+                  transition: 'background .18s, border-color .18s, color .18s',
+                }}>{t.step}</span>
+                <span style={{
+                  fontSize: 12, lineHeight: 1.25, textAlign: 'center', whiteSpace: 'nowrap',
+                  fontWeight: isActive ? 700 : 500,
+                  color: isActive ? 'var(--t1)' : 'var(--t3)',
+                }}>{t.label}</span>
+              </button>
+              {i < steps.length - 1 && (
+                /* Rail + arrowhead: the line alone showed the steps were linked
+                   but not which way the work moves. Both inherit currentColor,
+                   so the filled and unfilled states need one colour each. */
+                <span aria-hidden style={{
+                  flex: '1 1 auto', minWidth: 18, marginTop: 13,
+                  display: 'flex', alignItems: 'center',
+                  color: passed ? 'var(--rust)' : 'var(--bd)',
+                  transition: 'color .18s',
+                }}>
+                  <span style={{ flex: '1 1 auto', height: 1, background: 'currentColor' }} />
+                  <svg width="7" height="8" viewBox="0 0 7 8" fill="none" style={{ flexShrink: 0, marginLeft: -1 }}>
+                    <path d="M1.2 1.2 4.6 4 1.2 6.8" stroke="currentColor" strokeWidth="1.4"
+                          strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+
+      {aside.length > 0 && (
+        <span aria-hidden style={{ width: 1, alignSelf: 'stretch', background: 'var(--bd)', margin: '0 2px' }} />
+      )}
+      {aside.map(t => (
         <button
           key={t.id}
           onClick={() => onChange(t.id)}
           style={{
-            background: active === t.id ? 'var(--rust)' : 'var(--bg2)',
-            color: active === t.id ? '#fff' : 'var(--t2)',
+            background: 'transparent',
+            color: active === t.id ? 'var(--t1)' : 'var(--t3)',
             border: `1px solid ${active === t.id ? 'var(--rust)' : 'var(--bd)'}`,
-            borderRadius: 5, padding: '6px 14px', fontSize: 13, fontWeight: 600,
-            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+            borderRadius: 5, padding: '7px 14px', fontSize: 12,
+            fontWeight: active === t.id ? 700 : 500, cursor: 'pointer', flexShrink: 0,
           }}
-        >
-          {t.step && (
-            <span style={{
-              background: active === t.id ? 'rgba(255,255,255,0.25)' : 'var(--rustW)',
-              color: active === t.id ? '#fff' : 'var(--rust)',
-              borderRadius: 20, fontSize: 10, fontWeight: 700, padding: '1px 6px',
-            }}>{t.step}</span>
-          )}
-          {t.label}
-        </button>
+        >{t.label}</button>
       ))}
     </div>
   );
