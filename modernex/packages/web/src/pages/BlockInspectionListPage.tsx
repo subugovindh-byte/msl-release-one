@@ -115,14 +115,35 @@ const STATUS_COLORS: Record<string, { color: string; bg: string }> = {
 };
 
 // Pre-defined quarry locations (quick-pick)
-const QUARRY_LOCATIONS = [
-  'Ongole, Andhra Pradesh',
-  'Markapur, Andhra Pradesh',
-  'Nellore, Andhra Pradesh',
-  'Karimnagar, Telangana',
-  'Kurnool, Andhra Pradesh',
-  'Jalore, Rajasthan',
-  'Kishangarh, Rajasthan',
+// Quarry sources, grouped by state/country. The region is declared once per
+// group and appended on selection, so "Place, Region" is what gets stored —
+// that string is how records are read back later. Free text is still accepted
+// via the "Other location…" field below.
+const QUARRY_GROUPS: { region: string; places: string[] }[] = [
+  { region: 'Tamil Nadu', places: [
+    'Bargur', 'Chendarapalli', 'Krishnagiri', 'Hosur', 'Dharmapuri', 'Salem',
+    'Namakkal', 'Karur', 'Erode', 'Dindigul', 'Madurai', 'Virudhunagar',
+    'Tirunelveli', 'Pudukkottai', 'Vellore', 'Tiruvannamalai', 'Chengam',
+    'Kanchipuram' ] },
+  { region: 'Andhra Pradesh', places: [
+    'Kuppam', 'Chittoor', 'Madanapalle', 'Ongole', 'Chimakurthy', 'Markapur',
+    'Nellore', 'Kurnool', 'Anantapur', 'Guntur', 'Srikakulam' ] },
+  { region: 'Karnataka', places: [
+    'Kolar', 'Chamarajanagar', 'Mysuru', 'Hassan', 'Tumakuru', 'Chitradurga',
+    'Ilkal', 'Bagalkot', 'Koppal', 'Raichur' ] },
+  { region: 'Telangana', places: ['Karimnagar', 'Warangal'] },
+  // Rajasthan spans both: Jalore is granite, the rest are the marble belt.
+  { region: 'Rajasthan', places: [
+    'Jalore', 'Makrana', 'Kishangarh', 'Rajsamand', 'Udaipur', 'Banswara',
+    'Jaisalmer' ] },
+  { region: 'Gujarat', places: ['Ambaji'] },
+  { region: 'Italy',   places: ['Carrara', 'Botticino', 'Travertine'] },
+  { region: 'Vietnam', places: ['Nghe An', 'Yen Bai'] },
+  { region: 'Turkey',  places: ['Afyon', 'Marmara'] },
+  { region: 'Greece',  places: ['Volakas', 'Thassos'] },
+  { region: 'Spain',   places: ['Macael'] },
+  { region: 'China',   places: ['Guangxi'] },
+  { region: 'Egypt',   places: ['Galala'] },
 ];
 
 // Common defect chips
@@ -334,16 +355,27 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
 
         {/* ── QUARRY LOCATION ── */}
         <label style={lbl}>Quarry Location</label>
-        <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:8 }}>
-          {QUARRY_LOCATIONS.map(q => (
-            <button key={q} type="button" onClick={() => set('quarry_location', q)}
-              style={{ ...chip(form.quarry_location === q, 'var(--sage)', 'var(--sageW)'), padding:'7px 11px', fontSize:12 }}>
-              {q.split(',')[0]}
-            </button>
-          ))}
-        </div>
-        <input style={{ ...inp, marginBottom:16 }} type="text" placeholder="Other location…"
-          value={form.quarry_location} onChange={e => set('quarry_location', e.target.value)} />
+        {/* One field, type-ahead. The datalist holds "Place, Region" strings, so
+            typing either half narrows it — "barg" finds Bargur, "tamil" lists
+            every Tamil Nadu quarry, "carrara" jumps straight to Italy. Anything
+            not on the list is still accepted, since it is a plain text input. */}
+        <input
+          style={{ ...inp, marginBottom:16 }}
+          type="text"
+          list="quarry-locations"
+          autoComplete="off"
+          placeholder="Type to search — e.g. barg, tamil, carrara"
+          value={form.quarry_location}
+          onChange={e => set('quarry_location', e.target.value)}
+        />
+        <datalist id="quarry-locations">
+          {QUARRY_GROUPS.flatMap(g =>
+            g.places.map(place => {
+              const value = `${place}, ${g.region}`;
+              return <option key={value} value={value} />;
+            })
+          )}
+        </datalist>
 
         {/* ── DEFECTS ── */}
         <label style={lbl}>Defects (tap all that apply)</label>
