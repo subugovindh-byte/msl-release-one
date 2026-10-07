@@ -110,23 +110,26 @@ a { color: var(--rust); text-decoration: none; }
   height: var(--topbar-h); background: var(--bg1);
   border-bottom: 1px solid var(--bd);
   display: flex; align-items: center; justify-content: space-between;
-  padding: 0 18px; flex-shrink: 0; gap: 8px;
+  padding: 0 22px; flex-shrink: 0; gap: 10px;
 }
 /* Same 14.5px as .tn-sec / .tn-item — the chrome reads at one size, with
    weight and colour (not scale) carrying the hierarchy. */
 .tb-brand {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 14.5px; font-weight: 700;
-  letter-spacing: -0.5px; color: var(--rust);
-  background: linear-gradient(135deg, var(--rust) 0%, #b8401f 100%);
+  font-size: 21px; font-weight: 800;
+  letter-spacing: -0.7px; color: var(--brand1);
+  background: linear-gradient(135deg, var(--brand1) 0%, var(--brand2) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+/* Matches the page-header subtitle (Inter, --t3, normal case) so the topbar
+   block and the page block read as the same typographic system. */
 .tb-sub {
-  font-family: 'IBM Plex Mono', monospace; font-size: 7.5px;
-  letter-spacing: 1.8px; color: var(--t1); text-transform: uppercase; margin-top: 2px;
-  opacity: 0.95; font-weight: 600;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 8px; font-weight: 500;
+  letter-spacing: -0.1px; color: var(--t3); text-transform: none;
+  margin-top: 3px;
 }
 .tb-right { display: flex; align-items: center; gap: 7px; }
 
@@ -154,6 +157,32 @@ a { color: var(--rust); text-decoration: none; }
 }
 
 .body-wrap { display: flex; flex: 1; overflow: hidden; min-height: 0; }
+
+/* ─── DARK HEADER IN LIGHT THEME ───
+   The chrome stays dark while page content stays light. Rather than restating
+   every header rule, the surface tokens are redefined *scoped to* the header:
+   custom properties cascade, so .tb-brand, .tn-sec, .tn-menu, the user chip,
+   the theme/refresh buttons and the mobile drawer all pick these up with no
+   rule of their own. Keep this list in sync with the dark block in theme.css. */
+[data-theme="light"] .topbar,
+[data-theme="light"] .topnav {
+  --bg0: #1E1E1E;
+  --bg1: #252526;
+  --bg2: #2D2D30;
+  --bg3: #3C3C3C;
+  --t1:  #D4D4D4;
+  --t2:  rgba(212, 212, 212, .90);
+  --t3:  rgba(212, 212, 212, .70);
+  --bd:  #3E3E42;
+  --rust:  #C8C8C8;
+  --rust2: #9A9A9A;
+  --rustW: rgba(200, 200, 200, .12);
+  --rustB: rgba(200, 200, 200, .30);
+  --on-primary: #1A1A1A;
+  --brand1: #E8E8E8;
+  --brand2: #9A9A9A;
+  --num: #FFFFFF;
+}
 
 /* ─── TOPBAR USER ─── */
 .tb-user {
@@ -202,8 +231,8 @@ a { color: var(--rust); text-decoration: none; }
 /* No overflow here: `overflow-x: auto` would compute overflow-y to `auto` too
    and clip the dropdowns inside a 34px-tall scroll box. Sections wrap instead. */
 .topnav-inner {
-  display: flex; align-items: stretch; flex-wrap: wrap; gap: 2px;
-  padding: 0 14px;
+  display: flex; align-items: stretch; flex-wrap: wrap; gap: 6px;
+  padding: 4px 18px;
 }
 
 .tn-group { position: relative; flex-shrink: 0; }
@@ -211,7 +240,7 @@ a { color: var(--rust); text-decoration: none; }
    one system — section labels render as written, not upper-cased. */
 .tn-sec {
   display: flex; align-items: center; gap: 7px;
-  padding: 10px 13px; border: none; background: none; cursor: pointer;
+  padding: 22px 16px; border: none; background: none; cursor: pointer;
   font-family: 'Inter', sans-serif; font-size: 14.5px; font-weight: 600;
   letter-spacing: -0.1px; text-transform: none; color: var(--t2);
   border-bottom: 2px solid transparent; white-space: nowrap;
@@ -261,7 +290,7 @@ a { color: var(--rust); text-decoration: none; }
 
 .tn-badge {
   min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px;
-  background: var(--rust); color: #fff;
+  background: var(--rust); color: var(--on-primary);
   font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 700;
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
@@ -512,6 +541,24 @@ a { color: var(--rust); text-decoration: none; }
   gap: 12px;
   flex-wrap: wrap;
 }
+/* Page titles. One size everywhere, deliberately a step below the 21px
+   wordmark: the logo is brand, the title is wayfinding.
+   Element-based on purpose — several pages render <h1> outside .page, and an
+   ancestry-based selector silently left those at the 26px UA default. */
+h1 {
+  font-size: 19px; font-weight: 700;
+  letter-spacing: -0.3px; line-height: 1.25;
+}
+/* One heading scale: 19 / 16 / 14. Pages previously set h2 at 2 sizes and h3
+   at 6 different inline sizes, with no base rule behind them at all. */
+h2 {
+  font-size: 16px; font-weight: 700;
+  letter-spacing: -0.2px; line-height: 1.3;
+}
+h3 {
+  font-size: 14px; font-weight: 700;
+  letter-spacing: -0.1px; line-height: 1.35;
+}
 .page-header h1 { margin: 0; flex: 1 1 auto; min-width: 200px; }
 .page-header button,
 .page-header .btn { flex-shrink: 0; }
@@ -536,7 +583,7 @@ a { color: var(--rust); text-decoration: none; }
 .sc.s::before { background: var(--sage); }
 .sc.b::before { background: var(--blue); }
 .sc-lbl { font-family: 'IBM Plex Mono', monospace; font-size: 8px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--t2); margin-bottom: 6px; font-weight: 600; }
-.sc-val { font-family: 'Inter', sans-serif; font-size: 20px; font-weight: 700; color: var(--t1); line-height: 1; letter-spacing: -0.3px; }
+.sc-val { font-family: 'Inter', sans-serif; font-size: 20px; font-weight: 700; color: var(--num); font-variant-numeric: tabular-nums; line-height: 1; letter-spacing: -0.3px; }
 .sc-sub { font-family: 'IBM Plex Mono', monospace; font-size: 8px; color: var(--t3); margin-top: 4px; }
 
 .card { background: var(--bg2); border: 1px solid var(--bd); border-radius: var(--radius); margin-bottom: 12px; }
@@ -553,7 +600,7 @@ a { color: var(--rust); text-decoration: none; }
   display: inline-flex; align-items: center; gap: 5px; cursor: pointer;
 }
 .btn:disabled { opacity: .35; cursor: not-allowed; }
-.btn-p { background: var(--rust); color: #fff; }
+.btn-p { background: var(--rust); color: var(--on-primary); }
 .btn-p:hover:not(:disabled) { filter: brightness(1.08); }
 .btn-s { background: var(--bg3); color: var(--t2); border: 1px solid var(--bd); }
 .btn-s:hover:not(:disabled) { color: var(--t1); }
@@ -774,14 +821,14 @@ a { color: var(--rust); text-decoration: none; }
   background: var(--bg2); border-top: 1px solid var(--bd); border-bottom: 1px solid var(--bd);
   height: 20px; line-height: 20px; color: var(--t1);
 }
-.ci-tot { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--gold); }
+.ci-tot { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--num); font-variant-numeric: tabular-nums; }
 .cart-tots { padding: 9px 12px; background: var(--bg0); border-top: 1px solid var(--bd); }
 .tot-row { display: flex; justify-content: space-between; margin-bottom: 3px; }
 .tot-lbl { font-family: 'IBM Plex Mono', monospace; font-size: 8px; color: var(--t3); }
-.tot-val { font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: var(--t1); }
+.tot-val { font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: var(--num); font-variant-numeric: tabular-nums; }
 .tot-grand { display: flex; justify-content: space-between; align-items: baseline; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--bd); }
 .tg-lbl { font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; color: var(--t1); letter-spacing: -0.2px; }
-.tg-val { font-family: 'IBM Plex Mono', monospace; font-size: 16px; color: var(--rust); }
+.tg-val { font-family: 'IBM Plex Mono', monospace; font-size: 16px; color: var(--num); font-variant-numeric: tabular-nums; font-weight: 700; }
 .cart-acts { padding: 9px 12px; border-top: 1px solid var(--bd); display: flex; gap: 6px; }
 
 /* ═══════════════════════════════════════

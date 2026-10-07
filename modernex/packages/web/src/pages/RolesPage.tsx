@@ -195,7 +195,7 @@ export function RolesPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{ fontWeight: 700, fontSize: 15 }}>{role.name}</span>
                     {!!role.is_system && (
-                      <span style={{ fontSize: 10, padding: '1px 7px', background: 'var(--blueW)', color: 'var(--blue)', borderRadius: 10, fontWeight: 700 }}>system</span>
+                      <span style={{ fontSize: 10, padding: '1px 7px', color: 'var(--blue)', borderRadius: 10, fontWeight: 700 }}>system</span>
                     )}
                   </div>
                   {role.description && <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--t3)' }}>{role.description}</p>}

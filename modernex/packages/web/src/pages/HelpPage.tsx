@@ -641,7 +641,7 @@ function BlockRenderer({ block, q }: { block: ContentBlock; q: string }) {
     case 'p':
       return <p style={{ marginBottom: 8, lineHeight: 1.6 }} dangerouslySetInnerHTML={hl(block.text)} />;
     case 'h3':
-      return <h3 style={{ marginTop: 20, marginBottom: 8, fontSize: 13, fontWeight: 700, color: 'var(--t1)', borderBottom: '1px solid var(--border)', paddingBottom: 4 }} dangerouslySetInnerHTML={hl(block.text)} />;
+      return <h3 style={{ marginTop: 20, marginBottom: 8, fontWeight: 700, color: 'var(--t1)', borderBottom: '1px solid var(--border)', paddingBottom: 4 }} dangerouslySetInnerHTML={hl(block.text)} />;
     case 'h4':
       return <h4 style={{ marginTop: 14, marginBottom: 6, fontSize: 12, fontWeight: 600, color: 'var(--t2)' }} dangerouslySetInnerHTML={hl(block.text)} />;
     case 'ul':
@@ -709,8 +709,7 @@ function BlockRenderer({ block, q }: { block: ContentBlock; q: string }) {
     case 'warn':
       return (
         <div style={{
-          background: 'rgba(220,60,60,0.08)', border: '1px solid rgba(220,60,60,0.3)',
-          borderRadius: 4, padding: '8px 12px', marginBottom: 10, fontSize: 11, lineHeight: 1.5,
+          marginBottom: 10, fontSize: 11, lineHeight: 1.5,
           color: 'var(--t1)',
         }}>
           <strong>⚠ </strong><span dangerouslySetInnerHTML={hl(block.text)} />
@@ -719,8 +718,7 @@ function BlockRenderer({ block, q }: { block: ContentBlock; q: string }) {
     case 'tip':
       return (
         <div style={{
-          background: 'rgba(60,180,60,0.08)', border: '1px solid rgba(60,180,60,0.3)',
-          borderRadius: 4, padding: '8px 12px', marginBottom: 10, fontSize: 11, lineHeight: 1.5,
+          marginBottom: 10, fontSize: 11, lineHeight: 1.5,
         }}>
           <strong>💡 </strong><span dangerouslySetInnerHTML={hl(block.text)} />
         </div>
@@ -820,7 +818,7 @@ export function HelpPage() {
       <div ref={contentRef} style={{ flex: 1, overflowY: 'auto', padding: '20px 28px' }}>
         {active ? (
           <>
-            <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20, color: 'var(--t1)' }}>
+            <h2 style={{ fontWeight: 700, marginBottom: 20, color: 'var(--t1)' }}>
               {active.title}
             </h2>
             {active.content.map((block, i) => (

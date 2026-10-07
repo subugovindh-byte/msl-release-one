@@ -349,10 +349,10 @@ export function PayrollPage() {
                         <td style={{ padding: '9px 10px', textAlign: 'right' }}>{formatINR(e.conveyance_paise)}</td>
                         <td style={{ padding: '9px 10px', textAlign: 'right' }}>{formatINR(e.other_allowance_paise)}</td>
                         <td style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 600 }}>{formatINR(e.gross_paise)}</td>
-                        <td style={{ padding: '9px 10px', textAlign: 'right', color: 'var(--rust)' }}>{formatINR(e.pf_employee_paise)}</td>
-                        <td style={{ padding: '9px 10px', textAlign: 'right', color: 'var(--amber)' }}>{formatINR(e.pf_employer_paise)}</td>
-                        <td style={{ padding: '9px 10px', textAlign: 'right', color: 'var(--rust)' }}>{formatINR(e.esi_employee_paise)}</td>
-                        <td style={{ padding: '9px 10px', textAlign: 'right', color: 'var(--amber)' }}>{formatINR(e.esi_employer_paise)}</td>
+                        <td style={{ padding: '9px 10px', textAlign: 'right', color: 'var(--num)' }}>{formatINR(e.pf_employee_paise)}</td>
+                        <td style={{ padding: '9px 10px', textAlign: 'right', color: 'var(--num)' }}>{formatINR(e.pf_employer_paise)}</td>
+                        <td style={{ padding: '9px 10px', textAlign: 'right', color: 'var(--num)' }}>{formatINR(e.esi_employee_paise)}</td>
+                        <td style={{ padding: '9px 10px', textAlign: 'right', color: 'var(--num)' }}>{formatINR(e.esi_employer_paise)}</td>
                         <td style={{ padding: '9px 10px', textAlign: 'right' }}>{formatINR(e.pt_paise)}</td>
                         <td style={{ padding: '9px 10px', textAlign: 'right' }}>{formatINR(e.tds_paise)}</td>
                         <td style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 700, fontSize: 13 }}>{formatINR(e.net_paise)}</td>
@@ -602,7 +602,7 @@ export function PayrollPage() {
                 ].map(row => (
                   <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--bd)', fontSize: 12 }}>
                     <span style={{ color: row.bold ? 'var(--t1)' : 'var(--t2)', fontWeight: row.bold ? 700 : 400 }}>{row.label}</span>
-                    <span style={{ fontWeight: row.bold ? 700 : 400, color: row.value < 0 ? 'var(--rust)' : 'var(--t1)' }}>{formatINR(Math.abs(row.value))}</span>
+                    <span style={{ fontWeight: row.bold ? 700 : 400, color: row.value < 0 ? 'var(--num)' : 'var(--num)' }}>{formatINR(Math.abs(row.value))}</span>
                   </div>
                 ))}
               </div>

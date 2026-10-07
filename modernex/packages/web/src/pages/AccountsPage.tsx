@@ -496,7 +496,7 @@ function SummaryCard({ label, value, sub }: { label: string; value: string; sub:
       <div style={{ fontSize: '11px', color: 'var(--t3)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>
         {label}
       </div>
-      <div style={{ fontSize: '28px', fontWeight: 700, color: 'var(--t1)', marginBottom: '4px' }}>{value}</div>
+      <div style={{ fontSize: '28px', fontWeight: 700, color: 'var(--num)', fontVariantNumeric: 'tabular-nums', marginBottom: '4px' }}>{value}</div>
       <div style={{ fontSize: '12px', color: 'var(--t3)' }}>{sub}</div>
     </div>
   );

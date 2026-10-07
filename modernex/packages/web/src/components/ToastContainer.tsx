@@ -6,7 +6,7 @@ const toastStyles: Record<ToastType, { bg: string; border: string }> = {
   success: { bg: '#10b981', border: '#059669' },
   error: { bg: '#ef4444', border: '#dc2626' },
   warning: { bg: '#f59e0b', border: '#d97706' },
-  info: { bg: '#3b82f6', border: '#2563eb' },
+  info: { bg: 'var(--rust)', border: 'var(--rustB)' },
 };
 
 interface ToastItemProps {

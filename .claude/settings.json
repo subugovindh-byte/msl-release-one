@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git push *)",
+      "Bash(npx vitest *)",
+      "Bash(node -p \"require\\('./node_modules/vitest/package.json'\\).version\")",
+      "Bash(npm i *)",
+      "Bash(echo \"=== watch exit: $? ===\")",
+      "Bash(az acr *)",
+      "Bash(curl -s -m 30 https://modernex-prod.azurewebsites.net/)"
+    ]
+  }
+}

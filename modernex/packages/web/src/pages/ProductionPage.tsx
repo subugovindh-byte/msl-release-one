@@ -40,8 +40,7 @@ function volLabel(_cft: number, cbm: number) {
 function PendingApprovalNote({ n }: { n: number }) {
   if (!n) return null;
   return (
-    <div style={{ background: 'rgba(230,160,0,0.1)', border: '1px solid var(--amber)', borderRadius: 6,
-      padding: '8px 12px', fontSize: 12, color: 'var(--amber)', fontWeight: 600 }}>
+    <div style={{ fontSize: 12, color: 'var(--amber)', fontWeight: 600 }}>
       {n} block{n > 1 ? 's' : ''} hidden — source PO pending approval. Approve the PO in Purchase to make {n > 1 ? 'them' : 'it'} available for job work.
     </div>
   );
@@ -213,10 +212,10 @@ function SizeCmInput({ value, onChange, lRange, wRange, autoFocus, inputWidth }:
 }
 
 // ── pipeline stat card ────────────────────────────────────────────────────────
-function StatCard({ label, count, sub, color }: { label: string; count: number; sub?: string; color?: string }) {
+function StatCard({ label, count, sub }: { label: string; count: number; sub?: string }) {
   return (
     <div style={{ ...card, textAlign: 'center', minWidth: 120 }}>
-      <div style={{ fontSize: 28, fontWeight: 700, color: color || 'var(--rust)', lineHeight: 1.1 }}>{count}</div>
+      <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--num)', fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>{count}</div>
       <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--t1)', marginTop: 4 }}>{label}</div>
       {sub && <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 2 }}>{sub}</div>}
     </div>
@@ -410,7 +409,7 @@ function ReceiveBlock({ notify }: { notify: any }) {
       </p>
 
       {pos.length === 0 ? (
-        <div style={{ background: 'rgba(220,50,50,0.08)', border: '1px solid var(--red)', borderRadius: 6, padding: '12px 16px', fontSize: 13, color: 'var(--red)', fontWeight: 600 }}>
+        <div style={{ fontSize: 13, color: 'var(--red)', fontWeight: 600 }}>
           No approved Purchase Orders with unreceived blocks. Approve a PO in <strong>Purchase</strong>, or raise a new one — a PO's blocks can only be received once.
         </div>
       ) : (
@@ -496,12 +495,12 @@ function ReceiveBlock({ notify }: { notify: any }) {
 
         {/* Duplicate warnings */}
         {exactDupe && (
-          <div style={{ background: 'rgba(220,50,50,0.1)', border: '1px solid var(--red)', borderRadius: 6, padding: '8px 12px', fontSize: 12, color: 'var(--red)', fontWeight: 600 }}>
+          <div style={{ fontSize: 12, color: 'var(--red)', fontWeight: 600 }}>
             Duplicate block detected: <span style={{ fontFamily: 'monospace' }}>{exactDupe.id}</span> already has this exact lot, variety and dimensions. Change the lot ID if this is a different physical block.
           </div>
         )}
         {!exactDupe && lotDupes.length > 0 && (
-          <div style={{ background: 'rgba(230,160,0,0.1)', border: '1px solid var(--amber)', borderRadius: 6, padding: '8px 12px', fontSize: 12, color: 'var(--amber)' }}>
+          <div style={{ fontSize: 12, color: 'var(--amber)' }}>
             Lot <strong>{form.lot_id}</strong> already has {lotDupes.length} block{lotDupes.length > 1 ? 's' : ''} registered ({lotDupes.map((p: any) => p.id).join(', ')}). Confirm dimensions are different.
           </div>
         )}
@@ -2104,19 +2103,19 @@ export function ProductionPage() {
     <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 24 }}>
       {/* Header */}
       <div>
-        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: 'var(--t1)' }}>Production</h1>
+        <h1 style={{ margin: 0, color: 'var(--t1)' }}>Production</h1>
         <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--t3)' }}>Granite processing pipeline — from quarry block to finished slab</p>
       </div>
 
       {/* Pipeline overview */}
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-        <StatCard label="Blocks @ Raw Yard"  count={rawBlocks.length}    color="var(--rust)" />
-        <StatCard label="Gangsaw Out" count={gangsawSlabs.reduce((s, p) => s + (p.stock || 0), 0)} sub={`${gangsawSlabs.length} batches (slab+tile)`} color="var(--amber)" />
-        <StatCard label="Finished Yard"       count={finishedSlabs.reduce((s, p) => s + (p.stock || 0), 0)} sub={`${finishedSlabs.length} batches`} color="var(--sage)" />
-        <StatCard label="In Showroom"         count={showroomSlabs.reduce((s, p) => s + (p.stock || 0), 0)} sub={`${showroomSlabs.length} batches`} color="var(--gold)" />
-        <StatCard label="Total Jobs"          count={jobs.length} color="var(--blue)" />
-        <StatCard label="Damaged (all jobs)"  count={totalDamage}  sub="unplanned broken pieces" color="var(--red)" />
-        <StatCard label="Wastage (all jobs)"  count={totalWastage} sub="trim / offcut losses"     color="var(--amber)" />
+        <StatCard label="Blocks @ Raw Yard"  count={rawBlocks.length} />
+        <StatCard label="Gangsaw Out" count={gangsawSlabs.reduce((s, p) => s + (p.stock || 0), 0)} sub={`${gangsawSlabs.length} batches (slab+tile)`} />
+        <StatCard label="Finished Yard"       count={finishedSlabs.reduce((s, p) => s + (p.stock || 0), 0)} sub={`${finishedSlabs.length} batches`} />
+        <StatCard label="In Showroom"         count={showroomSlabs.reduce((s, p) => s + (p.stock || 0), 0)} sub={`${showroomSlabs.length} batches`} />
+        <StatCard label="Total Jobs"          count={jobs.length} />
+        <StatCard label="Damaged (all jobs)"  count={totalDamage}  sub="unplanned broken pieces" />
+        <StatCard label="Wastage (all jobs)"  count={totalWastage} sub="trim / offcut losses" />
       </div>
 
       {/* Pipeline inventory */}

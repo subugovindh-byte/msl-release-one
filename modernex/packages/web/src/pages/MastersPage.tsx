@@ -818,7 +818,7 @@ export function MastersPage() {
                         Edit
                       </button>
                       <button onClick={() => handleDeletePrice(p.id)}
-                        style={{ padding: '4px 10px', fontSize: 12, background: 'var(--redW)', color: 'var(--red)', border: '1px solid var(--redW)', borderRadius: 5, cursor: 'pointer' }}>
+                        style={{ padding: '4px 10px', fontSize: 12, color: 'var(--red)', border: '1px solid var(--redW)', borderRadius: 5, cursor: 'pointer' }}>
                         ✕
                       </button>
                     </td>
@@ -925,7 +925,7 @@ export function MastersPage() {
                         Edit
                       </button>
                       <button onClick={() => handleDeleteSlab(p.id)} title="Remove"
-                        style={{ padding: '4px 10px', fontSize: 12, background: 'var(--redW)', color: 'var(--red)', border: '1px solid var(--redW)', borderRadius: 5, cursor: 'pointer' }}>
+                        style={{ padding: '4px 10px', fontSize: 12, color: 'var(--red)', border: '1px solid var(--redW)', borderRadius: 5, cursor: 'pointer' }}>
                         ✕
                       </button>
                     </td>

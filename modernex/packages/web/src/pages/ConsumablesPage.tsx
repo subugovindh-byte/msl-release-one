@@ -228,9 +228,9 @@ export function ConsumablesPage() {
       {/* ── Stats ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px,1fr))', gap: 14, marginBottom: 24 }}>
         <StatCard label="Total Spend" value={formatINR(totalSpend)} sub={`${active.length} purchases`} />
-        <StatCard label="Outstanding Due" value={formatINR(pendingSpend)} sub="unpaid + partial" valueColor="var(--gold)" />
-        <StatCard label="Partial Payments" value={String(partialCount)} sub="in progress" valueColor="var(--amber)" />
-        <StatCard label="Fully Paid" value={String(paidCount)} sub="completed" valueColor="var(--sage)" />
+        <StatCard label="Outstanding Due" value={formatINR(pendingSpend)} sub="unpaid + partial" />
+        <StatCard label="Partial Payments" value={String(partialCount)} sub="in progress" />
+        <StatCard label="Fully Paid" value={String(paidCount)} sub="completed" />
       </div>
 
       {/* ── Filters ── */}
@@ -352,7 +352,7 @@ export function ConsumablesPage() {
             {/* Total */}
             <div style={{ background: 'var(--bg3)', borderRadius: 6, padding: '10px 16px', marginBottom: 18, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12 }}>
               <span style={{ color: 'var(--t3)', fontSize: 13 }}>Total:</span>
-              <span style={{ fontWeight: 700, fontSize: 16, color: 'var(--rust)' }}>{formatINR(totalPaise)}</span>
+              <span style={{ fontWeight: 700, fontSize: 16, color: 'var(--num)', fontVariantNumeric: 'tabular-nums' }}>{formatINR(totalPaise)}</span>
             </div>
 
             <div style={{ display: 'flex', gap: 10 }}>
@@ -393,15 +393,15 @@ export function ConsumablesPage() {
           onClick={e => { if (e.target === e.currentTarget) setPayingCP(null); }}>
           <div style={{ background: 'var(--bg1)', border: '1px solid var(--bd)', borderRadius: 12, padding: 28, width: 440, maxWidth: '95vw', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ marginBottom: 16 }}>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Record Payment</h3>
+              <h3 style={{ margin: 0, fontWeight: 700 }}>Record Payment</h3>
               <div style={{ fontSize: 13, color: 'var(--t3)', marginTop: 4 }}>
                 {payingCP.id} — {payingCP.vendor_name} · {payingCP.category}
               </div>
             </div>
             <div style={{ display: 'flex', gap: 14, background: 'var(--bg2)', padding: '10px 14px', borderRadius: 6, fontSize: 13, marginBottom: 16, flexWrap: 'wrap' }}>
               <span style={{ color: 'var(--t3)' }}>Total <strong style={{ color: 'var(--t1)' }}>{formatINR(payingCP.total_paise)}</strong></span>
-              <span style={{ color: 'var(--t3)' }}>Paid <strong style={{ color: 'var(--sage)' }}>{formatINR(payingCP.paid_paise ?? 0)}</strong></span>
-              <span style={{ color: 'var(--t3)' }}>Due <strong style={{ color: 'var(--red)' }}>{formatINR(payingCP.balance_paise ?? payingCP.total_paise)}</strong></span>
+              <span style={{ color: 'var(--t3)' }}>Paid <strong style={{ color: 'var(--num)' }}>{formatINR(payingCP.paid_paise ?? 0)}</strong></span>
+              <span style={{ color: 'var(--t3)' }}>Due <strong style={{ color: 'var(--num)' }}>{formatINR(payingCP.balance_paise ?? payingCP.total_paise)}</strong></span>
             </div>
             {/* Vendor advance banner */}
             {(() => {
@@ -409,10 +409,10 @@ export function ConsumablesPage() {
               const adv = vendor?.advance_paise ?? 0;
               if (adv <= 0) return null;
               return (
-                <label style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--sageW)', border: '1px solid var(--sage)', borderRadius: 6, padding: '10px 14px', cursor: 'pointer', marginBottom: 12 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 10, border: '1px solid var(--sage)', borderRadius: 6, padding: '10px 14px', cursor: 'pointer', marginBottom: 12 }}>
                   <input type="checkbox" checked={payApplyAdvance} onChange={e => setPayApplyAdvance(e.target.checked)} />
                   <span style={{ fontSize: 13 }}>
-                    Apply vendor advance <strong style={{ color: 'var(--sage)' }}>{formatINR(adv)}</strong> towards this payment
+                    Apply vendor advance <strong style={{ color: 'var(--num)' }}>{formatINR(adv)}</strong> towards this payment
                   </span>
                 </label>
               );
@@ -485,7 +485,7 @@ export function ConsumablesPage() {
       {cancelAdvanceCP && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: 'var(--bg1)', border: '1px solid var(--bd)', borderRadius: 12, padding: 28, width: 420, maxWidth: '95vw' }}>
-            <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>Cancel {cancelAdvanceCP.id}</h3>
+            <h3 style={{ margin: '0 0 8px', fontWeight: 700 }}>Cancel {cancelAdvanceCP.id}</h3>
             <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--t3)' }}>
               This purchase has <strong style={{ color: 'var(--t1)' }}>{formatINR(cancelAdvanceCP.paid_paise ?? 0)}</strong> already paid.
               What should happen to this amount?

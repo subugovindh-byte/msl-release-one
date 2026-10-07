@@ -253,7 +253,9 @@ interface StatCardProps {
   valueColor?: string;
 }
 
-export function StatCard({ label, value, sub, valueColor = 'var(--t1)' }: StatCardProps) {
+// Figures default to --num: numbers are the one coloured element in the UI.
+// Pass valueColor only to override with a semantic colour (e.g. danger).
+export function StatCard({ label, value, sub, valueColor = 'var(--num)' }: StatCardProps) {
   return (
     <div style={{
       backgroundColor: 'var(--bg2)', border: '1px solid var(--bd)',
@@ -265,7 +267,10 @@ export function StatCard({ label, value, sub, valueColor = 'var(--t1)' }: StatCa
       }}>
         {label}
       </div>
-      <div style={{ fontSize: 24, fontWeight: 700, color: valueColor, marginBottom: 4 }}>
+      <div style={{
+        fontSize: 24, fontWeight: 700, color: valueColor, marginBottom: 4,
+        fontVariantNumeric: 'tabular-nums',
+      }}>
         {value}
       </div>
       {sub && <div style={{ fontSize: 12, color: 'var(--t3)' }}>{sub}</div>}

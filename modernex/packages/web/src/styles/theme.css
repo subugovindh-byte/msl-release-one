@@ -1,71 +1,96 @@
 /* ═══════════════════════════════════════
    DESIGN TOKENS — CSS variables only
    All colours cascaded via data-theme attr
+
+   PALETTE: VS Code (Dark+ / Light+).
+   Surfaces follow the editor's own greys — #1E1E1E editor, #252526 side bar,
+   #3C3C3C inputs — and the accents are taken from VS Code's syntax and status
+   colours rather than invented.
+
+   --num is NOT a hue. Figures are the brightest text on the page — pure white
+   on dark, near-black on light — so they outrank body text (#D4D4D4 / #1F1F1F)
+   by contrast rather than by colour. Keep --num for figures only.
+
+   --on-primary is the text colour that sits ON a --rust background
+   (.btn-p, .tn-badge). White on the dark accent only reaches 3.07:1, so dark
+   theme flips to a near-black foreground (5.15:1).
    ═══════════════════════════════════════ */
 
 :root {
-  /* ── Dark (default) ── clean navy-dark, Salt-grade */
-  --bg0: #0B1018;
-  --bg1: #131C28;
-  --bg2: #1A2638;
-  --bg3: #223044;
+  /* ── Dark+ ── */
+  --bg0: #1E1E1E;   /* editor background */
+  --bg1: #252526;   /* side bar / surfaces */
+  --bg2: #2D2D30;   /* elevated panels */
+  --bg3: #3C3C3C;   /* inputs, title bar */
 
-  /* Primary — refined coral/terracotta */
-  --rust: #E0622A;
-  --rustW: rgba(224, 98, 42, .12);
-  --rustB: rgba(224, 98, 42, .30);
+  /* Primary — VS Code link blue */
+  --rust:  #C8C8C8;
+  --rust2: #9A9A9A;
 
-  /* Data accent — muted steel blue (replaces warm gold) */
-  --gold: #6B9EBA;
-  --goldW: rgba(107, 158, 186, .10);
-  --goldB: rgba(107, 158, 186, .28);
+  /* Brand wordmark — grey, kept off the accent so the title does not read
+     as an interactive element. */
+  --brand1: #E8E8E8;
+  --brand2: #9A9A9A;
+  --on-primary: #1A1A1A;
+  --rustW: rgba(200, 200, 200, .12);
+  --rustB: rgba(200, 200, 200, .30);
 
-  /* Success */
-  --sage: #35B07A;
-  --sageW: rgba(53, 176, 122, .10);
-  --sageB: rgba(53, 176, 122, .28);
+  /* FIGURES — brightest text on the surface, no hue */
+  --num:  #FFFFFF;
+  --numW: rgba(255, 255, 255, .10);
+  --numB: rgba(255, 255, 255, .26);
 
-  /* Info */
-  --blue: #4D96D4;
-  --blueW: rgba(77, 150, 212, .10);
-  --blueB: rgba(77, 150, 212, .28);
+  /* Data accent — grey (grid headers, meta) */
+  --gold: #A8A8A8;
+  --goldW: rgba(168, 168, 168, .10);
+  --goldB: rgba(168, 168, 168, .28);
 
-  /* Danger */
-  --red: #E05252;
-  --redW: rgba(224, 82, 82, .12);
-  --redB: rgba(224, 82, 82, .28);
+  /* Success — terminal/diff green */
+  --sage: #89D185;
+  --sageW: rgba(137, 209, 133, .10);
+  --sageB: rgba(137, 209, 133, .28);
 
-  /* Warning */
-  --amber: #D4890A;
-  --amberW: rgba(212, 137, 10, .12);
-  --amberB: rgba(212, 137, 10, .28);
+  /* Info — bright blue */
+  --blue: #B0B0B0;
+  --blueW: rgba(176, 176, 176, .10);
+  --blueB: rgba(176, 176, 176, .28);
 
-  /* Text */
-  --t1: #EDF3FA;
-  --t2: rgba(237, 243, 250, .92);
-  --t3: rgba(237, 243, 250, .78);
+  /* Danger — editor error */
+  --red: #F48771;
+  --redW: rgba(244, 135, 113, .12);
+  --redB: rgba(244, 135, 113, .28);
+
+  /* Warning — editor warning */
+  --amber: #CCA700;
+  --amberW: rgba(204, 167, 0, .12);
+  --amberB: rgba(204, 167, 0, .28);
+
+  /* Text — editor foreground */
+  --t1: #D4D4D4;
+  --t2: rgba(212, 212, 212, .90);
+  --t3: rgba(212, 212, 212, .70);
 
   /* Borders */
-  --bd:  rgba(255, 255, 255, .07);
-  --bd2: rgba(224, 98, 42, .24);
+  --bd:  #3E3E42;
+  --bd2: rgba(200, 200, 200, .24);
 
   /* Grid */
-  --grid-bg:           #131C28;
-  --grid-bg-alt:       #172236;
-  --grid-chrome:       #1A2638;
-  --grid-hover:        rgba(228, 237, 246, .04);
-  --grid-selected:     rgba(224, 98, 42, .14);
-  --grid-text:         #E4EDF6;
-  --grid-text-muted:   rgba(228, 237, 246, .68);
-  --grid-header-text:  #6B9EBA;
-  --grid-input-bg:     #0F1822;
-  --grid-panel-bg:     #172236;
-  --grid-icon:         rgba(228, 237, 246, .68);
-  --grid-resize-bar:   rgba(224, 98, 42, .22);
-  --grid-row-border:   rgba(255, 255, 255, .05);
+  --grid-bg:           #1E1E1E;
+  --grid-bg-alt:       #252526;
+  --grid-chrome:       #333333;
+  --grid-hover:        rgba(255, 255, 255, .05);
+  --grid-selected:     #3A3A3C;   /* selection — grey */
+  --grid-text:         #D4D4D4;
+  --grid-text-muted:   rgba(212, 212, 212, .65);
+  --grid-header-text:  #A8A8A8;
+  --grid-input-bg:     #3C3C3C;
+  --grid-panel-bg:     #252526;
+  --grid-icon:         rgba(212, 212, 212, .65);
+  --grid-resize-bar:   rgba(200, 200, 200, .25);
+  --grid-row-border:   #2D2D30;
 
   /* Sizing */
-  --topbar-h:  50px;
+  --topbar-h:  62px;
   --radius:    5px;
   --radius-lg: 10px;
 
@@ -74,63 +99,74 @@
 }
 
 [data-theme="light"] {
-  /* ── Light — soft grey ── */
-  --bg0: #F4F6F8;
+  /* ── Light+ ── */
+  --bg0: #FFFFFF;   /* page ground — flat white */
   --bg1: #FFFFFF;
-  --bg2: #F9FAFB;
-  --bg3: #ECEEF1;
+  --bg2: #FFFFFF;   /* cards read via their border, not a fill */
+  --bg3: #F1F1F1;   /* inputs/chips keep a fill so fields look like fields */
 
-  /* Primary — refined coral */
-  --rust: #C03E18;
-  --rustW: rgba(192, 62, 24, .08);
-  --rustB: rgba(192, 62, 24, .22);
+  /* Primary */
+  --rust:  #4A4A4A;
+  --rust2: #6E6E6E;
 
-  /* Data accent — slate-blue, clean */
-  --gold: #2E6B8A;
-  --goldW: rgba(46, 107, 138, .08);
-  --goldB: rgba(46, 107, 138, .20);
+  /* Brand wordmark — grey */
+  --brand1: #3C3C3C;
+  --brand2: #6E6E6E;
+  --on-primary: #FFFFFF;
+  --rustW: rgba(74, 74, 74, .08);
+  --rustB: rgba(74, 74, 74, .22);
+
+  /* FIGURES — darkest text on the surface, no hue */
+  --num:  #0D0D0D;
+  --numW: rgba(13, 13, 13, .07);
+  --numB: rgba(13, 13, 13, .20);
+
+  /* Data accent — grey */
+  --gold: #5A5A5A;
+  --goldW: rgba(90, 90, 90, .08);
+  --goldB: rgba(90, 90, 90, .20);
 
   /* Success */
-  --sage: #1A7A50;
-  --sageW: rgba(26, 122, 80, .08);
-  --sageB: rgba(26, 122, 80, .20);
+  --sage: #107C10;
+  --sageW: rgba(16, 124, 16, .08);
+  --sageB: rgba(16, 124, 16, .20);
 
   /* Info */
-  --blue: #1A5CA8;
-  --blueW: rgba(26, 92, 168, .08);
-  --blueB: rgba(26, 92, 168, .20);
+  --blue: #5A5A5A;
+  --blueW: rgba(90, 90, 90, .08);
+  --blueB: rgba(90, 90, 90, .20);
 
   /* Danger */
-  --red: #C62828;
-  --redW: rgba(198, 40, 40, .08);
-  --redB: rgba(198, 40, 40, .22);
+  --red: #CD3131;
+  --redW: rgba(205, 49, 49, .08);
+  --redB: rgba(205, 49, 49, .22);
 
-  /* Warning */
-  --amber: #B45309;
-  --amberW: rgba(180, 83, 9, .08);
-  --amberB: rgba(180, 83, 9, .22);
+  /* Warning — darkened from VS Code's #BF8803, which only reaches 3.1:1 */
+  --amber: #8A6400;
+  --amberW: rgba(138, 100, 0, .08);
+  --amberB: rgba(138, 100, 0, .22);
 
   /* Text */
-  --t1: #0A1520;
-  --t2: rgba(10, 21, 32, .90);
-  --t3: rgba(10, 21, 32, .74);
+  --t1: #1F1F1F;
+  --t2: rgba(31, 31, 31, .88);
+  --t3: rgba(31, 31, 31, .68);
 
   /* Borders */
-  --bd:  rgba(15, 25, 36, .09);
-  --bd2: rgba(192, 62, 24, .18);
+  --bd:  #E2E2E2;   /* slightly firmer: it is the only edge on white */
+  --bd2: rgba(74, 74, 74, .20);
 
   /* Grid */
   --grid-bg:           #FFFFFF;
-  --grid-bg-alt:       #F9FAFB;
-  --grid-chrome:       #ECEEF1;
-  --grid-hover:        rgba(15, 25, 36, .03);
-  --grid-selected:     rgba(192, 62, 24, .07);
-  --grid-text:         #0F1924;
-  --grid-text-muted:   rgba(15, 25, 36, .65);
-  --grid-header-text:  #2E6B8A;
-  --grid-input-bg:     #F4F6F8;
-  --grid-panel-bg:     #ECEEF1;
-  --grid-icon:         rgba(15, 25, 36, .65);
-  --grid-resize-bar:   rgba(192, 62, 24, .18);
-  --grid-row-border:   rgba(15, 25, 36, .07);
+  --grid-bg-alt:       #F8F8F8;
+  --grid-chrome:       #ECECEC;
+  --grid-hover:        rgba(0, 0, 0, .03);
+  --grid-selected:     #D6D6D6;   /* selection — grey */
+  --grid-text:         #1F1F1F;
+  --grid-text-muted:   rgba(31, 31, 31, .65);
+  --grid-header-text:  #5A5A5A;
+  --grid-input-bg:     #FFFFFF;
+  --grid-panel-bg:     #F3F3F3;
+  --grid-icon:         rgba(31, 31, 31, .65);
+  --grid-resize-bar:   rgba(74, 74, 74, .22);
+  --grid-row-border:   #E5E5E5;
 }

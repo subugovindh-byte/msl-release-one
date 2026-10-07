@@ -396,9 +396,9 @@ export function InventoryPage() {
         <StatCard label="In Stock" value={inStockCount.toString()} subtitle={`${zeroStockCount > 0 ? `+ ${zeroStockCount} zero-stock` : 'all active'}`} />
         <StatCard label="Total Stock" value={totalStock.toString()} subtitle="units (in-stock products)" />
         <StatCard label="Stock Value" value={formatINR(totalValue)} subtitle="at selling rate" />
-        <StatCard label="Low Stock" value={lowStockCount.toString()} subtitle="≤ 2 pieces" color="var(--rust)" />
+        <StatCard label="Low Stock" value={lowStockCount.toString()} subtitle="≤ 2 pieces" />
         {zeroStockCount > 0 && (
-          <StatCard label="Zero Stock" value={zeroStockCount.toString()} subtitle="consumed / written off" color="var(--t3)" />
+          <StatCard label="Zero Stock" value={zeroStockCount.toString()} subtitle="consumed / written off" />
         )}
       </div>
 
@@ -406,8 +406,7 @@ export function InventoryPage() {
       {confirmDeleteId && (
         <div style={{
           display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
-          background: 'rgba(220,50,50,0.1)', border: '1px solid var(--red)',
-          borderRadius: 6, padding: '10px 14px', marginBottom: 16, fontSize: 13,
+          marginBottom: 16, fontSize: 13,
         }}>
           <span style={{ color: 'var(--red)', fontWeight: 600 }}>
             Remove <span style={{ fontFamily: 'monospace' }}>{confirmDeleteId}</span> from inventory?
@@ -509,7 +508,7 @@ export function InventoryPage() {
   );
 }
 
-function StatCard({ label, value, subtitle, color }: { label: string; value: string; subtitle: string; color?: string }) {
+function StatCard({ label, value, subtitle }: { label: string; value: string; subtitle: string }) {
   return (
     <div style={{
       backgroundColor: 'var(--bg2)',
@@ -520,7 +519,7 @@ function StatCard({ label, value, subtitle, color }: { label: string; value: str
       <div style={{ fontSize: '10px', color: 'var(--t3)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>
         {label}
       </div>
-      <div style={{ fontSize: '20px', fontWeight: 700, color: color || 'var(--t1)', marginBottom: '2px' }}>
+      <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--num)', fontVariantNumeric: 'tabular-nums', marginBottom: '2px' }}>
         {value}
       </div>
       <div style={{ fontSize: '11px', color: 'var(--t3)' }}>

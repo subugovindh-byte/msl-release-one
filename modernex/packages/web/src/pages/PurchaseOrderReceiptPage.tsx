@@ -507,9 +507,9 @@ export function PurchaseOrderReceiptPage() {
       {showPayForm && (
         <div className="no-print" style={{ background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8, padding: '16px 20px', marginBottom: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 }}>
-            <h3 style={{ margin: 0, fontSize: 14 }}>Record Payment — {po.id}</h3>
+            <h3 style={{ margin: 0, }}>Record Payment — {po.id}</h3>
             <span style={{ fontSize: 12, color: 'var(--t3)' }}>
-              Total {formatINR(total)} · Paid {formatINR(paidPaise)} · <strong style={{ color: 'var(--red)' }}>Due {formatINR(balance)}</strong>
+              Total {formatINR(total)} · Paid {formatINR(paidPaise)} · <strong style={{ color: 'var(--num)' }}>Due {formatINR(balance)}</strong>
             </span>
           </div>
           <form onSubmit={handleRecordPayment}>
@@ -581,7 +581,7 @@ export function PurchaseOrderReceiptPage() {
       {po.status !== 'cancelled' && matchData && (
         <div className="no-print" style={{ background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8, padding: '16px 20px', marginBottom: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
-            <h3 style={{ margin: 0, fontSize: 14, color: 'var(--t1)' }}>
+            <h3 style={{ margin: 0, color: 'var(--t1)' }}>
               Three-Way Match
               {po.matched_at && <span style={{ marginLeft: 10, fontSize: 11, fontWeight: 700, color: 'var(--sage)' }}>✓ Matched</span>}
             </h3>
@@ -604,7 +604,7 @@ export function PurchaseOrderReceiptPage() {
               <div className="receipt-label" style={{ marginBottom: 6 }}>2 · Received (weighbridge)</div>
               <div style={{ fontSize: 12, color: 'var(--t2)' }}>
                 {matchData.received.blocks_received} blocks · {matchData.received.cft_received} CBM
-                {matchData.received.net_weight_kg > 0 && <> · <strong style={{ color: 'var(--gold)' }}>{(matchData.received.net_weight_kg / 1000).toFixed(3)} t</strong></>}
+                {matchData.received.net_weight_kg > 0 && <> · <strong style={{ color: 'var(--num)' }}>{(matchData.received.net_weight_kg / 1000).toFixed(3)} t</strong></>}
               </div>
               <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 4 }}>
                 Expected: {formatINR(matchData.received.expected_paise)}
@@ -768,7 +768,7 @@ export function PurchaseOrderReceiptPage() {
               <div style={{ marginTop: 8, paddingTop: 6, borderTop: '1px solid rgba(26,22,18,.1)', fontSize: 10, color: 'rgba(26,22,18,.55)' }}>
                 Raised from:{' '}
                 <Link to={`/inspections/${po.inspection_id.replace(/\//g, '~')}`}
-                  style={{ color: '#2563eb', fontWeight: 600 }}>{po.inspection_id}</Link>
+                  style={{ color: 'var(--rust)', fontWeight: 600 }}>{po.inspection_id}</Link>
               </div>
             )}
           </div>
@@ -1009,8 +1009,8 @@ export function PurchaseOrderReceiptPage() {
           <div className="receipt-label" style={{ marginBottom: 8 }}>Status History</div>
           <div style={{ display: 'flex', gap: 0, flexWrap: 'wrap' }}>
             {[
-              { key: 'created_at',   label: 'Created',   color: '#2563eb' },
-              { key: 'received_at',  label: 'Received',  color: '#64748b' },
+              { key: 'created_at',   label: 'Created',   color: 'var(--rust)' },
+              { key: 'received_at',  label: 'Received',  color: 'var(--t3)' },
               { key: 'approved_at',  label: 'Approved',  color: '#16a34a' },
               { key: 'cancelled_at', label: 'Cancelled', color: '#dc2626' },
             ].map(({ key, label, color }, idx) => {

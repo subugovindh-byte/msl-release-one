@@ -451,8 +451,8 @@ export function ReportsPage() {
                       <td style={{ padding: '8px 10px', fontFamily: 'monospace', fontSize: 11 }}>{e.voucher_id}</td>
                       <td style={{ padding: '8px 10px', color: 'var(--t3)', fontSize: 11, textTransform: 'capitalize' }}>{e.voucher_type}</td>
                       <td style={{ padding: '8px 10px', color: 'var(--t2)', maxWidth: 200 }}>{e.entry_narration || e.narration || '—'}</td>
-                      <td style={{ padding: '8px 10px', textAlign: 'right', color: e.debit_paise > 0 ? 'var(--t1)' : 'var(--t3)' }}>{e.debit_paise > 0 ? formatINR(e.debit_paise) : '—'}</td>
-                      <td style={{ padding: '8px 10px', textAlign: 'right', color: e.credit_paise > 0 ? 'var(--t1)' : 'var(--t3)' }}>{e.credit_paise > 0 ? formatINR(e.credit_paise) : '—'}</td>
+                      <td style={{ padding: '8px 10px', textAlign: 'right', color: e.debit_paise > 0 ? 'var(--num)' : 'var(--t3)' }}>{e.debit_paise > 0 ? formatINR(e.debit_paise) : '—'}</td>
+                      <td style={{ padding: '8px 10px', textAlign: 'right', color: e.credit_paise > 0 ? 'var(--num)' : 'var(--t3)' }}>{e.credit_paise > 0 ? formatINR(e.credit_paise) : '—'}</td>
                       <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 600 }}>{formatINR(e.running_balance_paise)}</td>
                     </tr>
                   ))}
@@ -532,7 +532,7 @@ export function ReportsPage() {
                       <td style={{ padding: '7px 10px', textAlign: 'right' }}>{formatINR(a.cost_paise)}</td>
                       <td style={{ padding: '7px 10px', textAlign: 'right', color: 'var(--t3)' }}>{a.depreciation_rate}%</td>
                       <td style={{ padding: '7px 10px', textAlign: 'right' }}>{formatINR(a.monthly_dep_paise)}</td>
-                      <td style={{ padding: '7px 10px', textAlign: 'right', color: 'var(--rust)' }}>{formatINR(a.accumulated_dep_paise)}</td>
+                      <td style={{ padding: '7px 10px', textAlign: 'right', color: 'var(--num)' }}>{formatINR(a.accumulated_dep_paise)}</td>
                       <td style={{ padding: '7px 10px', textAlign: 'right', fontWeight: 700 }}>{formatINR(a.book_value_paise)}</td>
                       <td style={{ padding: '7px 10px' }}>
                         {a.fully_depreciated
@@ -559,7 +559,7 @@ function MetricCard({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ backgroundColor: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8, padding: '14px 16px' }}>
       <div style={{ fontSize: 10, color: 'var(--t3)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--t1)' }}>{value}</div>
+      <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--num)', fontVariantNumeric: 'tabular-nums' }}>{value}</div>
     </div>
   );
 }
@@ -624,8 +624,8 @@ function BookTable({ entries, type }: { entries: any[]; type: 'cash' | 'bank' })
             <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontSize: 11 }}>{e.voucher_id}</td>
             <td style={{ padding: '7px 10px', color: 'var(--t2)', maxWidth: 160 }}>{e.narration || '—'}</td>
             <td style={{ padding: '7px 10px', color: 'var(--t3)', fontSize: 11 }}>{e.contra_accounts || '—'}</td>
-            <td style={{ padding: '7px 10px', textAlign: 'right', color: 'var(--sage)' }}>{e.inflow_paise > 0 ? formatINR(e.inflow_paise) : '—'}</td>
-            <td style={{ padding: '7px 10px', textAlign: 'right', color: 'var(--rust)' }}>{e.outflow_paise > 0 ? formatINR(e.outflow_paise) : '—'}</td>
+            <td style={{ padding: '7px 10px', textAlign: 'right', color: 'var(--num)' }}>{e.inflow_paise > 0 ? formatINR(e.inflow_paise) : '—'}</td>
+            <td style={{ padding: '7px 10px', textAlign: 'right', color: 'var(--num)' }}>{e.outflow_paise > 0 ? formatINR(e.outflow_paise) : '—'}</td>
             <td style={{ padding: '7px 10px', textAlign: 'right', fontWeight: 600 }}>{formatINR(e.running_balance_paise)}</td>
           </tr>
         ))}
@@ -641,12 +641,12 @@ function CashFlowSection({ title, items, net }: { title: string; items: { label:
       {items.map(item => (
         <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid var(--bd)', fontSize: 12 }}>
           <span style={{ color: 'var(--t2)' }}>{item.label}</span>
-          <span style={{ color: item.value >= 0 ? 'var(--t1)' : 'var(--rust)' }}>{formatINR(item.value)}</span>
+          <span style={{ color: item.value >= 0 ? 'var(--num)' : 'var(--num)' }}>{formatINR(item.value)}</span>
         </div>
       ))}
       <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 10, fontWeight: 700, fontSize: 13 }}>
         <span>Net Cash {title.includes('Operating') ? 'from Ops' : title.includes('Investing') ? 'from Investing' : 'from Financing'}</span>
-        <span style={{ color: net >= 0 ? 'var(--sage)' : 'var(--rust)' }}>{formatINR(net)}</span>
+        <span style={{ color: net >= 0 ? 'var(--num)' : 'var(--num)' }}>{formatINR(net)}</span>
       </div>
     </div>
   );

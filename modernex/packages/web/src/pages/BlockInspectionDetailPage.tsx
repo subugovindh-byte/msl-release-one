@@ -110,7 +110,7 @@ function RaisePOModal({ insp, onClose }: { insp: any; onClose: () => void }) {
   return (
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1000, display:'flex', alignItems:'flex-end', justifyContent:'center' }}>
       <div style={{ background:'var(--bg0)', borderRadius:'16px 16px 0 0', padding:'24px 20px', width:'100%', maxWidth:540, paddingBottom:'env(safe-area-inset-bottom, 16px)' }}>
-        <h3 style={{ margin:'0 0 4px', fontSize:18 }}>Raise Purchase Order</h3>
+        <h3 style={{ margin:'0 0 4px', }}>Raise Purchase Order</h3>
         <p style={{ margin:'0 0 16px', color:'var(--t2)', fontSize:13 }}>{insp.variety} · {insp.block_count} blocks · {cft} CBM · Grade {insp.grade}</p>
         <form onSubmit={submit}>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
@@ -281,7 +281,7 @@ export default function BlockInspectionDetailPage() {
       {/* ─── Details / Edit ─── */}
       <div style={{ ...card, marginTop: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 14 }}>
-          <h3 style={{ margin: 0, fontSize: 15, flex: 1 }}>Details</h3>
+          <h3 style={{ margin: 0, flex: 1 }}>Details</h3>
           {canEdit && !editing && (
             <button style={btn('var(--bg3)','var(--t2)','1px solid var(--bd)')} onClick={startEdit}>Edit</button>
           )}
@@ -342,7 +342,7 @@ export default function BlockInspectionDetailPage() {
 
       {/* ─── Photos ─── */}
       <div style={{ ...card, marginTop: 12 }}>
-        <h3 style={{ margin: '0 0 12px', fontSize: 15 }}>Photos ({photos.length}/10)</h3>
+        <h3 style={{ margin: '0 0 12px', }}>Photos ({photos.length}/10)</h3>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           {photos.map((p: any) => (
             <PhotoThumb

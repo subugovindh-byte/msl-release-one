@@ -11,6 +11,58 @@ interface VarietyDefault {
   notes: string | null;
 }
 
+// ── Peppercorn symbol set ───────────────────────────────────────────────────
+// Modern line icons on a 24px grid, 1.6 stroke, round caps — drawn rather than
+// taken from Unicode so they share one optical weight. Each keeps the round
+// peppercorn silhouette of the concept. They stroke with currentColor, so a
+// button's colour and disabled state carry straight through.
+const ico = {
+  width: 17, height: 17, viewBox: '0 0 24 24', fill: 'none',
+  stroke: 'currentColor', strokeWidth: 1.6,
+  strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const,
+  'aria-hidden': true,
+};
+
+// ● upload — peppercorn with an upward stem
+const IconUpload = () => (
+  <svg {...ico}><circle cx="12" cy="12" r="9" /><path d="M12 16V9" /><path d="M9 11.5 12 8.5l3 3" /></svg>
+);
+// ◐ replace — peppercorn mid-rotation
+const IconReplace = () => (
+  <svg {...ico}><path d="M20.5 12a8.5 8.5 0 1 1-2.49-6.01" /><path d="M20.5 4.5V10h-5.5" /></svg>
+);
+// remove — minimal bin. Deliberately NOT a circle: the destructive action is
+// the one control that should not read as another peppercorn.
+const IconRemove = () => (
+  <svg {...ico}>
+    <path d="M4.5 7h15" />
+    <path d="M9.75 7V5.6A1.6 1.6 0 0 1 11.35 4h1.3A1.6 1.6 0 0 1 14.25 5.6V7" />
+    <path d="M6.75 7l.72 11.1A2 2 0 0 0 9.46 20h5.08a2 2 0 0 0 2-1.9L17.25 7" />
+    <path d="M10.4 10.8v5.4M13.6 10.8v5.4" />
+  </svg>
+);
+// ◌ empty — unground peppercorn, nothing in the mill yet
+const IconEmpty = () => (
+  <svg {...ico} width="34" height="34" strokeWidth="1.2">
+    <circle cx="12" cy="12" r="9" strokeDasharray="2.4 3.2" />
+    <circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none" opacity="0.5" />
+  </svg>
+);
+// ◔ uploading
+const IconBusy = () => (
+  <svg {...ico}><circle cx="12" cy="12" r="9" opacity="0.35" /><path d="M21 12a9 9 0 0 0-9-9" /></svg>
+);
+
+// Ghost control: no fill, hairline border, symbol only. Each carries a title
+// and aria-label, since an icon-only button has no accessible name otherwise.
+const ghostBtn = (tone: string): React.CSSProperties => ({
+  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+  width: 34, height: 34, flexShrink: 0,
+  background: 'transparent', color: tone,
+  border: '1px solid var(--bd)', borderRadius: 6, cursor: 'pointer',
+  transition: 'border-color .18s, color .18s',
+});
+
 export function VarietyPhotosPage() {
   const { user } = useAuthStore();
   const { notify } = useToastStore();
@@ -110,10 +162,6 @@ export function VarietyPhotosPage() {
 
       {!canUpload && (
         <div style={{
-          padding: '12px 16px',
-          backgroundColor: 'var(--bg3)',
-          border: '1px solid var(--bd)',
-          borderRadius: '6px',
           marginBottom: '20px',
           fontSize: '13px',
           color: 'var(--t2)'
@@ -133,7 +181,7 @@ export function VarietyPhotosPage() {
               borderRadius: '4px',
               border: '1px solid var(--bd)',
               backgroundColor: regionFilter === 'all' ? 'var(--rust)' : 'transparent',
-              color: regionFilter === 'all' ? 'white' : 'var(--t2)',
+              color: regionFilter === 'all' ? 'var(--on-primary)' : 'var(--t2)',
               cursor: 'pointer',
               fontSize: '12px',
               fontWeight: 500,
@@ -151,7 +199,7 @@ export function VarietyPhotosPage() {
                 borderRadius: '4px',
                 border: '1px solid var(--bd)',
                 backgroundColor: regionFilter === region ? 'var(--rust)' : 'transparent',
-                color: regionFilter === region ? 'white' : 'var(--t2)',
+                color: regionFilter === region ? 'var(--on-primary)' : 'var(--t2)',
                 cursor: 'pointer',
                 fontSize: '12px',
                 fontWeight: 500,
@@ -207,8 +255,8 @@ export function VarietyPhotosPage() {
                 />
               ) : (
                 <div style={{ textAlign: 'center', color: 'var(--t3)', fontSize: '12px' }}>
-                  <div style={{ marginBottom: '8px', color: 'var(--t3)' }}>
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                  <div style={{ marginBottom: '8px', color: 'var(--t3)', lineHeight: 0 }}>
+                    <IconEmpty />
                   </div>
                   <div>No photo</div>
                 </div>
@@ -217,7 +265,7 @@ export function VarietyPhotosPage() {
 
             {/* Info */}
             <div>
-              <h3 style={{ margin: '0 0 4px 0', fontSize: '15px', fontWeight: 700 }}>
+              <h3 style={{ margin: '0 0 4px 0', fontWeight: 700 }}>
                 {variety.variety}
               </h3>
               <div style={{
@@ -263,7 +311,7 @@ export function VarietyPhotosPage() {
 
             {/* Upload + Delete Buttons */}
             {canUpload && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ display: 'flex', flexDirection: 'row', gap: 8 }}>
                 <input
                   type="file"
                   accept="image/*"
@@ -279,39 +327,25 @@ export function VarietyPhotosPage() {
                 />
                 <label
                   htmlFor={`upload-${variety.variety}`}
+                  title={variety.photo_url ? 'Replace photo' : 'Upload photo'}
+                  aria-label={variety.photo_url ? 'Replace photo' : 'Upload photo'}
                   style={{
-                    display: 'block',
-                    textAlign: 'center',
-                    padding: '8px 16px',
-                    backgroundColor: uploading === variety.variety ? 'var(--bg3)' : 'var(--rust)',
-                    color: uploading === variety.variety ? 'var(--t3)' : 'white',
-                    borderRadius: '4px',
+                    ...ghostBtn(uploading === variety.variety ? 'var(--t3)' : 'var(--t1)'),
                     cursor: uploading === variety.variety ? 'not-allowed' : 'pointer',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    border: 'none',
-                    transition: 'all 0.2s'
                   }}
                 >
-                  {uploading === variety.variety ? 'Uploading…' : (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                      Upload Photo
-                    </span>
-                  )}
+                  {uploading === variety.variety
+                    ? <IconBusy />
+                    : (variety.photo_url ? <IconReplace /> : <IconUpload />)}
                 </label>
                 {variety.photo_url && user?.role === 'admin' && (
                   <button
                     onClick={() => handleDeletePhoto(variety.variety)}
-                    style={{
-                      padding: '6px 16px', fontSize: '11px', fontWeight: 600,
-                      background: 'transparent', color: 'var(--red)',
-                      border: '1px solid var(--red)', borderRadius: '4px', cursor: 'pointer',
-                      display: 'inline-flex', alignItems: 'center', gap: 5,
-                    }}
+                    title="Remove photo"
+                    aria-label="Remove photo"
+                    style={ghostBtn('var(--red)')}
                   >
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-                    Remove Photo
+                    <IconRemove />
                   </button>
                 )}
               </div>

@@ -242,7 +242,7 @@ function PurchaseRegister({ from, to }: { from: string; to: string }) {
     <div>
       <div style={{ backgroundColor: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8, padding: '10px 18px', display: 'inline-block', marginBottom: 16 }}>
         <div style={{ fontSize: 11, color: 'var(--t3)' }}>Total ITC Available</div>
-        <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--sage)' }}>{formatINR(totalITC)}</div>
+        <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--num)', fontVariantNumeric: 'tabular-nums' }}>{formatINR(totalITC)}</div>
       </div>
       <Tbl
         cols={['PO No', 'Date', 'Vendor', 'GSTIN', 'Variety', 'Blocks', 'Taxable', 'GST (ITC)', 'Total', 'Status']}
@@ -450,10 +450,10 @@ function GSTR3B({ from, to }: { from: string; to: string }) {
           </tr>
           <tr style={{ backgroundColor: 'var(--amberW)' }}>
             <td style={{ padding: '10px 12px', fontWeight: 700 }}>Net GST Payable</td>
-            <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: (net.cgst_paise || 0) > 0 ? 'var(--rust)' : 'inherit' }}>{formatINR(net.cgst_paise || 0)}</td>
-            <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: (net.sgst_paise || 0) > 0 ? 'var(--rust)' : 'inherit' }}>{formatINR(net.sgst_paise || 0)}</td>
-            <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: (net.igst_paise || 0) > 0 ? 'var(--rust)' : 'inherit' }}>{formatINR(net.igst_paise || 0)}</td>
-            <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, fontSize: 15, color: 'var(--rust)' }}>{formatINR(net.total_paise || 0)}</td>
+            <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: (net.cgst_paise || 0) > 0 ? 'var(--num)' : 'inherit' }}>{formatINR(net.cgst_paise || 0)}</td>
+            <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: (net.sgst_paise || 0) > 0 ? 'var(--num)' : 'inherit' }}>{formatINR(net.sgst_paise || 0)}</td>
+            <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: (net.igst_paise || 0) > 0 ? 'var(--num)' : 'inherit' }}>{formatINR(net.igst_paise || 0)}</td>
+            <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, fontSize: 15, color: 'var(--num)' }}>{formatINR(net.total_paise || 0)}</td>
           </tr>
         </tbody>
       </table>
@@ -473,10 +473,10 @@ function GSTR9() {
   const paid = data.pt6_tax_paid || {};
   const cash = data.cashflow || {};
 
-  const KPI = ({ label, value, color }: { label: string; value: number; color?: string }) => (
+  const KPI = ({ label, value }: { label: string; value: number }) => (
     <div style={{ backgroundColor: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8, padding: '12px 20px', minWidth: 140 }}>
       <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 4 }}>{label}</div>
-      <div style={{ fontSize: 16, fontWeight: 700, color: color || 'var(--t1)' }}>{formatINR(value)}</div>
+      <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--num)', fontVariantNumeric: 'tabular-nums' }}>{formatINR(value)}</div>
     </div>
   );
 
@@ -491,15 +491,15 @@ function GSTR9() {
       </div>
       <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
         <KPI label="Total Taxable Sales" value={out.taxable_paise || 0} />
-        <KPI label="CGST Output" value={out.cgst || 0} color="var(--rust)" />
-        <KPI label="SGST Output" value={out.sgst || 0} color="var(--rust)" />
-        <KPI label="IGST Output" value={out.igst || 0} color="var(--rust)" />
-        <KPI label="ITC Available" value={itc.total_paise || 0} color="var(--sage)" />
-        <KPI label="Net Tax Paid" value={(paid.cgst || 0) + (paid.sgst || 0) + (paid.igst || 0)} color="var(--amber)" />
+        <KPI label="CGST Output" value={out.cgst || 0} />
+        <KPI label="SGST Output" value={out.sgst || 0} />
+        <KPI label="IGST Output" value={out.igst || 0} />
+        <KPI label="ITC Available" value={itc.total_paise || 0} />
+        <KPI label="Net Tax Paid" value={(paid.cgst || 0) + (paid.sgst || 0) + (paid.igst || 0)} />
       </div>
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-        <KPI label="Collections Received" value={cash.collections_paise || 0} color="var(--sage)" />
-        <KPI label="Vendor Payments Made" value={cash.payments_paise || 0} color="var(--rust)" />
+        <KPI label="Collections Received" value={cash.collections_paise || 0} />
+        <KPI label="Vendor Payments Made" value={cash.payments_paise || 0} />
       </div>
       {data.hsn_breakdown?.length > 0 && (
         <div style={{ marginTop: 24 }}>

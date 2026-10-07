@@ -113,7 +113,7 @@ export function DashboardPage() {
           borderRadius: '8px',
           padding: '20px'
         }}>
-          <h3 style={{ marginTop: 0, marginBottom: '16px', fontSize: '15px' }}>Weekly Revenue (Last 8 Weeks)</h3>
+          <h3 style={{ marginTop: 0, marginBottom: '16px', }}>Weekly Revenue (Last 8 Weeks)</h3>
           {charts.weeklyRevenue.length > 0 ? (
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', height: '160px' }}>
               {charts.weeklyRevenue.map((week, idx) => {
@@ -151,23 +151,23 @@ export function DashboardPage() {
           borderRadius: '8px',
           padding: '20px'
         }}>
-          <h3 style={{ marginTop: 0, marginBottom: '16px', fontSize: '15px' }}>GST Summary</h3>
+          <h3 style={{ marginTop: 0, marginBottom: '16px', }}>GST Summary</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div>
               <div style={{ fontSize: '11px', color: 'var(--t3)', marginBottom: '4px' }}>Output Tax</div>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--t1)' }}>
+              <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--num)', fontVariantNumeric: 'tabular-nums' }}>
                 {formatINR(summary.gst_output_paise)}
               </div>
             </div>
             <div>
               <div style={{ fontSize: '11px', color: 'var(--t3)', marginBottom: '4px' }}>Input Tax Credit</div>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--sage)' }}>
+              <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--num)', fontVariantNumeric: 'tabular-nums' }}>
                 {formatINR(summary.gst_itc_paise)}
               </div>
             </div>
             <div style={{ borderTop: '2px solid var(--bd)', paddingTop: '12px' }}>
               <div style={{ fontSize: '11px', color: 'var(--t3)', marginBottom: '4px' }}>Net Payable</div>
-              <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--t1)' }}>
+              <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--num)', fontVariantNumeric: 'tabular-nums' }}>
                 {formatINR(summary.net_gst_paise)}
               </div>
             </div>
@@ -184,7 +184,7 @@ export function DashboardPage() {
           borderRadius: '8px',
           padding: '20px'
         }}>
-          <h3 style={{ marginTop: 0, marginBottom: '16px', fontSize: '15px' }}>Inventory by Type</h3>
+          <h3 style={{ marginTop: 0, marginBottom: '16px', }}>Inventory by Type</h3>
           {charts.byKind.length > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {charts.byKind.map((item, idx) => (
@@ -223,7 +223,7 @@ export function DashboardPage() {
           borderRadius: '8px',
           padding: '20px'
         }}>
-          <h3 style={{ marginTop: 0, marginBottom: '16px', fontSize: '15px' }}>Sales Mix (Last 30 Days)</h3>
+          <h3 style={{ marginTop: 0, marginBottom: '16px', }}>Sales Mix (Last 30 Days)</h3>
           {charts.salesByKind.length > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {charts.salesByKind.map((item, idx) => (

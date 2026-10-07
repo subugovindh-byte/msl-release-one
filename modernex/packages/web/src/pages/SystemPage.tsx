@@ -387,7 +387,7 @@ function StatCard({ label, value, subtitle }: { label: string; value: string; su
       <div style={{ fontSize: '10px', color: 'var(--t3)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>
         {label}
       </div>
-      <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--t1)', marginBottom: '2px' }}>
+      <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--num)', fontVariantNumeric: 'tabular-nums', marginBottom: '2px' }}>
         {value}
       </div>
       <div style={{ fontSize: '11px', color: 'var(--t3)' }}>
@@ -414,7 +414,7 @@ function AuthCard({ title, items }: { title: string; items: string[][] }) {
       borderRadius: '8px',
       padding: '20px'
     }}>
-      <h3 style={{ marginTop: 0, marginBottom: '16px', fontSize: '15px' }}>{title}</h3>
+      <h3 style={{ marginTop: 0, marginBottom: '16px', }}>{title}</h3>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {items.map(([label, desc], idx) => (
           <div key={idx} style={{ paddingBottom: '12px', borderBottom: idx < items.length - 1 ? '1px solid var(--bd)' : 'none' }}>
@@ -440,7 +440,7 @@ function ComplianceCard({ title, desc }: { title: string; desc: string }) {
       border: '1px solid var(--bd)',
       borderRadius: '0 6px 6px 0'
     }}>
-      <h3 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: 700, color: 'var(--t1)' }}>
+      <h3 style={{ margin: '0 0 8px 0', fontWeight: 700, color: 'var(--t1)' }}>
         {title}
       </h3>
       <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '12px', lineHeight: '1.7', color: 'var(--t2)' }}>
@@ -458,7 +458,7 @@ function StackCard({ title, items }: { title: string; items: string[] }) {
       borderRadius: '8px',
       padding: '16px 20px'
     }}>
-      <h3 style={{ marginTop: 0, marginBottom: '12px', fontSize: '14px' }}>{title}</h3>
+      <h3 style={{ marginTop: 0, marginBottom: '12px', }}>{title}</h3>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
         {items.map((item, idx) => (
           <span

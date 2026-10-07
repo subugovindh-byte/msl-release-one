@@ -247,7 +247,7 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
 
         {/* Header */}
         <div style={{ display:'flex', alignItems:'center', marginBottom:18 }}>
-          <h3 style={{ margin:0, fontSize:17, flex:1 }}>New Block Inspection</h3>
+          <h3 style={{ margin:0, flex:1 }}>New Block Inspection</h3>
           <input type="date" value={form.date} onChange={e => set('date', e.target.value)}
             style={{ ...inp, width:'auto', fontSize:13, padding:'6px 10px' }} />
         </div>
@@ -474,7 +474,7 @@ export default function BlockInspectionListPage() {
     <div style={{ padding: '20px 24px', maxWidth: 980, margin: '0 auto' }}>
       {/* ─── Header ─── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
-        <h2 style={{ margin: 0, fontSize: 20, flex: 1 }}>Block Inspections</h2>
+        <h2 style={{ margin: 0, flex: 1 }}>Block Inspections</h2>
         <select style={{ ...inp, width: 'auto', fontSize: 12 }} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
           <option value="">All statuses</option>
           <option value="pending">Pending</option>

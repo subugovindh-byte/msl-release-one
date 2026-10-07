@@ -290,8 +290,8 @@ export function ChartOfAccountsPage() {
                   <td style={{ padding: '9px 14px', fontWeight: 600 }}>{r.account_name}</td>
                   <td style={{ padding: '9px 14px', fontSize: 12, color: 'var(--t3)' }}>{r.group_name}</td>
                   <td style={{ padding: '9px 14px', textAlign: 'right', fontSize: 12 }}>{r.opening_balance_paise ? formatINR(r.opening_balance_paise) : '—'}</td>
-                  <td style={{ padding: '9px 14px', textAlign: 'right', color: r.period_debit > 0 ? 'var(--rust)' : 'var(--t3)' }}>{r.period_debit > 0 ? formatINR(r.period_debit) : '—'}</td>
-                  <td style={{ padding: '9px 14px', textAlign: 'right', color: r.period_credit > 0 ? 'var(--sage)' : 'var(--t3)' }}>{r.period_credit > 0 ? formatINR(r.period_credit) : '—'}</td>
+                  <td style={{ padding: '9px 14px', textAlign: 'right', color: r.period_debit > 0 ? 'var(--num)' : 'var(--t3)' }}>{r.period_debit > 0 ? formatINR(r.period_debit) : '—'}</td>
+                  <td style={{ padding: '9px 14px', textAlign: 'right', color: r.period_credit > 0 ? 'var(--num)' : 'var(--t3)' }}>{r.period_credit > 0 ? formatINR(r.period_credit) : '—'}</td>
                   <td style={{ padding: '9px 14px', textAlign: 'right', fontWeight: 700 }}>
                     {formatINR(Math.abs(r.closing_balance))} <span style={{ fontSize: 10, color: 'var(--t3)' }}>{r.closing_is_debit ? 'Dr' : 'Cr'}</span>
                   </td>
@@ -301,8 +301,8 @@ export function ChartOfAccountsPage() {
             <tfoot>
               <tr style={{ backgroundColor: 'var(--bg3)', fontWeight: 700 }}>
                 <td colSpan={4} style={{ padding: '10px 14px' }}>Total</td>
-                <td style={{ padding: '10px 14px', textAlign: 'right', color: 'var(--rust)' }}>{formatINR(totalDebit)}</td>
-                <td style={{ padding: '10px 14px', textAlign: 'right', color: 'var(--sage)' }}>{formatINR(totalCredit)}</td>
+                <td style={{ padding: '10px 14px', textAlign: 'right', color: 'var(--num)' }}>{formatINR(totalDebit)}</td>
+                <td style={{ padding: '10px 14px', textAlign: 'right', color: 'var(--num)' }}>{formatINR(totalCredit)}</td>
                 <td style={{ padding: '10px 14px', textAlign: 'right' }}></td>
               </tr>
             </tfoot>
@@ -329,7 +329,7 @@ export function ChartOfAccountsPage() {
             ))}
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 12px', backgroundColor: 'var(--bg3)', fontWeight: 700, borderRadius: 6 }}>
               <span>Net Profit</span>
-              <span style={{ color: bsRaw.totals?.net_profit_paise >= 0 ? 'var(--sage)' : 'var(--rust)' }}>{formatINR(Math.abs(bsRaw.totals?.net_profit_paise || 0))}</span>
+              <span style={{ color: bsRaw.totals?.net_profit_paise >= 0 ? 'var(--num)' : 'var(--num)' }}>{formatINR(Math.abs(bsRaw.totals?.net_profit_paise || 0))}</span>
             </div>
           </div>
 

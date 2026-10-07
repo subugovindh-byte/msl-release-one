@@ -214,7 +214,7 @@ export function FixedAssetsPage() {
                   </div>
                   <div style={{ textAlign: 'right', minWidth: 160 }}>
                     <div style={{ fontSize: 12, color: 'var(--t3)' }}>Cost: {formatINR(a.purchase_cost_paise)}</div>
-                    <div style={{ fontWeight: 700, color: 'var(--rust)' }}>WDV: {formatINR(a.current_wdv_paise ?? a.purchase_cost_paise)}</div>
+                    <div style={{ fontWeight: 700, color: 'var(--num)' }}>WDV: {formatINR(a.current_wdv_paise ?? a.purchase_cost_paise)}</div>
                     <div style={{ fontSize: 11, color: 'var(--t3)' }}>{a.depreciation_method} @ {a.depreciation_rate_pct}%</div>
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--t3)', textAlign: 'right', minWidth: 100 }}>

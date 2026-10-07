@@ -81,7 +81,7 @@ function POForm({ vendors, form, setForm, onSubmit, isPending, onCancel, title, 
 
   return (
     <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--t1)' }}>{title}</h3>
+      <h3 style={{ margin: 0, fontWeight: 700, color: 'var(--t1)' }}>{title}</h3>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div>
@@ -176,7 +176,7 @@ function POForm({ vendors, form, setForm, onSubmit, isPending, onCancel, title, 
         <div style={{ background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 6, padding: '10px 14px', display: 'flex', gap: 20, fontSize: 13, flexWrap: 'wrap' }}>
           <span style={{ color: 'var(--t3)' }}>Taxable: <strong style={{ color: 'var(--t1)' }}>{formatINR(taxable)}</strong></span>
           <span style={{ color: 'var(--t3)' }}>GST ({GST_RATE_LABEL}%): <strong style={{ color: 'var(--t1)' }}>{formatINR(gst)}</strong></span>
-          <span style={{ color: 'var(--t3)' }}>Total: <strong style={{ color: 'var(--rust)', fontSize: 15 }}>{formatINR(total)}</strong></span>
+          <span style={{ color: 'var(--t3)' }}>Total: <strong style={{ color: 'var(--num)', fontSize: 15 }}>{formatINR(total)}</strong></span>
         </div>
       )}
 
@@ -294,7 +294,7 @@ function POCard({ po, canManage, onApprove, onCancel, onDelete, onPay, onEdit, o
 
         {/* Financial summary */}
         <div style={{ textAlign: 'right', flexShrink: 0 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--t1)' }}>{formatINR(po.total_paise)}</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--num)', fontVariantNumeric: 'tabular-nums' }}>{formatINR(po.total_paise)}</div>
           {isPaid ? (
             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--sage)', marginTop: 2 }}>✓ Fully Paid</div>
           ) : isPartial ? (
@@ -462,7 +462,7 @@ function POTable({ pos, canManage, selectedIds, onToggle, onSelectAll, onApprove
                 <td style={td}>{po.variety}</td>
                 <td style={{ ...td, textAlign: 'right' }}>{po.blocks}</td>
                 <td style={{ ...td, textAlign: 'right', fontWeight: 600, color: 'var(--t1)' }}>{formatINR(po.total_paise)}</td>
-                <td style={{ ...td, textAlign: 'right', fontWeight: 600, color: isPaid ? 'var(--sage)' : 'var(--red)' }}>
+                <td style={{ ...td, textAlign: 'right', fontWeight: 600, color: isPaid ? 'var(--sage)' : 'var(--num)' }}>
                   {isPaid ? '✓ Paid' : formatINR(balance)}
                 </td>
                 <td style={{ ...td, textAlign: 'center' }}>
@@ -769,7 +769,7 @@ export function PurchasePage() {
       {/* Page header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: 'var(--t1)' }}>Purchase Orders</h1>
+          <h1 style={{ margin: 0, color: 'var(--t1)' }}>Purchase Orders</h1>
           <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--t3)' }}>Manage raw material and block purchases</p>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
@@ -804,7 +804,7 @@ export function PurchasePage() {
             <div key={s} style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
               {i > 0 && <div style={{ width: 28, height: 2, background: 'var(--bd)', margin: '0 2px' }} />}
               <div onClick={() => { setStatusFilter(s); setSelectedIds(new Set()); }} style={{ cursor: 'pointer', textAlign: 'center', padding: '4px 14px', borderRadius: 20, background: statusFilter === s ? m.bg : 'transparent', transition: 'background 0.15s' }}>
-                <div style={{ fontSize: 18, fontWeight: 800, color: m.color, lineHeight: 1 }}>{cnt}</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--num)', lineHeight: 1 }}>{cnt}</div>
                 <div style={{ fontSize: 10, fontWeight: 600, color: m.color, letterSpacing: 0.5, textTransform: 'uppercase', marginTop: 1 }}>{m.label}</div>
               </div>
             </div>
@@ -814,7 +814,7 @@ export function PurchasePage() {
         {stats.totalDue > 0 && (
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
             <div style={{ fontSize: 11, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 600 }}>Total Outstanding</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--red)' }}>{formatINR(stats.totalDue)}</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--num)', fontVariantNumeric: 'tabular-nums' }}>{formatINR(stats.totalDue)}</div>
           </div>
         )}
       </div>
@@ -930,7 +930,7 @@ export function PurchasePage() {
             {/* Bulk Confirm */}
             {modal === 'bulk-confirm' && bulkAction && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: bulkAction === 'delete' ? 'var(--red)' : 'var(--t1)' }}>
+                <h3 style={{ margin: 0, fontWeight: 700, color: bulkAction === 'delete' ? 'var(--red)' : 'var(--t1)' }}>
                   {bulkAction === 'approve' ? 'Approve' : bulkAction === 'cancel' ? 'Cancel' : 'Delete'}{' '}
                   {selectedIds.size} PO{selectedIds.size !== 1 ? 's' : ''}?
                 </h3>
@@ -965,13 +965,13 @@ export function PurchasePage() {
             {modal === 'pay' && payingPO && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Record Payment</h3>
+                  <h3 style={{ margin: 0, fontWeight: 700 }}>Record Payment</h3>
                   <div style={{ fontSize: 13, color: 'var(--t3)', marginTop: 4 }}>{payingPO.id} — {payingPO.vendor_name || payingPO.vendor_id}</div>
                 </div>
                 <div style={{ display: 'flex', gap: 16, background: 'var(--bg2)', padding: '10px 14px', borderRadius: 6, fontSize: 13 }}>
                   <span style={{ color: 'var(--t3)' }}>Total <strong style={{ color: 'var(--t1)' }}>{formatINR(payingPO.total_paise)}</strong></span>
                   <span style={{ color: 'var(--t3)' }}>Paid <strong style={{ color: 'var(--t1)' }}>{formatINR(payingPO.paid_paise ?? 0)}</strong></span>
-                  <span style={{ color: 'var(--t3)' }}>Due <strong style={{ color: 'var(--red)' }}>{formatINR(payingPO.balance_paise ?? (payingPO.total_paise - (payingPO.paid_paise ?? 0)))}</strong></span>
+                  <span style={{ color: 'var(--t3)' }}>Due <strong style={{ color: 'var(--num)' }}>{formatINR(payingPO.balance_paise ?? (payingPO.total_paise - (payingPO.paid_paise ?? 0)))}</strong></span>
                 </div>
                 {/* Vendor advance banner */}
                 {(() => {
@@ -979,10 +979,10 @@ export function PurchasePage() {
                   const adv = vendor?.advance_paise ?? 0;
                   if (adv <= 0) return null;
                   return (
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--sageW)', border: '1px solid var(--sage)', borderRadius: 6, padding: '10px 14px', cursor: 'pointer' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 10, border: '1px solid var(--sage)', borderRadius: 6, padding: '10px 14px', cursor: 'pointer' }}>
                       <input type="checkbox" checked={payApplyAdvance} onChange={e => setPayApplyAdvance(e.target.checked)} />
                       <span style={{ fontSize: 13 }}>
-                        Apply vendor advance <strong style={{ color: 'var(--sage)' }}>{formatINR(adv)}</strong> towards this payment
+                        Apply vendor advance <strong style={{ color: 'var(--num)' }}>{formatINR(adv)}</strong> towards this payment
                       </span>
                     </label>
                   );
@@ -1049,7 +1049,7 @@ export function PurchasePage() {
       {cancelAdvancePO && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: 'var(--bg1)', border: '1px solid var(--bd)', borderRadius: 12, padding: 28, width: 420, maxWidth: '95vw' }}>
-            <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: 'var(--t1)' }}>
+            <h3 style={{ margin: '0 0 8px', fontWeight: 700, color: 'var(--t1)' }}>
               Cancel PO {cancelAdvancePO.id}
             </h3>
             <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--t3)' }}>

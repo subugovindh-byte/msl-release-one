@@ -94,7 +94,7 @@ function TraceCard({ label, value, mono = false }: { label: string; value: strin
       <div style={{ fontSize: '10px', color: 'var(--t3)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>
         {label}
       </div>
-      <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--t1)', fontFamily: mono ? "'IBM Plex Mono', monospace" : 'inherit' }}>
+      <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--num)', fontVariantNumeric: 'tabular-nums', fontFamily: mono ? "'IBM Plex Mono', monospace" : 'inherit' }}>
         {value}
       </div>
     </div>

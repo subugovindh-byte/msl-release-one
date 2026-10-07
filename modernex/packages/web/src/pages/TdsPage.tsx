@@ -177,7 +177,7 @@ export function TdsPage() {
               </div>
               <div style={{ backgroundColor: 'var(--bg3)', borderRadius: 8, padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <span style={{ fontSize: 11, color: 'var(--t3)' }}>TDS Amount (calculated)</span>
-                <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--rust)' }}>
+                <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--num)', fontVariantNumeric: 'tabular-nums' }}>
                   {formatINR(Math.round((form.gross_amount_paise || 0) * 100 * (form.tds_rate_pct || 0) / 100))}
                 </span>
               </div>
@@ -222,7 +222,7 @@ export function TdsPage() {
                 <Badge label={`${t.quarter} FY${t.fy}`} variant="purple" />
                 <div style={{ textAlign: 'right', minWidth: 120 }}>
                   <div style={{ fontSize: 12, color: 'var(--t3)' }}>Gross: {formatINR(t.gross_amount_paise)}</div>
-                  <div style={{ fontWeight: 700, color: 'var(--rust)' }}>TDS: {formatINR(t.tds_amount_paise)}</div>
+                  <div style={{ fontWeight: 700, color: 'var(--num)' }}>TDS: {formatINR(t.tds_amount_paise)}</div>
                 </div>
                 <span style={{ fontSize: 11, color: 'var(--t2)' }}>{t.payment_date}</span>
                 {t.deposited ? (
@@ -302,11 +302,11 @@ export function TdsPage() {
                 {(q26Data as any).summary?.map((s: any) => (
                   <div key={s.section} style={{ backgroundColor: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8, padding: 16 }}>
                     <div style={{ fontSize: 11, color: 'var(--t3)', textTransform: 'uppercase', marginBottom: 6 }}>Section {s.section}</div>
-                    <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--rust)' }}>{formatINR(s.total_tds_paise)}</div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--num)', fontVariantNumeric: 'tabular-nums' }}>{formatINR(s.total_tds_paise)}</div>
                     <div style={{ fontSize: 12, color: 'var(--t3)', marginTop: 4 }}>{s.txn_count} deductees · Gross {formatINR(s.total_gross_paise)}</div>
                     <div style={{ fontSize: 11, marginTop: 6 }}>
-                      <span style={{ color: 'var(--sage)' }}>Deposited: {formatINR(s.deposited_paise)}</span>
-                      {s.pending_paise > 0 && <span style={{ color: 'var(--rust)', marginLeft: 8 }}>Pending: {formatINR(s.pending_paise)}</span>}
+                      <span style={{ color: 'var(--num)' }}>Deposited: {formatINR(s.deposited_paise)}</span>
+                      {s.pending_paise > 0 && <span style={{ color: 'var(--num)', marginLeft: 8 }}>Pending: {formatINR(s.pending_paise)}</span>}
                     </div>
                   </div>
                 ))}
@@ -325,7 +325,7 @@ export function TdsPage() {
                       <td style={{ padding: '10px 14px', fontFamily: 'monospace', fontSize: 12 }}>{t.vendor_pan || '—'}</td>
                       <td style={{ padding: '10px 14px' }}><Badge label={t.section} variant="blue" /></td>
                       <td style={{ padding: '10px 14px', textAlign: 'right' }}>{formatINR(t.gross_amount_paise)}</td>
-                      <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700, color: 'var(--rust)' }}>{formatINR(t.tds_amount_paise)}</td>
+                      <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700, color: 'var(--num)' }}>{formatINR(t.tds_amount_paise)}</td>
                       <td style={{ padding: '10px 14px' }}>{t.deposited ? <Badge label="Deposited" variant="green" /> : <Badge label="Pending" variant="amber" />}</td>
                     </tr>
                   ))}

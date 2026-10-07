@@ -238,7 +238,7 @@ export function UsersPage() {
 
       {/* ── Temp password display ── */}
       {tempPassword && (
-        <div style={{ background: 'var(--amberW)', border: '1px solid var(--amberB)', borderRadius: 8, padding: 16, marginBottom: 20 }}>
+        <div style={{ border: '1px solid var(--amberB)', borderRadius: 8, padding: 16, marginBottom: 20 }}>
           <strong style={{ color: 'var(--amber)' }}>Temporary password (shown once):</strong>
           <code style={{ display: 'block', fontSize: 18, letterSpacing: 2, margin: '8px 0', color: 'var(--t1)' }}>{tempPassword}</code>
           <span style={{ fontSize: 12, color: 'var(--t2)' }}>Share this with the user securely. They will be prompted to change it on first login.</span>
@@ -408,7 +408,7 @@ export function UsersPage() {
       )}
 
       <div style={{ marginTop: 28, padding: 16, backgroundColor: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8 }}>
-        <h3 style={{ marginTop: 0, marginBottom: 10, fontSize: 14 }}>Roles</h3>
+        <h3 style={{ marginTop: 0, marginBottom: 10, }}>Roles</h3>
         <div style={{ display: 'grid', gap: 8, fontSize: 13 }}>
           {ROLES.map(r => {
             const c = BADGE[r.value];

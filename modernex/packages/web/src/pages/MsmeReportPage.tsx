@@ -77,11 +77,11 @@ function StatusBadge({ paid }: { paid: boolean }) {
   );
 }
 
-function SummaryCard({ label, value, sub, color }: { label: string; value: string; sub?: string; color?: string }) {
+function SummaryCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8, padding: '14px 18px', minWidth: 160 }}>
       <div style={{ fontSize: 10, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>{label}</div>
-      <div style={{ fontSize: 20, fontWeight: 700, color: color || 'var(--t1)' }}>{value}</div>
+      <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--num)', fontVariantNumeric: 'tabular-nums' }}>{value}</div>
       {sub && <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 2 }}>{sub}</div>}
     </div>
   );
@@ -100,15 +100,13 @@ function VendorsTab() {
         <SummaryCard
           label="Total Outstanding"
           value={P(vendors.reduce((s: number, v: any) => s + (v.outstanding_paise || 0), 0))}
-          color="var(--t2)"
         />
         <SummaryCard
           label="Overdue Vendors"
           value={String(vendors.filter((v: any) => v.has_overdue).length)}
-          color="#ef4444"
         />
         <SummaryCard label="Payment Limit" value="45 days" sub="MSMED Act 2006" />
-        <SummaryCard label="Interest Rate" value={`${MSME_RATE}% p.a.`} sub="3× RBI Repo Rate" color="#f59e0b" />
+        <SummaryCard label="Interest Rate" value={`${MSME_RATE}% p.a.`} sub="3× RBI Repo Rate" />
       </div>
 
       {isLoading ? (
@@ -136,8 +134,8 @@ function VendorsTab() {
                 <td style={{ padding: '8px 12px', color: 'var(--t3)' }}>{v.oldest_open_po_date || '—'}</td>
                 <td style={{ padding: '8px 12px' }}>
                   {v.has_overdue
-                    ? <span style={{ padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 700, background: 'var(--redW)', color: 'var(--red)' }}>OVERDUE</span>
-                    : <span style={{ padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 700, background: 'var(--sageW)', color: 'var(--sage)' }}>CURRENT</span>
+                    ? <span style={{ padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 700, color: 'var(--red)' }}>OVERDUE</span>
+                    : <span style={{ padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 700, color: 'var(--sage)' }}>CURRENT</span>
                   }
                 </td>
               </tr>
@@ -175,7 +173,7 @@ function OutstandingTab() {
   return (
     <div>
       {summary.overdueCount > 0 && (
-        <div style={{ background: 'var(--redW)', border: '1px solid var(--redB)', borderRadius: 8, padding: '12px 16px', marginBottom: 16, fontSize: 12, color: 'var(--red)' }}>
+        <div style={{ marginBottom: 16, fontSize: 12, color: 'var(--red)' }}>
           <strong>⚠ {summary.overdueCount} PO(s) overdue</strong> — MSMED Act Sec 16 requires {MSME_RATE}% p.a. interest on amounts unpaid beyond 45 days.
           Total accrued interest: <strong>{P(summary.totalAccruedInterest || 0)}</strong>
         </div>
@@ -183,9 +181,9 @@ function OutstandingTab() {
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
         <SummaryCard label="Total Outstanding" value={P(summary.totalOutstanding || 0)} />
-        <SummaryCard label="Overdue (>45 days)" value={P(summary.totalOverdue || 0)} color="#ef4444" />
-          <SummaryCard label="Accrued Interest" value={P(summary.totalAccruedInterest || 0)} color="#f59e0b" sub={`${MSME_RATE}% p.a. on overdue`} />
-        <SummaryCard label="Overdue POs" value={String(summary.overdueCount || 0)} color="#ef4444" />
+        <SummaryCard label="Overdue (>45 days)" value={P(summary.totalOverdue || 0)} />
+          <SummaryCard label="Accrued Interest" value={P(summary.totalAccruedInterest || 0)} sub={`${MSME_RATE}% p.a. on overdue`} />
+        <SummaryCard label="Overdue POs" value={String(summary.overdueCount || 0)} />
       </div>
 
       {isLoading ? (
@@ -266,8 +264,8 @@ function InterestTab() {
       </div>
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
-        <SummaryCard label="Total Overdue" value={P(summary.totalOverduePaise || 0)} color="#ef4444" />
-        <SummaryCard label="Total Interest" value={P(summary.totalInterestPaise || 0)} color="#f59e0b" />
+        <SummaryCard label="Total Overdue" value={P(summary.totalOverduePaise || 0)} />
+        <SummaryCard label="Total Interest" value={P(summary.totalInterestPaise || 0)} />
         <SummaryCard label="Interest Rate" value={`${MSME_RATE}% p.a.`} sub="MSMED Act Sec 16" />
         <SummaryCard label="Overdue POs" value={String(summary.overdueCount || 0)} />
       </div>
@@ -294,7 +292,7 @@ function InterestTab() {
                 <td style={{ padding: '8px 12px', color: 'var(--red)' }}>{r.due_date}</td>
                 <td style={{ padding: '8px 12px', textAlign: 'right' }}>{P(r.total_paise)}</td>
                 <td style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--red)', fontWeight: 700 }}>{r.overdue_days}d</td>
-                <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: 'var(--amber)' }}>{P(r.accrued_interest_paise || 0)}</td>
+                <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: 'var(--num)' }}>{P(r.accrued_interest_paise || 0)}</td>
                 <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700 }}>{P((r.total_paise || 0) + (r.accrued_interest_paise || 0))}</td>
               </tr>
             ))}
@@ -303,7 +301,7 @@ function InterestTab() {
                 <td colSpan={4} style={{ padding: '8px 12px' }}>TOTAL</td>
                 <td style={{ padding: '8px 12px', textAlign: 'right' }}>{P(rows.reduce((s: number, r: any) => s + r.total_paise, 0))}</td>
                 <td style={{ padding: '8px 12px' }} />
-                <td style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--amber)' }}>{P(rows.reduce((s: number, r: any) => s + (r.accrued_interest_paise || 0), 0))}</td>
+                <td style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--num)' }}>{P(rows.reduce((s: number, r: any) => s + (r.accrued_interest_paise || 0), 0))}</td>
                 <td style={{ padding: '8px 12px', textAlign: 'right' }}>{P(rows.reduce((s: number, r: any) => s + r.total_paise + (r.accrued_interest_paise || 0), 0))}</td>
               </tr>
             )}
@@ -463,11 +461,11 @@ function RegisterTab() {
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
         <SummaryCard label="Total POs" value={String(summary.total || 0)} />
-        <SummaryCard label="Paid" value={String(summary.paid || 0)} color="#22c55e" />
-        <SummaryCard label="Pending" value={String(summary.pending || 0)} color="#f59e0b" />
-        <SummaryCard label="Overdue (>45d)" value={String(summary.overdue || 0)} color="#ef4444" />
-        <SummaryCard label="Pending Amount" value={P(summary.pendingAmount || 0)} color="#f59e0b" />
-        <SummaryCard label="Overdue Amount" value={P(summary.overdueAmount || 0)} color="#ef4444" />
+        <SummaryCard label="Paid" value={String(summary.paid || 0)} />
+        <SummaryCard label="Pending" value={String(summary.pending || 0)} />
+        <SummaryCard label="Overdue (>45d)" value={String(summary.overdue || 0)} />
+        <SummaryCard label="Pending Amount" value={P(summary.pendingAmount || 0)} />
+        <SummaryCard label="Overdue Amount" value={P(summary.overdueAmount || 0)} />
       </div>
 
       {isLoading ? (
@@ -522,7 +520,7 @@ export function MsmeReportPage() {
       {/* Header */}
       <div style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
-          <h1 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>MSME Compliance</h1>
+          <h1 style={{ margin: 0 }}>MSME Compliance</h1>
           <span style={{ fontSize: 11, color: 'var(--t3)', padding: '2px 8px', background: 'var(--bg2)', borderRadius: 4, border: '1px solid var(--border)' }}>
             MSMED Act 2006 · Sec 15–16 · 45-day rule · {MSME_RATE}% p.a. interest
           </span>
