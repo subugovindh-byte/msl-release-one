@@ -107,8 +107,10 @@ a { color: var(--rust); text-decoration: none; }
    LAYOUT
    ═══════════════════════════════════════ */
 .topbar {
+  /* No bottom border: the topbar and the nav share one surface, so a rule
+     between them split the header in two. The nav keeps its own bottom border,
+     which is what separates the whole header from page content. */
   height: var(--topbar-h); background: var(--bg1);
-  border-bottom: 1px solid var(--bd);
   display: flex; align-items: center; justify-content: space-between;
   padding: 0 22px; flex-shrink: 0; gap: 10px;
 }
