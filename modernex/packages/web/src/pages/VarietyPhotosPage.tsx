@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore, useToastStore } from '@/store';
 import { api } from '@/utils/api';
+import { PhotoViewer } from '@/components/PhotoViewer';
 
 interface VarietyDefault {
   variety: string;
@@ -64,6 +65,9 @@ const ghostBtn = (tone: string): React.CSSProperties => ({
 });
 
 export function VarietyPhotosPage() {
+  // Which card is expanded in place. The viewer renders inside the grid
+  // rather than over it, so the rest of the library stays visible.
+  const [expanded, setExpanded] = useState<string | null>(null);
   const { user } = useAuthStore();
   const { notify } = useToastStore();
   const [varieties, setVarieties] = useState<VarietyDefault[]>([]);
@@ -228,10 +232,24 @@ export function VarietyPhotosPage() {
               padding: '16px',
               display: 'flex',
               flexDirection: 'column',
-              gap: '12px'
+              gap: '12px',
+              gridColumn: expanded === variety.variety ? '1 / -1' : undefined,
             }}
           >
-            {/* Photo */}
+            {/* Photo — expands in place into the viewer */}
+            {expanded === variety.variety && variety.photo_url ? (
+              <PhotoViewer
+                inline
+                height={460}
+                title={variety.variety}
+                images={[
+                  { url: variety.photo_url, label: 'Rough block' },
+                  ...(variety.photo_alt_url ? [{ url: variety.photo_alt_url, label: 'Polished slab' }] : []),
+                ]}
+                startIndex={0}
+                onClose={() => setExpanded(null)}
+              />
+            ) : (
             <div style={{
               width: '100%',
               height: '180px',
@@ -244,15 +262,25 @@ export function VarietyPhotosPage() {
               overflow: 'hidden'
             }}>
               {variety.photo_url ? (
-                <img
-                  src={variety.photo_url}
-                  alt={variety.variety}
+                /* The tile is the affordance: click (or Enter) expands this
+                   card in place into the viewer — no overlay. */
+                <button
+                  type="button"
+                  onClick={() => setExpanded(variety.variety)}
+                  title={`Expand ${variety.variety}`}
+                  aria-label={`Expand ${variety.variety}`}
+                  aria-expanded={expanded === variety.variety}
                   style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover'
+                    width: '100%', height: '100%', padding: 0,
+                    border: 'none', background: 'none', cursor: 'zoom-in', display: 'block',
                   }}
-                />
+                >
+                  <img
+                    src={variety.photo_url}
+                    alt={variety.variety}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  />
+                </button>
               ) : (
                 <div style={{ textAlign: 'center', color: 'var(--t3)', fontSize: '12px' }}>
                   <div style={{ marginBottom: '8px', color: 'var(--t3)', lineHeight: 0 }}>
@@ -262,6 +290,7 @@ export function VarietyPhotosPage() {
                 </div>
               )}
             </div>
+            )}
 
             {/* Info */}
             <div>
@@ -364,6 +393,7 @@ export function VarietyPhotosPage() {
           No varieties found for this region.
         </div>
       )}
+
     </div>
   );
 }

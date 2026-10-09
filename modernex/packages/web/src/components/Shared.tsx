@@ -3,6 +3,7 @@
 // ══════════════════════════════════════════════════════
 
 import React, { type ReactNode, useRef, useState, useCallback } from 'react';
+import { ZoomableImage } from '@/components/PhotoViewer';
 
 // ─── Button ───
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -407,11 +408,13 @@ export function ReceiptAttach({ value, onChange, onClear, maxSizeMB = 5 }: Recei
     return (
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
         {isImage && (
-          <img
+          /* Was window.open(), which threw the user out to a browser tab.
+             Same in-app viewer as every other photo now. */
+          <ZoomableImage
             src={value}
             alt="Receipt"
-            style={{ maxHeight: 110, maxWidth: 180, borderRadius: 6, border: '1px solid var(--bd)', objectFit: 'cover', cursor: 'pointer' }}
-            onClick={() => window.open(value, '_blank')}
+            fill={false}
+            style={{ maxHeight: 110, maxWidth: 180, borderRadius: 6, border: '1px solid var(--bd)', objectFit: 'cover' }}
           />
         )}
         {isPdf && (

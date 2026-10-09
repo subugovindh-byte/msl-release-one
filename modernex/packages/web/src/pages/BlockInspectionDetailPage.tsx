@@ -9,6 +9,7 @@ import {
 import { formatINR, numericInputValue, selectOnFocus } from '@/utils/format';
 import { GST_RATE, GST_RATE_LABEL, VARIETIES } from '@modernex/shared';
 import { useToastStore, useAuthStore } from '@/store';
+import { ZoomableImage } from '@/components/PhotoViewer';
 
 // ── Tiny style helpers ────────────────────────────────────────────────────────
 const inp: React.CSSProperties = {
@@ -49,7 +50,7 @@ function PhotoThumb({ inspId, photoId, caption, canDelete, onDelete }:
           border: '1px solid var(--bd)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         onClick={() => setShow(s => !s)}>
         {show && data?.photo?.data_url
-          ? <img src={data.photo.data_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt={caption ?? ''} />
+          ? <ZoomableImage src={data.photo.data_url} alt={caption ?? 'Inspection photo'} />
           : <span style={{ fontSize: 28 }}>⊡️</span>}
       </div>
       {canDelete && (

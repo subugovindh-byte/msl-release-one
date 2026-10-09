@@ -7,6 +7,7 @@ import {
 import { VARIETIES } from '@modernex/shared';
 import { useToastStore, useAuthStore } from '@/store';
 import { numericInputValue, selectOnFocus } from '@/utils/format';
+import { ZoomableImage } from '@/components/PhotoViewer';
 
 const inp: React.CSSProperties = {
   background: 'var(--bg1)', border: '1px solid var(--bd)', borderRadius: 5,
@@ -411,7 +412,7 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(84px, 1fr))', gap:10, marginBottom:18 }}>
           {photos.map((ph, i) => (
             <div key={i} style={{ position:'relative', aspectRatio:'1', borderRadius:10, overflow:'hidden', border:'1px solid var(--bd)' }}>
-              <img src={ph.data_url} alt="" style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} />
+              <ZoomableImage src={ph.data_url} alt="Inspection photo" />
               {/* gradient + remove */}
               <button type="button" onClick={() => removePhoto(i)} title="Remove" style={{
                 position:'absolute', top:5, right:5, width:24, height:24, borderRadius:'50%',

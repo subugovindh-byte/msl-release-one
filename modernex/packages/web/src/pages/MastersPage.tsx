@@ -2,6 +2,7 @@ import { useState, useMemo, useRef } from 'react';
 import { useCustomers, useVendors, useCreateCustomer, useUpdateCustomer, useCreateVendor, useUpdateVendor, useVarietyMaster, useCreateVariety, useUpdateVarietyById, useDeleteVariety, useBlockPriceMaster, useUpsertBlockPrice, useDeleteBlockPrice, useSlabPriceMaster, useUpsertSlabPrice, useDeleteSlabPrice } from '@/hooks/useApi';
 import { useToastStore } from '@/store';
 import { formatINR, numericInputValue, selectOnFocus } from '@/utils/format';
+import { ZoomableImage } from '@/components/PhotoViewer';
 
 type Tab = 'customers' | 'vendors' | 'varieties' | 'block-prices' | 'slab-prices';
 
@@ -233,7 +234,7 @@ function VarietyList({ varieties, loading, onCreate, onUpdate, onDelete, notify 
                   {uploadingId === v.id ? (
                     <span style={{ fontSize: 16 }}>⏳</span>
                   ) : v.photo_url ? (
-                    <img src={v.photo_url} alt={v.variety_name} style={{ width: 40, height: 40, objectFit: 'cover', display: 'block' }} />
+                    <ZoomableImage src={v.photo_url} alt={v.variety_name} fill={false} style={{ width: 40, height: 40, objectFit: 'cover' }} />
                   ) : (
                     <span style={{ fontSize: 18, opacity: 0.4 }}>📷</span>
                   )}
