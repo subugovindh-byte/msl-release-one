@@ -279,7 +279,7 @@ invoicesRouter.patch('/:id/items/:lineNo',
       );
       const customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(invoice.customer_id);
       const calc = calculateInvoice(updatedLines.map(l => ({
-        rate_paise: l.rate_paise, uom_qty: l.uom_qty, qty: l.qty, hsn: l.hsn,
+        rate_paise: l.rate_paise, uom_qty: l.uom_qty, qty: l.qty, hsn: l.hsn, product_kind: l.product_kind,
       })), customer.state, invoice.discount_pct);
 
       const oldTotal = invoice.total_paise;

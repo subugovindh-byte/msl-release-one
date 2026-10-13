@@ -27,6 +27,7 @@ declare module '@modernex/shared' {
   export const PRODUCT_KIND_KEYS: string[];
   export const UOM_LABELS: Record<string, string>;
   export const HSN_CODES: Record<string, { code: string; rate: number; label: string }>;
+  export const BLOCK_GST_RATE: number;
   export const PRODUCT_KINDS: Record<string, {
     label: string; uom: string; hsn: string;
     dimensions: string[]; needs_grade: boolean; description: string;
@@ -43,7 +44,7 @@ declare module '@modernex/shared' {
 
   // Functions from constants.js
   export function hsnForKind(kind: string): string;
-  export function gstRateForHSN(hsn: string): number;
+  export function gstRateForHSN(hsn: string, kind?: string): number;
 
   // GST helpers from gst.js
   export function toPaise(rupees: number): number;

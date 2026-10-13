@@ -1,7 +1,18 @@
 import { useState, useEffect } from 'react';
 import QRCode from 'qrcode';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { CGST_RATE_LABEL, SGST_RATE_LABEL, GST_RATE_LABEL, PAYMENT_MODES } from '@modernex/shared'; // CGST/SGST used in totals
+import { HSN_CODES, PAYMENT_MODES } from '@modernex/shared';
+
+// A PO buys blocks: HSN 2516 at the block rate. The rate shown is what the PO actually
+// carries, and an out-of-state quarry bills IGST, not CGST + SGST.
+function poTaxSplit(po: any, homeState: string) {
+  const taxable = po.taxable_paise ?? 0;
+  const gst = po.gst_paise ?? 0;
+  const ratePct = taxable > 0 ? Math.round((gst / taxable) * 1000) / 10 : 0;
+  const igst = po.vendor_state && po.vendor_state !== homeState ? gst : 0;
+  const cgst = igst ? 0 : Math.round(gst / 2);
+  return { ratePct, half: ratePct / 2, igst, cgst, sgst: igst ? 0 : gst - cgst };
+}
 import { usePurchaseOrder, useCompany, useCreatePayment, useGRNList, useCreateGRN, useUpdatePOTransport, useVendors, useCreateVendor, useUpdatePOStatus, usePOMatch, useRecordPOMatch } from '@/hooks/useApi';
 import { formatINR, formatDate, selectOnFocus } from '@/utils/format';
 import { useToastStore } from '@/store';
@@ -163,10 +174,10 @@ export function PurchaseOrderReceiptPage() {
     const row = (lbl: string, val: string, bold = false) =>
       `<tr${bold ? ' class="b"' : ''}><td class="l">${lbl}</td><td class="v">${val}</td></tr>`;
     const tax  = p.taxable_paise ?? 0;
-    const gstV = p.gst_paise ?? 0;
     const tot  = p.total_paise ?? 0;
-    const cg   = Math.round(gstV / 2);
-    const sg   = gstV - cg;
+    const split = poTaxSplit(p, co?.state ?? 'Tamil Nadu');
+    const cg   = split.cgst;
+    const sg   = split.sgst;
     const tr   = p.transport_paise ?? 0;
     const mat  = tax - tr;
     const paid = p.paid_paise ?? 0;
@@ -184,7 +195,7 @@ export function PurchaseOrderReceiptPage() {
     const coCity  = co?.city  ?? 'Krishnagiri';
     const coState = co?.state ?? 'Tamil Nadu';
     const coGstin = co?.gstin ?? '33ACGFM7745J1ZW';
-    const hsnCode = co?.hsn   ?? '2516';
+    const hsnCode = HSN_CODES.BLOCK?.code ?? '2516';
     const html = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>${p.id} \u2014 80mm</title>
 <style>
@@ -233,8 +244,7 @@ export function PurchaseOrderReceiptPage() {
     ${row('Material', fp(mat))}
     ${tr > 0 ? row('Transport', fp(tr)) : ''}
     ${row('Taxable', fp(tax))}
-    ${row(`CGST @${CGST_RATE_LABEL}%`, fp(cg))}
-    ${row(`SGST @${SGST_RATE_LABEL}%`, fp(sg))}
+    ${split.igst ? row(`IGST @${split.ratePct}%`, fp(split.igst)) : `${row(`CGST @${split.half}%`, fp(cg))}${row(`SGST @${split.half}%`, fp(sg))}`}
   </table>
   <hr class="solid">
   <table>${row('TOTAL', fp(tot), true)}</table>
@@ -274,7 +284,7 @@ export function PurchaseOrderReceiptPage() {
   const COMPANY  = co?.name    ?? 'MODERNEX STONES LLP';
   const GSTIN    = co?.gstin   ?? '33ACGFM7745J1ZW';
   const PAN      = co?.pan     ?? 'ACGFM7745J';
-  const HSN      = co?.hsn     ?? '2516';
+  const HSN      = HSN_CODES.BLOCK?.code ?? '2516';
   const ADDRESS  = co
     ? `${co.address}, ${co.city}, ${co.state} — ${co.pincode}`
     : 'Krishnagiri, Tamil Nadu — 635203';
@@ -300,10 +310,9 @@ export function PurchaseOrderReceiptPage() {
   const payments = (poData as any).payments ?? [];
 
   const taxable   = po.taxable_paise   ?? 0;
-  const gst       = po.gst_paise       ?? 0;
   const total     = po.total_paise     ?? 0;
-  const cgst      = Math.round(gst / 2);
-  const sgst      = gst - cgst;
+  const split     = poTaxSplit(po, co?.state ?? 'Tamil Nadu');
+  const { cgst, sgst } = split;
   const transport = po.transport_paise ?? 0;
   const paidPaise = po.paid_paise      ?? 0;
   const balance   = po.balance_paise   ?? (total - paidPaise);
@@ -785,7 +794,7 @@ export function PurchaseOrderReceiptPage() {
               <th>Rate / CBM</th>
               {transport > 0 && <th>Transport</th>}
               <th>Taxable</th>
-              <th>GST {GST_RATE_LABEL}%</th>
+              <th>GST {split.ratePct}%</th>
               <th>Total</th>
             </tr>
           </thead>
@@ -803,7 +812,7 @@ export function PurchaseOrderReceiptPage() {
               <td>{formatINR(po.rate_per_cft_paise ?? 0)}</td>
               {transport > 0 && <td>{formatINR(transport)}</td>}
               <td>{formatINR(taxable)}</td>
-              <td>{formatINR(cgst + sgst)}</td>
+              <td>{formatINR(cgst + sgst + split.igst)}</td>
               <td style={{ fontWeight: 700 }}>{formatINR(total)}</td>
             </tr>
           </tbody>
@@ -822,8 +831,12 @@ export function PurchaseOrderReceiptPage() {
             <TRow label="Material Value" value={formatINR(material)} />
             {transport > 0 && <TRow label="Transport" value={formatINR(transport)} />}
             <TRow label="Taxable Amount" value={formatINR(taxable)} />
-            <TRow label={`CGST @${CGST_RATE_LABEL}%`} value={formatINR(cgst)} />
-            <TRow label={`SGST @${SGST_RATE_LABEL}%`} value={formatINR(sgst)} />
+            {split.igst > 0
+              ? <TRow label={`IGST @${split.ratePct}%`} value={formatINR(split.igst)} />
+              : <>
+                  <TRow label={`CGST @${split.half}%`} value={formatINR(cgst)} />
+                  <TRow label={`SGST @${split.half}%`} value={formatINR(sgst)} />
+                </>}
             <TRow label="Grand Total" value={formatINR(total)} bold />
           </div>
         </div>

@@ -30,14 +30,21 @@ const DEFAULT_CGST_RATE = readRateEnv(['VITE_CGST_RATE', 'CGST_RATE'], DEFAULT_G
 const DEFAULT_SGST_RATE = readRateEnv(['VITE_SGST_RATE', 'SGST_RATE'], DEFAULT_GST_RATE / 2);
 const DEFAULT_IGST_RATE = readRateEnv(['VITE_IGST_RATE', 'IGST_RATE'], DEFAULT_CGST_RATE + DEFAULT_SGST_RATE);
 
-// ─── HSN codes for granite (Chapter 25) ───
-// Granite crosses three HSN codes under the GST schedule. Each has its own rate
-// (2515/2516 are configurable here; 2517 aggregates stays at 5% unless overridden separately in code).
+// ─── HSN codes and GST rates for stone ───
+// From Notification 9/2025-Central Tax (Rate), in force 22-09-2025 (CGST shown there;
+// GST is twice that): granite and marble BLOCKS, crude or roughly trimmed, are 5%
+// (Sch. I); granite "other than blocks" (2516 12) and worked stone — polished slabs,
+// tiles, cut-to-size, monuments (6802) — and setts / kerbs / flagstones (6801) are 18%
+// (Sch. II); chips, gravel and crushed stone (2517) are 5%. Price does not change the rate.
 export const HSN_CODES = {
-  BLOCK:  { code: '2515', rate: DEFAULT_GST_RATE, label: 'Monumental/building stone — blocks, slabs (rough)' },
-  WORKED: { code: '2516', rate: DEFAULT_GST_RATE, label: 'Granite, cut/polished — slabs, tiles, cut-to-size' },
-  CHIPS:  { code: '2517', rate: 0.05, label: 'Pebbles, gravel, chips, aggregates' },
+  BLOCK:        { code: '2516', rate: 0.05, label: 'Granite blocks, crude or roughly trimmed' },
+  MARBLE_BLOCK: { code: '2515', rate: 0.05, label: 'Marble and travertine blocks' },
+  WORKED:       { code: '6802', rate: DEFAULT_GST_RATE, label: 'Worked granite — slabs, tiles, cut-to-size, monuments' },
+  SETTS:        { code: '6801', rate: DEFAULT_GST_RATE, label: 'Setts, kerbs and flagstones' },
+  CHIPS:        { code: '2517', rate: 0.05, label: 'Pebbles, gravel, chips, aggregates' },
 };
+/** GST on a block purchase or sale. */
+export const BLOCK_GST_RATE = HSN_CODES.BLOCK.rate;
 
 // Legacy — most code paths default to the common worked-granite rate
 export const HSN_CODE = HSN_CODES.WORKED.code;  // '2516'
@@ -111,7 +118,7 @@ export const PRODUCT_KINDS = {
   kerb: {
     label: 'Kerb Stone',
     uom: 'pc',
-    hsn: HSN_CODES.WORKED.code,
+    hsn: HSN_CODES.SETTS.code,
     dimensions: ['profile', 'length_mm', 'height_mm', 'width_mm'],
     needs_grade: false,
     description: 'Landscaping and road kerbs',
@@ -119,7 +126,7 @@ export const PRODUCT_KINDS = {
   cobble: {
     label: 'Cobblestone / Sett',
     uom: 'pc',
-    hsn: HSN_CODES.WORKED.code,
+    hsn: HSN_CODES.SETTS.code,
     dimensions: ['cobble_type', 'length_mm', 'width_mm', 'height_mm'],
     needs_grade: false,
     description: 'Setts, Belgian blocks, cobbles for paving',
@@ -254,11 +261,20 @@ export function hsnForKind(kind) {
   return PRODUCT_KINDS[kind]?.hsn || HSN_CODE;
 }
 
-export function gstRateForHSN(hsn) {
-  for (const v of Object.values(HSN_CODES)) {
-    if (v.code === hsn) return v.rate;
+export function gstRateForHSN(hsn, kind) {
+  const digits = String(hsn ?? '').replace(/\D/g, '');
+  // Granite / marble BLOCKS are 5% whatever their sub-heading — a dressed rectangular
+  // block is often coded 2516 12 00 — while "other than blocks" under 2515 12 / 2516 12
+  // (sawn rough slabs) is 18%.
+  if (/^25(15|16)/.test(digits)) {
+    if (kind === 'block' || /^25151210/.test(digits)) return HSN_CODES.BLOCK.rate;
+    if (/^25(15|16)12/.test(digits)) return DEFAULT_GST_RATE;
   }
-  return GST_RATE;
+  let best = null;
+  for (const v of Object.values(HSN_CODES)) {
+    if (digits.startsWith(v.code) && (!best || v.code.length > best.code.length)) best = v;
+  }
+  return best ? best.rate : GST_RATE;
 }
 
 // Granite varieties operationally sold from Chendarapalli quarry belt

@@ -18,7 +18,8 @@ type ContentBlock =
   | { type: 'code'; text: string }
   | { type: 'warn'; text: string }
   | { type: 'tip'; text: string }
-  | { type: 'checklist'; items: string[] };
+  | { type: 'checklist'; items: string[] }
+  | { type: 'links'; items: { label: string; url: string; note?: string }[] };
 
 // ── Content ───────────────────────────────────────────────────────────────────
 
@@ -67,7 +68,7 @@ const SECTIONS: Section[] = [
       { type: 'p', text: 'Path: System → Company Details' },
       { type: 'ul', items: [
         'Company name, GSTIN, PAN',
-        'HSN code (2516 for granite)',
+        'Default HSN code (6802 for worked granite — slabs, tiles, cut-to-size)',
         'Registered address',
         'Bank details for invoice footer',
         'SMTP settings for email delivery (optional)',
@@ -172,7 +173,7 @@ const SECTIONS: Section[] = [
         'Select vendor (MSME flag shows automatically if registered)',
         'Enter: variety, blocks, CBM, rate per CBM',
         'Transport charges (if known)',
-        'System calculates GST (12% for granite)',
+        'System calculates GST from each line\'s HSN (18% for slabs and tiles, 5% for blocks and chips)',
         'Save as "Draft" → "Approve" when PO sent to quarry',
         'On material receipt: Mark as "Received" — starts 45-day MSME clock',
       ]},
@@ -299,7 +300,7 @@ const SECTIONS: Section[] = [
       { type: 'h3', text: '5.7 GSTR-1 Filing (by 11th)' },
       { type: 'ol', items: [
         'Generate GSTR-1 from Compliance module',
-        'Verify B2B (with GSTIN), B2C Large (>₹2.5L), B2C Small, HSN summary',
+        'Verify B2B (with GSTIN), B2C Large (inter-state, >₹1L), B2C Small, HSN summary',
         'Upload JSON or enter on GST portal (gst.gov.in)',
         'Submit and file with DSC / EVC',
       ]},
@@ -450,9 +451,40 @@ const SECTIONS: Section[] = [
       ]},
       { type: 'h3', text: 'HSN-wise Tax Rates (Granite)' },
       { type: 'table', headers: ['HSN', 'Product', 'GST Rate', 'CGST', 'SGST', 'IGST'], rows: [
-        ['2515', 'Marble & Travertine', '12%', '6%', '6%', '12%'],
-        ['2516', 'Granite (rough/dressed)', '12%', '6%', '6%', '12%'],
+        ['2516', 'Granite blocks (crude / roughly trimmed)', '5%', '2.5%', '2.5%', '5%'],
+        ['2515 12 10', 'Marble & travertine blocks', '5%', '2.5%', '2.5%', '5%'],
+        ['2516 12 00', 'Granite, other than blocks (sawn rough slabs)', '18%', '9%', '9%', '18%'],
+        ['6802', 'Worked granite — polished slabs, tiles, cut-to-size, monuments', '18%', '9%', '9%', '18%'],
+        ['6801', 'Setts, kerbs, flagstones', '18%', '9%', '9%', '18%'],
         ['2517', 'Chips, Gravel, Pebbles', '5%', '2.5%', '2.5%', '5%'],
+      ]},
+      { type: 'tip', text: 'Rates from Notification 9/2025-Central Tax (Rate), in force 22 Sep 2025. The rate follows the HSN (how far the stone is worked), not the price per sq ft or sq m.' },
+      { type: 'h4', text: 'Worked example' },
+      { type: 'table', headers: ['Item', 'Taxable', 'In Tamil Nadu', 'Other state'], rows: [
+        ['Polished slab, 1 sq m at ₹5,000 (HSN 6802, 18%)', '₹5,000', 'CGST ₹450 + SGST ₹450 = ₹5,900', 'IGST ₹900 = ₹5,900'],
+        ['Granite block, 1 CBM at ₹50,000 (HSN 2516, 5%)', '₹50,000', 'CGST ₹1,250 + SGST ₹1,250 = ₹52,500', 'IGST ₹2,500 = ₹52,500'],
+        ['Chips, 1 tonne at ₹2,000 (HSN 2517, 5%)', '₹2,000', 'CGST ₹50 + SGST ₹50 = ₹2,100', 'IGST ₹100 = ₹2,100'],
+      ]},
+      { type: 'warn', text: 'Blocks bought from a quarry carry 5% GST: check the quarry bill shows HSN 2516 at 5% before matching it to the PO.' },
+      { type: 'h3', text: 'Check a rate on the government portals' },
+      { type: 'links', items: [
+        { label: 'GST portal — HSN / SAC search', url: 'https://services.gst.gov.in/services/searchhsnsac', note: 'type 6802, 2516 or 2517 to see the description and rate' },
+        { label: 'CBIC tax information portal — rate notifications', url: 'https://taxinformation.cbic.gov.in/', note: 'GST → Notifications → Central Tax (Rate); rates change only by notification' },
+        { label: 'Notification 9/2025-Integrated Tax (Rate) — current goods rates (PDF)', url: 'https://courier.cbic.gov.in/ECCS/advisory/2025/NOTIFICATION%20NO.%209_2025-INTEGRATED%20TAX%20(RATE)%20-1759486719.pdf', note: 'in force 22 Sep 2025; Schedule I = 5%, Schedule II = 18%' },
+        { label: 'CBIC GST rates page', url: 'https://cbic-gst.gov.in/gst-goods-services-rates.html' },
+        { label: 'GST portal — returns (GSTR-1, GSTR-3B, GSTR-9)', url: 'https://www.gst.gov.in/' },
+        { label: 'e-Invoice portal (IRN)', url: 'https://einvoice1.gst.gov.in/' },
+        { label: 'e-Way Bill portal', url: 'https://ewaybillgst.gov.in/' },
+      ]},
+      { type: 'h3', text: 'Income tax and TDS' },
+      { type: 'table', headers: ['Item', 'Rule used by the app'], rows: [
+        ['TDS on salary (s.192)', 'New regime by default: ₹75,000 standard deduction, nil tax up to ₹12 lakh taxable (87A rebate, with marginal relief), then 5%–30% slabs + 4% cess. Old regime only if the employee opts in the tax declaration.'],
+        ['TN professional tax', 'Half-yearly slab on half-yearly salary, deducted one sixth each month; never more than ₹2,500 a year.'],
+        ['TDS on vendors', '194C contractors 1% / 2% (₹30,000 single, ₹1 lakh a year); 194J 10% (₹50,000); 194H 2% (₹20,000); 194I 10% (₹50,000 a month); 194Q 0.1% above ₹50 lakh.'],
+      ]},
+      { type: 'links', items: [
+        { label: 'Income-tax e-filing portal', url: 'https://www.incometax.gov.in/iec/foportal/', note: 'slabs, PAN checks, Form 16 / 26AS' },
+        { label: 'TRACES — TDS returns, Form 16 / 16A', url: 'https://www.tdscpc.gov.in/' },
       ]},
       { type: 'tip', text: 'Charge CGST+SGST when buyer is in Tamil Nadu. Charge IGST when buyer is in any other state.' },
     ],
@@ -715,6 +747,19 @@ function BlockRenderer({ block, q }: { block: ContentBlock; q: string }) {
           <strong>⚠ </strong><span dangerouslySetInnerHTML={hl(block.text)} />
         </div>
       );
+    case 'links':
+      return (
+        <ul style={{ marginBottom: 12, paddingLeft: 20 }}>
+          {block.items.map((l, i) => (
+            <li key={i} style={{ marginBottom: 4, lineHeight: 1.5 }}>
+              <a href={l.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--rust)', fontWeight: 600 }}>
+                {l.label} ↗
+              </a>
+              {l.note && <span style={{ color: 'var(--t3)' }} dangerouslySetInnerHTML={hl(` — ${l.note}`)} />}
+            </li>
+          ))}
+        </ul>
+      );
     case 'tip':
       return (
         <div style={{
@@ -747,6 +792,8 @@ export function HelpPage() {
             return block.text.toLowerCase().includes(q);
           case 'ul': case 'ol': case 'checklist':
             return block.items.some((i) => i.toLowerCase().includes(q));
+          case 'links':
+            return block.items.some((l) => `${l.label} ${l.note ?? ''}`.toLowerCase().includes(q));
           case 'table':
             return block.headers.some((h) => h.toLowerCase().includes(q)) ||
               block.rows.some((r) => r.some((c) => c.toLowerCase().includes(q)));

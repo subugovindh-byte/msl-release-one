@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { getDb } from '../db/connection.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
-import { poCreateSchema, GST_RATE } from '@modernex/shared';
+import { poCreateSchema, BLOCK_GST_RATE } from '@modernex/shared';
 import { NotFoundError, AppError } from '../middleware/error.js';
 import { audit } from '../services/audit.js';
 import { nextPOId } from '../services/idGenerator.js';
@@ -106,7 +106,7 @@ purchaseRouter.post('/',
       if (!vendor) throw new NotFoundError('Vendor not found');
 
       const taxable = Math.round(p.cft * p.rate_per_cft_paise) + (p.transport_paise || 0);
-      const gst = Math.round(taxable * GST_RATE);
+      const gst = Math.round(taxable * BLOCK_GST_RATE);
       const total = taxable + gst;
 
       // PO date defaults to today; an admin may set/backdate it explicitly.
@@ -178,7 +178,7 @@ purchaseRouter.patch('/:id',
           const rate = p.rate_per_cft_paise ?? existing.rate_per_cft_paise;
           const transport = p.transport_paise ?? existing.transport_paise;
           const taxable = Math.round(cft * rate) + (transport || 0);
-          const gst = Math.round(taxable * GST_RATE);
+          const gst = Math.round(taxable * BLOCK_GST_RATE);
           updates.push('taxable_paise = ?', 'gst_paise = ?', 'total_paise = ?');
           params.push(taxable, gst, taxable + gst);
         }
@@ -270,7 +270,7 @@ function computeExpectedFromReceipts(db, po) {
   const billableCft = cftBasis * (1 - allowancePct / 100);
   const material = Math.round(billableCft * po.rate_per_cft_paise);
   const taxable = material + (po.transport_paise || 0);
-  const gst = Math.round(taxable * GST_RATE);
+  const gst = Math.round(taxable * BLOCK_GST_RATE);
   return {
     cft_received: cftReceived,
     blocks_received: grn.blocks || 0,

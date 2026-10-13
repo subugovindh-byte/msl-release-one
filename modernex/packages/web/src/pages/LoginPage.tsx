@@ -78,7 +78,7 @@ export function LoginPage() {
         </div>
         
         <div className="login-logo">MODERNEX STONES LLP</div>
-        <div className="login-sub">GST 33AABFM1234A1Z7 · HSN 2516</div>
+        <div className="login-sub">GST 33AABFM1234A1Z7 · HSN 6802</div>
         <div
           style={{
             fontFamily: "'IBM Plex Mono', monospace",

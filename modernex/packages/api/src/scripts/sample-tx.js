@@ -326,7 +326,7 @@ db.transaction(() => {
     INSERT INTO products
       (id, kind, variety, hsn, uom, grade, lot_id, current_location_id,
        rate_paise, stock, source_job_id, source_product_id, active, created_by)
-    VALUES (?, 'slab', 'Paradiso Classic', '2516', 'sqft', 'A', 'LOT-001', 'GANGSAW_OUT',
+    VALUES (?, 'slab', 'Paradiso Classic', '6802', 'sqft', 'A', 'LOT-001', 'GANGSAW_OUT',
             ?, ?, ?, ?, 1, 'sample-tx')
   `).run(slabId, RATE_PS, SLABS, jobId, blockId);
   db.prepare(`INSERT INTO product_slabs (product_id, size_lw, thickness_mm, sqft) VALUES (?, '2600×1600', 20, ?)`)
@@ -366,7 +366,7 @@ db.transaction(() => {
   db.prepare(`
     INSERT INTO products
       (id, kind, variety, hsn, uom, grade, lot_id, current_location_id, rate_paise, stock, active, created_by)
-    VALUES (?, 'slab', 'Paradiso Classic', '2516', 'sqft', 'A', 'LOT-001', 'FINISHED_YARD', ?, 10, 1, 'sample-tx')
+    VALUES (?, 'slab', 'Paradiso Classic', '6802', 'sqft', 'A', 'LOT-001', 'FINISHED_YARD', ?, 10, 1, 'sample-tx')
   `).run(invProd, RATE_PS);
   db.prepare(`INSERT INTO product_slabs (product_id, size_lw, thickness_mm, sqft) VALUES (?, '2600×1600', 18, ?)`)
     .run(invProd, SQFT);
@@ -388,7 +388,7 @@ db.transaction(() => {
     INSERT INTO invoice_items
       (invoice_id, line_no, product_id, product_kind, variety, hsn, uom,
        uom_qty, qty, rate_paise, line_total_paise, dimension_snapshot, grade)
-    VALUES (?,1,?,'slab','Paradiso Classic','2516','sqft',?,?,?,?,?,'A')
+    VALUES (?,1,?,'slab','Paradiso Classic','6802','sqft',?,?,?,?,?,'A')
   `).run(IDS.invoice, invProd, SQFT, QTY, RATE_PS, LINE,
          JSON.stringify({ size: '2600×1600', thickness_mm: 18 }));
   console.log(`   ✓ Invoice     ${IDS.invoice}  3 slabs  Total ₹${(INV_TOTAL/100).toLocaleString('en-IN')}`);

@@ -4,7 +4,7 @@ import { authenticate, requireRole } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import {
   blockInspectionCreateSchema, blockInspectionPhotoSchema,
-  poCreateSchema, GST_RATE,
+  poCreateSchema, BLOCK_GST_RATE,
 } from '@modernex/shared';
 import { NotFoundError, AppError } from '../middleware/error.js';
 import { audit } from '../services/audit.js';
@@ -223,7 +223,7 @@ blockInspectionsRouter.post('/:id/raise-po',
       const cft = insp.est_cft;
       const blocks = insp.block_count;
       const taxable = Math.round(cft * rate) + (transport || 0);
-      const gst = Math.round(taxable * GST_RATE);
+      const gst = Math.round(taxable * BLOCK_GST_RATE);
       const total = taxable + gst;
 
       // Prevent duplicate PO for same vendor/variety/date/blocks/cft/rate
@@ -272,9 +272,9 @@ blockInspectionsRouter.post('/:id/photos',
       const insp = db.prepare('SELECT id FROM block_inspections WHERE id = ?').get(req.params.id);
       if (!insp) throw new NotFoundError('Inspection not found');
 
-      // Limit to 10 photos per inspection
+      // Allow one complete 360 rotation at the same maximum as variety photos.
       const count = db.prepare('SELECT COUNT(*) AS n FROM block_inspection_photos WHERE inspection_id = ?').get(req.params.id);
-      if (count.n >= 10) throw new AppError('Maximum 10 photos per inspection.', 400);
+      if (count.n >= 36) throw new AppError('Maximum 36 photos per inspection.', 400);
 
       const { lastInsertRowid } = db.prepare(
         `INSERT INTO block_inspection_photos (inspection_id, data_url, caption, uploaded_by) VALUES (?, ?, ?, ?)`

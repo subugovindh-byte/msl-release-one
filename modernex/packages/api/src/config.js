@@ -39,7 +39,7 @@ export const config = {
     address: process.env.COMPANY_ADDRESS || 'Survey No.142, Chendarapalli, Krishnagiri, Tamil Nadu 635001',
     state: process.env.COMPANY_STATE || 'Tamil Nadu',
     gstin: process.env.GSTIN || '33ACGFM7745J1ZW',
-    hsn: process.env.HSN_CODE || '2516',
+    hsn: process.env.HSN_CODE || '6802',
     upi: process.env.COMPANY_UPI || 'modernexstones@hdfcbank',
   },
 

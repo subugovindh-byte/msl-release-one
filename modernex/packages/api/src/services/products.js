@@ -206,5 +206,5 @@ export function uomForProduct(product) {
  * Get HSN for a product (stored on row, falls back to kind default).
  */
 export function hsnForProduct(product) {
-  return product.hsn || hsnForKind(product.kind) || '2516';
+  return product.hsn || hsnForKind(product.kind) || '6802';
 }

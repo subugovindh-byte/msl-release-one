@@ -351,7 +351,7 @@ describe('useCartStore', () => {
     id: 'SLAB-001',
     variety: 'Paradiso Classic',
     kind: 'slab',
-    hsn: '2516',
+    hsn: '6802',
     uom: 'sqft',
     rate_paise: 125000,
     stock: 3,
