@@ -6,6 +6,7 @@ import { debitCreditNoteSchema } from '@modernex/shared';
 import { NotFoundError, AppError } from '../middleware/error.js';
 import { audit } from '../services/audit.js';
 import { nextDCNId } from '../services/idGenerator.js';
+import { today as todayIST } from '../services/dates.js';
 
 export const dcnRouter = Router();
 dcnRouter.use(authenticate);
@@ -46,7 +47,7 @@ dcnRouter.post('/',
 
       const id = nextDCNId(n.type);
       const total = n.taxable_paise + n.cgst_paise + n.sgst_paise + n.igst_paise;
-      const date = n.date || new Date().toISOString().slice(0, 10);
+      const date = n.date || todayIST();
 
       db.prepare(`
         INSERT INTO debit_credit_notes

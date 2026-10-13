@@ -7,12 +7,13 @@ import { formatINR, numericInputValue, selectOnFocus } from '@/utils/format';
 import { useToastStore } from '@/store';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api as apiClient } from '@/utils/api';
+import { todayIST } from '../utils/format';
 
 type Tab = 'employees' | 'runs' | 'leave' | 'bonus' | 'lwf' | 'gratuity' | 'form16' | 'challans';
 
 const BLANK_EMP = {
   name: '', designation: '', department: 'General',
-  joining_date: new Date().toISOString().slice(0, 10),
+  joining_date: todayIST(),
   pan: '', uan: '', bank_account: '', bank_ifsc: '',
   salary_type: 'monthly', basic_salary_paise: 0, hra_paise: 0,
   conveyance_paise: 0, other_allowance_paise: 0,
@@ -596,7 +597,7 @@ export function PayrollPage() {
                   { label: 'Less: 80C (PF + LIC etc.)', value: -f.partB.chapterVIA.sec80c },
                   { label: 'Less: 80D (Medical Insurance)', value: -f.partB.chapterVIA.sec80d },
                   { label: 'Net Taxable Income', value: f.partB.taxableIncome, bold: true },
-                  { label: 'Tax on Income (New Regime)', value: f.partB.taxOnIncome },
+                  { label: `Tax on Income (${f.partB.taxRegime === 'old' ? 'Old' : 'New'} Regime)`, value: f.partB.taxOnIncome },
                   { label: 'TDS Deducted', value: f.partB.taxDeducted, bold: true },
                   { label: 'Refund / Additional Tax Due', value: f.partB.taxRefund > 0 ? f.partB.taxRefund : -f.partB.additionalTaxDue },
                 ].map(row => (

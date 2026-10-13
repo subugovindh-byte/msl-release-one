@@ -144,7 +144,7 @@ authRouter.post('/refresh', authLimiter, (req, res, next) => {
       `SELECT rt.*, u.username, u.role, u.full_name, u.active
        FROM refresh_tokens rt
        JOIN users u ON u.id = rt.user_id
-       WHERE rt.id = ? AND rt.revoked = 0 AND rt.expires_at > datetime('now')`
+       WHERE rt.id = ? AND rt.revoked = 0 AND datetime(rt.expires_at) > datetime('now')`
     ).get(refreshTokenId);
 
     if (!tokenRow || !tokenRow.active) throw new AuthError('Invalid refresh token');
@@ -234,7 +234,7 @@ authRouter.post('/reset-password', authLimiter, async (req, res, next) => {
       SELECT prt.id, prt.user_id, u.username
       FROM password_reset_tokens prt
       JOIN users u ON u.id = prt.user_id
-      WHERE prt.id = ? AND prt.used = 0 AND prt.expires_at > datetime('now')
+      WHERE prt.id = ? AND prt.used = 0 AND datetime(prt.expires_at) > datetime('now')
     `).get(token);
 
     if (!tokenRow) throw new AppError('Invalid or expired reset token', 400);

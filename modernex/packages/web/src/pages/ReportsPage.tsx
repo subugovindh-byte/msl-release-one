@@ -5,6 +5,7 @@ import { api as apiClient } from '@/utils/api';
 import { useInvoices, useStockValuation, useDepreciationSchedule } from '@/hooks/useApi';
 import { DataGridTable } from '@/components/DataGridTable';
 import { formatINR } from '@/utils/format';
+import { todayIST } from '../utils/format';
 
 type Tab = 'sales' | 'pl' | 'gstr' | 'cashbook' | 'bankbook' | 'outstanding' | 'cashflow' | 'balancesheet' | 'ratios' | 'ledger' | 'stock' | 'depreciation';
 
@@ -26,7 +27,7 @@ const TabBtn = ({ tab, active, label, onClick }: any) => (
   }}>{label}</button>
 );
 
-const today = new Date().toISOString().slice(0, 10);
+const today = todayIST();
 const fyStart = new Date().getMonth() >= 3
   ? `${new Date().getFullYear()}-04-01`
   : `${new Date().getFullYear() - 1}-04-01`;
@@ -274,7 +275,7 @@ export function ReportsPage() {
                           <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontSize: 11 }}>{inv.id}</td>
                           <td style={{ padding: '7px 10px' }}>{inv.date}</td>
                           <td style={{ padding: '7px 10px' }}>{inv.customer_name}</td>
-                          <td style={{ padding: '7px 10px', textAlign: 'right' }}>{formatINR(inv.total_paise)}</td>
+                          <td style={{ padding: '7px 10px', textAlign: 'right' }}>{formatINR(inv.balance_paise ?? inv.total_paise)}</td>
                           <td style={{ padding: '7px 10px', textAlign: 'right', color: inv.age_days > 60 ? 'var(--rust)' : 'var(--t2)' }}>{inv.age_days}d</td>
                           <td style={{ padding: '7px 10px' }}><span style={{ padding: '2px 6px', borderRadius: 8, fontSize: 10, backgroundColor: agingColor(inv.aging_bucket), color: 'white' }}>{inv.aging_bucket}</span></td>
                         </tr>

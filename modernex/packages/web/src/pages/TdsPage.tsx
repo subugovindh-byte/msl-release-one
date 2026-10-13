@@ -5,6 +5,7 @@ import {
 } from '@/hooks/useApi';
 import { formatINR, numericInputValue, selectOnFocus } from '@/utils/format';
 import { useToastStore } from '@/store';
+import { todayIST } from '../utils/format';
 
 type Tab = 'transactions' | 'challans' | '26q';
 
@@ -16,8 +17,8 @@ const CUR_FY = (() => {
 })();
 
 const QUARTERS = ['Q1', 'Q2', 'Q3', 'Q4'];
-const BLANK_TDS = { vendor_id: '', section: '194C', payment_date: new Date().toISOString().slice(0, 10), gross_amount_paise: 0, tds_rate_pct: 1.0, notes: '' };
-const BLANK_CHALLAN = { challan_date: new Date().toISOString().slice(0, 10), bsr_code: '', challan_serial_no: '', section: '194C', amount_paise: 0, fy: CUR_FY, quarter: 'Q1' };
+const BLANK_TDS = { vendor_id: '', section: '194C', payment_date: todayIST(), gross_amount_paise: 0, tds_rate_pct: 1.0, notes: '' };
+const BLANK_CHALLAN = { challan_date: todayIST(), bsr_code: '', challan_serial_no: '', section: '194C', amount_paise: 0, fy: CUR_FY, quarter: 'Q1' };
 
 const BADGE_STYLES: Record<string, { bg: string; color: string }> = {
   blue:   { bg: 'var(--blueW)',  color: 'var(--blue)'  },
@@ -161,7 +162,9 @@ export function TdsPage() {
                 <label className="fl">TDS Section *</label>
                 <select value={form.section} onChange={(e) => {
                   const s = sections.find((x: any) => x.code === e.target.value);
-                  setForm({ ...form, section: e.target.value, tds_rate_pct: s?.rate_individual_pct || 1.0 });
+                  const vendor = vendors.find((v: any) => v.id === form.vendor_id);
+                  const rate = vendor?.deductee_type === 'company' ? s?.rate_company_pct : s?.rate_individual_pct;
+                  setForm({ ...form, section: e.target.value, tds_rate_pct: rate ?? 1.0 });
                 }} required className="fsel">
                   {sections.map((s: any) => <option key={s.code} value={s.code}>{s.code} — {s.description}</option>)}
                 </select>

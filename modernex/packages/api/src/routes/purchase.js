@@ -7,6 +7,7 @@ import { NotFoundError, AppError } from '../middleware/error.js';
 import { audit } from '../services/audit.js';
 import { nextPOId } from '../services/idGenerator.js';
 import { receivedBlocksCountSql } from '../services/products.js';
+import { today as todayIST } from '../services/dates.js';
 
 export const purchaseRouter = Router();
 
@@ -110,7 +111,7 @@ purchaseRouter.post('/',
 
       // PO date defaults to today; an admin may set/backdate it explicitly.
       const isAdmin = (req.user.roles ?? [req.user.role]).includes('admin');
-      const date = (isAdmin && p.date) ? p.date : new Date().toISOString().slice(0, 10);
+      const date = (isAdmin && p.date) ? p.date : todayIST();
 
       // Prevent exact duplicate PO (same vendor, variety, date, blocks, cft, rate)
       const dupe = db.prepare(`

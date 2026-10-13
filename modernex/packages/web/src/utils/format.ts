@@ -264,3 +264,12 @@ export function getStateFromGSTIN(gstin: string): string | null {
   
   return stateCodes[stateCode] || null;
 }
+
+/**
+ * Today's date in India as YYYY-MM-DD. `toISOString()` is UTC, so before 05:30 IST
+ * it gives yesterday — wrong default dates on every form.
+ */
+export function todayIST(plusDays = 0): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' })
+    .format(new Date(Date.now() + plusDays * 86400000));
+}

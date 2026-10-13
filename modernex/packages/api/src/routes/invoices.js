@@ -10,6 +10,8 @@ import { nextInvoiceId, nextPaymentId } from '../services/idGenerator.js';
 import { registerWithIRP } from '../services/irpClient.js';
 import { backup } from '../services/backup.js';
 import { uomForProduct, hsnForProduct, loadProduct } from '../services/products.js';
+import { today as todayIST } from '../services/dates.js';
+import { invoiceWithBalance, checkReceipt, settleInvoice } from '../services/invoiceReceipts.js';
 
 export const invoicesRouter = Router();
 invoicesRouter.use(authenticate);
@@ -123,9 +125,8 @@ invoicesRouter.post('/',
       }
 
       const id = nextInvoiceId();
-      const date = new Date().toISOString().slice(0, 10);
-      const dueDate = new Date(Date.now() + (customer.credit_days || 0) * 86400000)
-        .toISOString().slice(0, 10);
+      const date = todayIST();
+      const dueDate = todayIST(customer.credit_days || 0);
 
       const tx = db.transaction(() => {
         db.prepare(`
@@ -198,32 +199,30 @@ invoicesRouter.post('/:id/pay',
   (req, res, next) => {
     try {
       const db = getDb();
-      const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(req.params.id);
-      if (!invoice) throw new NotFoundError('Invoice not found');
-      if (invoice.paid) throw new AppError('Invoice already paid', 400);
+      const { inv: invoice, balance } = invoiceWithBalance(db, req.params.id);
+      if (invoice.paid || balance <= 0) throw new AppError('Invoice already paid', 400);
 
       const { mode = 'Manual', utr = null, amount_paise } = req.body;
-      const amount = amount_paise || invoice.total_paise;
+      const amount = amount_paise ?? balance;   // part-payments allowed; default settles the balance
+      checkReceipt(db, req.params.id, amount);
 
       const tx = db.transaction(() => {
-        db.prepare(
-          'UPDATE invoices SET paid = 1, paid_date = date(\'now\') WHERE id = ?'
-        ).run(req.params.id);
-
         const paymentId = nextPaymentId('receipt');
         db.prepare(`
-          INSERT INTO payments (id, type, invoice_id, party, amount_paise, mode, utr, created_by)
-          VALUES (?, 'receipt', ?, ?, ?, ?, ?, ?)
-        `).run(paymentId, req.params.id, invoice.customer_name, amount, mode, utr, req.user.username);
+          INSERT INTO payments (id, date, type, invoice_id, party, amount_paise, mode, utr, created_by)
+          VALUES (?, ?, 'receipt', ?, ?, ?, ?, ?, ?)
+        `).run(paymentId, todayIST(), req.params.id, invoice.customer_name, amount, mode, utr, req.user.username);
 
         db.prepare(
           'UPDATE customers SET outstanding_paise = outstanding_paise - ? WHERE id = ?'
         ).run(amount, invoice.customer_id);
+        settleInvoice(db, req.params.id);
       });
       tx();
 
+      const after = db.prepare('SELECT paid, received_paise FROM invoices WHERE id = ?').get(req.params.id);
       audit(req, 'INVOICE_PAY', 'invoices', req.params.id,
-            { paid: 0 }, { paid: 1, mode, utr });
+            { paid: 0, received_paise: invoice.received_paise }, { ...after, amount_paise: amount, mode, utr });
       backup('event').catch(() => {});
 
       const updated = db.prepare('SELECT * FROM invoices WHERE id = ?').get(req.params.id);
@@ -249,7 +248,9 @@ invoicesRouter.patch('/:id/items/:lineNo',
       const { id, lineNo } = req.params;
       const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(id);
       if (!invoice) throw new NotFoundError('Invoice not found');
-      if (invoice.paid) throw new AppError('Cannot edit a paid invoice', 400);
+      if (invoice.paid || invoice.received_paise > 0) {
+        throw new AppError('Cannot edit an invoice with money received against it — use a credit / debit note', 400);
+      }
 
       const line = db.prepare(
         'SELECT * FROM invoice_items WHERE invoice_id = ? AND line_no = ?'
@@ -260,6 +261,13 @@ invoicesRouter.patch('/:id/items/:lineNo',
       const newUomQty = req.body.uom_qty ?? line.uom_qty;
       const newQty    = req.body.qty ?? line.qty;
       const newLineTotal = Math.round(newRate * newUomQty * newQty);
+      const qtyDelta = newQty - line.qty;
+      if (qtyDelta > 0 && line.product_id) {
+        const product = db.prepare('SELECT stock FROM products WHERE id = ?').get(line.product_id);
+        if (!product || product.stock < qtyDelta) {
+          throw new AppError(`Insufficient stock for ${line.product_id}: have ${product?.stock ?? 0}, need ${qtyDelta} more`, 400);
+        }
+      }
 
       const allLines = db.prepare(
         'SELECT * FROM invoice_items WHERE invoice_id = ? ORDER BY line_no'
@@ -283,6 +291,11 @@ invoicesRouter.patch('/:id/items/:lineNo',
           SET rate_paise = ?, uom_qty = ?, qty = ?, line_total_paise = ?
           WHERE invoice_id = ? AND line_no = ?
         `).run(newRate, newUomQty, newQty, newLineTotal, id, Number(lineNo));
+
+        // The invoice took qty out of stock when it was raised; keep that in step.
+        if (qtyDelta !== 0 && line.product_id) {
+          db.prepare('UPDATE products SET stock = stock - ? WHERE id = ?').run(qtyDelta, line.product_id);
+        }
 
         db.prepare(`
           UPDATE invoices SET

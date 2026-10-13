@@ -7,10 +7,11 @@ import {
 import { DataGridTable } from '@/components/DataGridTable';
 import { formatINR } from '@/utils/format';
 import { useToastStore, useAuthStore } from '@/store';
+import { todayIST } from '../utils/format';
 
 type Tab = 'receivable' | 'payments' | 'dcn' | 'ledger';
 
-const BLANK_DCN = { type: 'credit', customer_id: '', ref_invoice_id: '', amount_paise: 0, reason: '', date: new Date().toISOString().slice(0, 10) };
+const BLANK_DCN = { type: 'credit', customer_id: '', ref_invoice_id: '', amount_paise: 0, reason: '', date: todayIST() };
 
 export function AccountsPage() {
   const [activeTab, setActiveTab] = useState<Tab>('receivable');
@@ -54,8 +55,9 @@ export function AccountsPage() {
   const unpaidInvoices = invoices.filter((inv) => !inv.paid);
   const paidInvoices = invoices.filter((inv) => inv.paid);
 
-  const totalReceivable = unpaidInvoices.reduce((sum, inv) => sum + inv.total_paise, 0);
-  const totalCollected = paidInvoices.reduce((sum, inv) => sum + inv.total_paise, 0);
+  // Part-payments count: what is owed is the balance, what is collected is what came in.
+  const totalReceivable = unpaidInvoices.reduce((sum, inv) => sum + inv.total_paise - (inv.received_paise ?? 0), 0);
+  const totalCollected = invoices.reduce((sum, inv) => sum + (inv.received_paise ?? (inv.paid ? inv.total_paise : 0)), 0);
   const totalPayments = payments.reduce((sum, p) => sum + p.amount_paise, 0);
 
   const handleCreateDCN = async (e: React.FormEvent) => {

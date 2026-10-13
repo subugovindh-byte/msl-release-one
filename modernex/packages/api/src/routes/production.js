@@ -179,7 +179,7 @@ productionRouter.post('/',
         const existingJob = db.prepare(`
           SELECT ji.job_id FROM production_job_inputs ji
           JOIN production_jobs j ON j.id = ji.job_id
-          WHERE ji.product_id = ? AND j.stage = ? AND j.date = date('now')
+          WHERE ji.product_id = ? AND j.stage = ? AND j.date = date('now', 'localtime')
           LIMIT 1
         `).get(i.product_id, b.stage);
         if (existingJob) {
@@ -247,7 +247,7 @@ productionRouter.post('/',
             labour_paise, power_paise, consumables_paise, yield_pct,
             damage_count, wastage_count, notes,
             created_by
-          ) VALUES (?, ?, ?, ?, date('now'), ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, date('now', 'localtime'), ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           jobId, b.lot_id, b.stage,
           (b.outputs && b.outputs.length > 0) ? 'Complete' : 'In Progress',
@@ -508,7 +508,7 @@ productionRouter.get('/stats/summary', (req, res) => {
       SUM(damage_count)  AS total_damage_count,
       SUM(wastage_count) AS total_wastage_count
     FROM production_jobs
-    WHERE date >= date('now', '-30 days')
+    WHERE date >= date('now', 'localtime', '-30 days')
   `).get();
   res.json({ stats });
 });
@@ -529,7 +529,7 @@ productionRouter.get('/stats/by-stage', (req, res) => {
       AVG(yield_pct)                      AS avg_yield_pct,
       SUM(labour_paise + power_paise + consumables_paise) AS conversion_cost_paise
     FROM production_jobs
-    WHERE date >= date('now', ?)
+    WHERE date >= date('now', 'localtime', ?)
     GROUP BY COALESCE(job_type, stage)
     ORDER BY
       CASE COALESCE(job_type, stage)

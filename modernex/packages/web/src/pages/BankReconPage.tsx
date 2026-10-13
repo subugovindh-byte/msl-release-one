@@ -8,6 +8,7 @@ import {
 } from '@/hooks/useApi';
 import { formatINR } from '@/utils/format';
 import { useToastStore } from '@/store';
+import { todayIST } from '../utils/format';
 
 const EMPTY_ACCOUNT = { name: '', bank_name: '', account_no: '', ifsc: '', branch: '', opening_balance_paise: 0, opening_date: '' };
 
@@ -20,7 +21,7 @@ export function BankReconPage() {
 
   const [selectedBankId, setSelectedBankId] = useState('');
   const [view, setView] = useState<View>('statement');
-  const [asOf, setAsOf] = useState(new Date().toISOString().slice(0, 10));
+  const [asOf, setAsOf] = useState(todayIST());
   const [stmtFilter, setStmtFilter] = useState<{ reconciled?: string; from?: string; to?: string }>({});
   const [showNewAccount, setShowNewAccount] = useState(false);
   const [showImport, setShowImport] = useState(false);

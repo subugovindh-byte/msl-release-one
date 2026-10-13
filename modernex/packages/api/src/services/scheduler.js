@@ -22,7 +22,7 @@ export function startScheduler() {
   cron.schedule('0 */6 * * *', () => {
     const db = getDb();
     const deleted = db.prepare(
-      `DELETE FROM refresh_tokens WHERE expires_at < datetime('now') OR revoked = 1`
+      `DELETE FROM refresh_tokens WHERE datetime(expires_at) < datetime('now') OR revoked = 1`
     ).run();
     if (deleted.changes > 0) {
       logger.info({ count: deleted.changes }, 'Cleaned up expired refresh tokens');

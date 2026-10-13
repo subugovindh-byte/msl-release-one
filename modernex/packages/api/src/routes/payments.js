@@ -6,6 +6,8 @@ import { paymentCreateSchema } from '@modernex/shared';
 import { NotFoundError } from '../middleware/error.js';
 import { audit } from '../services/audit.js';
 import { nextPaymentId } from '../services/idGenerator.js';
+import { today as todayIST } from '../services/dates.js';
+import { checkReceipt, settleInvoice } from '../services/invoiceReceipts.js';
 
 export const paymentsRouter = Router();
 
@@ -42,6 +44,7 @@ paymentsRouter.post('/',
       // apply_advance_paise: amount of vendor advance to deduct (reduces
       // effective payment from cash; the advance covers the rest)
       const applyAdvance = Math.max(0, p.apply_advance_paise || 0);
+      const receiptInvoice = p.type === 'receipt' && p.invoice_id ? checkReceipt(db, p.invoice_id, p.amount_paise) : null;
 
       const tx = db.transaction(() => {
         // Deduct advance from vendor if requested; capture the actual amount used
@@ -70,11 +73,18 @@ paymentsRouter.post('/',
           INSERT INTO payments (id, date, type, invoice_id, po_id, cp_id, party, amount_paise, mode, utr, notes, advance_applied_paise, created_by)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
-          id, p.date || new Date().toISOString().slice(0, 10),
+          id, p.date || todayIST(),
           p.type, p.invoice_id || null, p.po_id || null, p.cp_id || null,
           p.party, p.amount_paise, p.mode, p.utr || null,
           p.notes || null, advanceUsed, req.user.username
         );
+
+        // A receipt against an invoice reduces what the customer owes and may settle it
+        if (receiptInvoice) {
+          db.prepare('UPDATE customers SET outstanding_paise = outstanding_paise - ? WHERE id = ?')
+            .run(p.amount_paise, receiptInvoice.customer_id);
+          settleInvoice(db, p.invoice_id);
+        }
 
         // Auto-update consumable purchase status based on running balance
         if (p.cp_id) {
@@ -109,14 +119,12 @@ paymentsRouter.post('/:id/reverse',
       if (!pay) throw new NotFoundError('Payment not found');
 
       db.transaction(() => {
-        // 1. Invoice receipt → re-open the invoice and restore customer outstanding
-        if (pay.invoice_id) {
-          const inv = db.prepare('SELECT * FROM invoices WHERE id = ?').get(pay.invoice_id);
-          if (inv) {
-            db.prepare("UPDATE invoices SET paid = 0, paid_date = NULL WHERE id = ?").run(pay.invoice_id);
-            db.prepare('UPDATE customers SET outstanding_paise = outstanding_paise + ? WHERE id = ?')
-              .run(pay.amount_paise, inv.customer_id);
-          }
+        // 1. Invoice receipt → restore customer outstanding (the invoice is re-settled below)
+        const inv = pay.invoice_id && pay.type === 'receipt'
+          ? db.prepare('SELECT * FROM invoices WHERE id = ?').get(pay.invoice_id) : null;
+        if (inv) {
+          db.prepare('UPDATE customers SET outstanding_paise = outstanding_paise + ? WHERE id = ?')
+            .run(pay.amount_paise, inv.customer_id);
         }
 
         // 2. Restore any vendor advance that this payment consumed
@@ -132,6 +140,7 @@ paymentsRouter.post('/:id/reverse',
 
         // 3. Remove the payment row (PO balance is computed dynamically from SUM)
         db.prepare('DELETE FROM payments WHERE id = ?').run(req.params.id);
+        if (inv) settleInvoice(db, inv.id);
 
         // 4. Recompute consumable-purchase status from remaining payments
         if (pay.cp_id) {

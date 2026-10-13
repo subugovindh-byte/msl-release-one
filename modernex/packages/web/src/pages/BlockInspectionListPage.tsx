@@ -8,6 +8,7 @@ import { VARIETIES } from '@modernex/shared';
 import { useToastStore, useAuthStore } from '@/store';
 import { numericInputValue, selectOnFocus } from '@/utils/format';
 import { ZoomableImage } from '@/components/PhotoViewer';
+import { todayIST } from '../utils/format';
 
 const inp: React.CSSProperties = {
   background: 'var(--bg1)', border: '1px solid var(--bd)', borderRadius: 5,
@@ -155,7 +156,7 @@ interface FormState {
   block_count: number; est_cft: number; grade: 'A+' | 'A' | 'B'; defect_note: string; notes: string;
 }
 const BLANK = (): FormState => ({
-  date: new Date().toISOString().slice(0, 10), vendor_id: '', quarry_location: '',
+  date: todayIST(), vendor_id: '', quarry_location: '',
   variety: '', block_count: 1, est_cft: 0, grade: 'A', defect_note: '', notes: '',
 });
 
