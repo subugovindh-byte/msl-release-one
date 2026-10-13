@@ -9,7 +9,10 @@ import {
 import { formatINR, numericInputValue, selectOnFocus } from '@/utils/format';
 import { GST_RATE, GST_RATE_LABEL, VARIETIES } from '@modernex/shared';
 import { useToastStore, useAuthStore } from '@/store';
-import { ZoomableImage } from '@/components/PhotoViewer';
+import { PhotoViewer, ZoomableImage } from '@/components/PhotoViewer';
+import { FrameCapture } from '@/components/FrameCapture';
+import { useQueries } from '@tanstack/react-query';
+import { api } from '@/utils/api';
 
 // ── Tiny style helpers ────────────────────────────────────────────────────────
 const inp: React.CSSProperties = {
@@ -62,6 +65,33 @@ function PhotoThumb({ inspId, photoId, caption, canDelete, onDelete }:
       )}
       {caption && <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 3, maxWidth: 80, wordBreak: 'break-all' }}>{caption}</div>}
     </div>
+  );
+}
+
+function InspectionRotation({ inspId, photos }: { inspId: string; photos: any[] }) {
+  const [open, setOpen] = useState(false);
+  const frames = photos.filter((photo: any) => /^360° frame \d+\/\d+$/.test(photo.caption ?? ''));
+  const results = useQueries({
+    queries: frames.map((photo: any) => ({
+      queryKey: ['block-inspections', 'photo', inspId, photo.id],
+      queryFn: () => api.get<any>(`/block-inspections/${inspId.replace(/\//g, '~')}/photos/${photo.id}`),
+      enabled: open,
+    })),
+  });
+  const images = results.flatMap((result, index) => result.data?.photo?.data_url
+    ? [{ url: result.data.photo.data_url, label: `Frame ${index + 1}` }]
+    : []);
+
+  if (frames.length < 4) return null;
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} style={{ ...btn('var(--rustW)', 'var(--rust)', '1px solid var(--rust)'), marginBottom: 12 }}>
+        View 360° rotation ({frames.length} frames)
+      </button>
+      {open && (images.length === frames.length
+        ? <PhotoViewer title="Inspection rotation" images={images} startIndex={0} onClose={() => setOpen(false)} />
+        : <div role="status" style={{ fontSize: 12, color: 'var(--t3)', marginBottom: 12 }}>Loading rotation frames…</div>)}
+    </>
   );
 }
 
@@ -177,6 +207,7 @@ export default function BlockInspectionDetailPage() {
 
   const [editing, setEditing] = useState(false);
   const [showRaisePO, setShowRaisePO] = useState(false);
+  const [showFrameCapture, setShowFrameCapture] = useState(false);
   const [captionInput, setCaptionInput] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -219,6 +250,23 @@ export default function BlockInspectionDetailPage() {
       );
     };
     reader.readAsDataURL(file);
+  };
+
+  const saveRotationFrames = async (frames: string[]) => {
+    if (photos.length + frames.length > 36) {
+      toast('A rotation would exceed the 36-photo inspection limit', 'error');
+      return;
+    }
+    setShowFrameCapture(false);
+    for (const [index, data_url] of frames.entries()) {
+      try {
+        await addPhoto.mutateAsync({ id, data_url, caption: `360° frame ${index + 1}/${frames.length}` });
+      } catch (e: any) {
+        toast(e.response?.data?.error || `Could not save frame ${index + 1}`, 'error');
+        return;
+      }
+    }
+    toast(`${frames.length}-frame rotation saved`, 'success');
   };
 
   const handleApprove = () => {
@@ -343,7 +391,17 @@ export default function BlockInspectionDetailPage() {
 
       {/* ─── Photos ─── */}
       <div style={{ ...card, marginTop: 12 }}>
-        <h3 style={{ margin: '0 0 12px', }}>Photos ({photos.length}/10)</h3>
+        <h3 style={{ margin: '0 0 12px', }}>Photos ({photos.length}/36)</h3>
+        <InspectionRotation inspId={id} photos={photos} />
+        {showFrameCapture && (
+          <div style={{ marginBottom: 14 }}>
+            <FrameCapture
+              variety={`${insp.variety || 'Block'} inspection`}
+              onCancel={() => setShowFrameCapture(false)}
+              onDone={saveRotationFrames}
+            />
+          </div>
+        )}
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           {photos.map((p: any) => (
             <PhotoThumb
@@ -355,7 +413,7 @@ export default function BlockInspectionDetailPage() {
             />
           ))}
         </div>
-        {canWrite && isPending && photos.length < 10 && (
+        {canWrite && isPending && photos.length < 36 && (
           <div style={{ marginTop: 14 }}>
             <input
               style={{ ...inp, fontSize: 13, marginBottom: 8 }}
@@ -368,6 +426,10 @@ export default function BlockInspectionDetailPage() {
             <button style={{ ...btn('var(--rust)'), width: '100%' }} onClick={() => fileRef.current?.click()}
               disabled={addPhoto.isPending}>
               {addPhoto.isPending ? 'Uploading…' : '⊙ Add Photo'}
+            </button>
+            <button type="button" style={{ ...btn('var(--rustW)', 'var(--rust)', '1px solid var(--rust)'), width: '100%', marginTop: 8 }}
+              onClick={() => setShowFrameCapture(true)}>
+              360° Capture rotation
             </button>
           </div>
         )}

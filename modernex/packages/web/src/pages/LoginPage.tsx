@@ -1,9 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore, useThemeStore, useToastStore } from '@/store';
-import { useForgotPassword, useResetPassword } from '@/hooks/useApi';
+import { useForgotPassword, useResetPassword, useVerifyRecoveryAnswer } from '@/hooks/useApi';
 
-type ForgotStep = 'idle' | 'request' | 'reset';
+type ForgotStep = 'idle' | 'request' | 'answer' | 'reset';
 
 export function LoginPage() {
   const [username, setUsername] = useState('');
@@ -12,11 +12,14 @@ export function LoginPage() {
 
   const [forgotStep, setForgotStep] = useState<ForgotStep>('idle');
   const [forgotUsername, setForgotUsername] = useState('');
+  const [recoveryHint, setRecoveryHint] = useState('');
+  const [recoveryAnswer, setRecoveryAnswer] = useState('');
   const [resetToken, setResetToken] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
   const forgotPassword = useForgotPassword();
+  const verifyRecoveryAnswer = useVerifyRecoveryAnswer();
   const resetPassword  = useResetPassword();
 
   const { login } = useAuthStore();
@@ -28,14 +31,28 @@ export function LoginPage() {
     e.preventDefault();
     try {
       const res: any = await forgotPassword.mutateAsync(forgotUsername);
-      if (res?.reset_token) {
+      if (res?.requires_answer && res.hint) {
+        setRecoveryHint(res.hint);
+        setForgotStep('answer');
+      } else if (res?.reset_token) {
         setResetToken(res.reset_token);
         setForgotStep('reset');
       } else {
-        notify('If the username exists a reset token was generated — contact admin', 'info');
+        notify(res?.requires_setup
+          ? 'Password recovery is not set up for this account. Contact an administrator to reset it.'
+          : 'If the username exists, contact an administrator for password recovery.', 'info');
         setForgotStep('idle');
       }
     } catch (err: any) { notify(err.message || 'Failed', 'error'); }
+  };
+
+  const handleRecoveryAnswer = async (e: FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await verifyRecoveryAnswer.mutateAsync({ username: forgotUsername, answer: recoveryAnswer });
+      setResetToken(res.reset_token);
+      setForgotStep('reset');
+    } catch (err: any) { notify(err.message || 'Recovery details could not be verified', 'error'); }
   };
 
   const handleResetSubmit = async (e: FormEvent) => {
@@ -148,7 +165,7 @@ export function LoginPage() {
         {forgotStep === 'request' && (
           <form onSubmit={handleForgotRequest}>
             <p style={{ fontSize: 13, color: 'var(--t2)', marginTop: 0, marginBottom: 14 }}>
-              Enter your username. A reset token will be generated — note it down and use it on the next step.
+              Enter your username to look up your password recovery hint.
             </p>
             <div className="fg">
               <label className="fl">Username</label>
@@ -158,7 +175,7 @@ export function LoginPage() {
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn btn-p" type="submit" style={{ flex: 1 }}
                 disabled={forgotPassword.isPending}>
-                {forgotPassword.isPending ? 'Generating…' : 'Get Reset Token'}
+                {forgotPassword.isPending ? 'Checking…' : 'Continue'}
               </button>
               <button type="button" className="btn"
                 style={{ flex: 1, background: 'var(--bg3)', color: 'var(--t2)', border: '1px solid var(--bd)' }}
@@ -169,16 +186,36 @@ export function LoginPage() {
           </form>
         )}
 
+        {forgotStep === 'answer' && (
+          <form onSubmit={handleRecoveryAnswer}>
+            <p style={{ fontSize: 13, color: 'var(--t2)', marginTop: 0, marginBottom: 14 }}>
+              Recovery hint: <strong>{recoveryHint}</strong>
+            </p>
+            <div className="fg">
+              <label className="fl">Recovery Answer</label>
+              <input className="fi" type="password" required autoFocus autoComplete="off"
+                value={recoveryAnswer} onChange={e => setRecoveryAnswer(e.target.value)} />
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-p" type="submit" style={{ flex: 1 }} disabled={verifyRecoveryAnswer.isPending}>
+                {verifyRecoveryAnswer.isPending ? 'Verifying…' : 'Verify Answer'}
+              </button>
+              <button type="button" className="btn" style={{ flex: 1, background: 'var(--bg3)', color: 'var(--t2)', border: '1px solid var(--bd)' }}
+                onClick={() => { setForgotStep('idle'); setRecoveryAnswer(''); setRecoveryHint(''); }}>Cancel</button>
+            </div>
+          </form>
+        )}
+
         {forgotStep === 'reset' && (
           <form onSubmit={handleResetSubmit}>
             <p style={{ fontSize: 13, color: 'var(--t2)', marginTop: 0, marginBottom: 14 }}>
-              Token generated. Enter it below along with your new password.
+              {resetToken ? 'Set a new password below.' : 'Enter your reset token and new password.'}
             </p>
-            <div className="fg">
+            {!resetToken && <div className="fg">
               <label className="fl">Reset Token</label>
               <input className="fi" type="text" required
                 value={resetToken} onChange={e => setResetToken(e.target.value)} />
-            </div>
+            </div>}
             <div className="fg">
               <label className="fl">New Password</label>
               <input className="fi" type="password" required minLength={8}

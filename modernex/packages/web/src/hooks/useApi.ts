@@ -402,7 +402,14 @@ export function useResetAllPasswords() {
 export function useForgotPassword() {
   return useMutation({
     mutationFn: (username: string) =>
-      api.post<{ ok: boolean; reset_token?: string; expires_in?: number }>('/auth/forgot-password', { username }),
+      api.post<{ ok: boolean; hint?: string; requires_answer?: boolean; requires_setup?: boolean }>('/auth/forgot-password', { username }),
+  });
+}
+
+export function useVerifyRecoveryAnswer() {
+  return useMutation({
+    mutationFn: ({ username, answer }: { username: string; answer: string }) =>
+      api.post<{ ok: boolean; reset_token: string; expires_in: number }>('/auth/verify-recovery-answer', { username, answer }),
   });
 }
 
@@ -433,6 +440,15 @@ export function useChangeOwnPassword() {
   return useMutation({
     mutationFn: ({ current_password, new_password }: { current_password: string; new_password: string }) =>
       api.post<{ ok: boolean }>('/users/me/change-password', { current_password, new_password }),
+  });
+}
+
+export function useSetPasswordRecovery() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { current_password: string; hint: string; answer: string }) =>
+      api.put<{ ok: boolean; hint: string }>('/users/me/password-recovery', data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['profile', 'me'] }); },
   });
 }
 

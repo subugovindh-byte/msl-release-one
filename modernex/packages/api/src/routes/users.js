@@ -329,13 +329,44 @@ selfServiceRouter.get('/me', (req, res, next) => {
   try {
     const db = getDb();
     const user = db.prepare(
-      'SELECT id, username, full_name, role, email, phone, address, contact, last_login, created_at FROM users WHERE id = ?'
+      `SELECT u.id, u.username, u.full_name, u.role, u.email, u.phone, u.address, u.contact, u.last_login, u.created_at,
+              pra.hint AS password_recovery_hint
+       FROM users u LEFT JOIN password_recovery_answers pra ON pra.user_id = u.id
+       WHERE u.id = ?`
     ).get(req.user.id);
     if (!user) return next(new NotFoundError('User not found'));
     const roles = db.prepare(
       'SELECT r.id, r.name, r.description FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = ?'
     ).all(req.user.id);
     res.json({ user: { ...user, roles } });
+  } catch (err) { next(err); }
+});
+
+// PUT /users/me/password-recovery — answer is stored only as a bcrypt hash.
+selfServiceRouter.put('/me/password-recovery', async (req, res, next) => {
+  try {
+    const { current_password, hint, answer } = req.body ?? {};
+    if (!current_password || !hint || !answer) {
+      throw new AppError('Current password, hint, and answer are required', 400);
+    }
+    const cleanHint = String(hint).trim();
+    const cleanAnswer = String(answer).trim().toLocaleLowerCase('en-US');
+    if (cleanHint.length < 3 || cleanHint.length > 120) throw new AppError('Hint must be 3–120 characters', 400);
+    if (cleanAnswer.length < 2 || cleanAnswer.length > 200) throw new AppError('Answer must be 2–200 characters', 400);
+
+    const db = getDb();
+    const user = db.prepare('SELECT password_hash FROM users WHERE id = ? AND active = 1').get(req.user.id);
+    if (!user || !(await bcrypt.compare(current_password, user.password_hash))) {
+      throw new AppError('Current password is incorrect', 401);
+    }
+    const answerHash = await bcrypt.hash(cleanAnswer, config.bcryptRounds);
+    db.prepare(`
+      INSERT INTO password_recovery_answers (user_id, hint, answer_hash, updated_at)
+      VALUES (?, ?, ?, datetime('now'))
+      ON CONFLICT(user_id) DO UPDATE SET hint = excluded.hint, answer_hash = excluded.answer_hash, updated_at = datetime('now')
+    `).run(req.user.id, cleanHint, answerHash);
+    audit(req, 'PASSWORD_RECOVERY_UPDATED', 'users', req.user.id, null, { hint: cleanHint });
+    res.json({ ok: true, hint: cleanHint });
   } catch (err) { next(err); }
 });
 

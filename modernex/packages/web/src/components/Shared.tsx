@@ -2,8 +2,85 @@
 // Shared UI Components
 // ══════════════════════════════════════════════════════
 
-import React, { type ReactNode, useRef, useState, useCallback } from 'react';
+import React, { type ReactNode, useRef, useState, useCallback, useEffect } from 'react';
 import { ZoomableImage } from '@/components/PhotoViewer';
+
+function ReceiptCamera({ onCapture, onClose }: {
+  onCapture: (dataUri: string) => void;
+  onClose: () => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [ready, setReady] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' } }, audio: false,
+        });
+        if (cancelled) {
+          stream.getTracks().forEach(track => track.stop());
+          return;
+        }
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play().catch(() => {});
+        }
+        setReady(true);
+      } catch (e: any) {
+        setError(e?.name === 'NotAllowedError'
+          ? 'Camera permission was denied. Choose an image from your library instead.'
+          : 'No camera is available. Choose an image from your library instead.');
+      }
+    })();
+    return () => {
+      cancelled = true;
+      streamRef.current?.getTracks().forEach(track => track.stop());
+    };
+  }, []);
+
+  function capture() {
+    const video = videoRef.current;
+    if (!video?.videoWidth) return;
+    const scale = Math.min(1, 1600 / Math.max(video.videoWidth, video.videoHeight));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(video.videoWidth * scale);
+    canvas.height = Math.round(video.videoHeight * scale);
+    const context = canvas.getContext('2d');
+    if (!context) return;
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    onCapture(canvas.toDataURL('image/jpeg', 0.85));
+  }
+
+  return (
+    <div role="dialog" aria-modal="true" aria-label="Take receipt photo" style={{
+      position: 'fixed', inset: 0, zIndex: 1300, background: 'rgba(0,0,0,.88)',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 16,
+    }}>
+      <div style={{ width: '100%', maxWidth: 640, background: '#111', borderRadius: 8, overflow: 'hidden' }}>
+        {error ? (
+          <p role="alert" style={{ color: '#fff', padding: 24, margin: 0, textAlign: 'center' }}>{error}</p>
+        ) : (
+          <video ref={videoRef} playsInline muted style={{ width: '100%', maxHeight: '70vh', display: 'block', objectFit: 'contain' }} />
+        )}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 10, padding: 12 }}>
+          <button type="button" onClick={onClose} style={{ padding: '8px 16px', borderRadius: 6, border: '1px solid var(--bd)', background: 'transparent', color: '#fff', cursor: 'pointer' }}>
+            Cancel
+          </button>
+          {!error && (
+            <button type="button" onClick={capture} disabled={!ready} style={{ padding: '8px 16px', borderRadius: 6, border: 0, background: 'var(--rust)', color: '#fff', cursor: ready ? 'pointer' : 'wait', opacity: ready ? 1 : 0.55 }}>
+              Capture Photo
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── Button ───
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -381,8 +458,8 @@ interface ReceiptAttachProps {
 
 export function ReceiptAttach({ value, onChange, onClear, maxSizeMB = 5 }: ReceiptAttachProps) {
   const fileRef   = useRef<HTMLInputElement>(null);
-  const cameraRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
 
   const readFile = useCallback((file: File) => {
     if (file.size > maxSizeMB * 1024 * 1024) {
@@ -438,7 +515,7 @@ export function ReceiptAttach({ value, onChange, onClear, maxSizeMB = 5 }: Recei
           </a>
           <button
             type="button"
-            onClick={() => { onClear(); if (fileRef.current) fileRef.current.value = ''; if (cameraRef.current) cameraRef.current.value = ''; }}
+            onClick={() => { onClear(); if (fileRef.current) fileRef.current.value = ''; }}
             style={{ fontSize: 11, color: 'var(--t3)', background: 'none', border: '1px solid var(--bd)', borderRadius: 4, padding: '3px 10px', cursor: 'pointer' }}
           >
             Remove
@@ -469,15 +546,7 @@ export function ReceiptAttach({ value, onChange, onClear, maxSizeMB = 5 }: Recei
         transition: 'border-color 0.15s, background-color 0.15s',
       }}
     >
-      {/* Hidden inputs */}
-      <input
-        ref={cameraRef}
-        type="file"
-        accept="image/*"
-        {...{ capture: 'environment' } as any}
-        style={{ display: 'none' }}
-        onChange={e => e.target.files?.[0] && readFile(e.target.files[0])}
-      />
+      {/* Separate photo-library and general-file inputs; capture is intentionally omitted. */}
       <input
         ref={fileRef}
         type="file"
@@ -489,7 +558,7 @@ export function ReceiptAttach({ value, onChange, onClear, maxSizeMB = 5 }: Recei
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
         <button
           type="button"
-          onClick={() => cameraRef.current?.click()}
+          onClick={() => setCameraOpen(true)}
           style={{
             display: 'flex', alignItems: 'center', gap: 7,
             padding: '8px 16px', border: '1px solid var(--bd)', borderRadius: 6,
@@ -509,12 +578,35 @@ export function ReceiptAttach({ value, onChange, onClear, maxSizeMB = 5 }: Recei
             cursor: 'pointer', fontSize: 13, fontWeight: 600,
           }}
         >
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+            <circle cx="9" cy="9.5" r="1.5" />
+            <path d="m5 17 5-4 3 2 3-3 3 5" />
+          </svg>
+          Photo Library
+        </button>
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 7,
+            padding: '8px 16px', border: '1px solid var(--bd)', borderRadius: 6,
+            backgroundColor: 'var(--bg1)', color: 'var(--t2)',
+            cursor: 'pointer', fontSize: 13, fontWeight: 600,
+          }}
+        >
           <span style={{ fontSize: 16 }}>📎</span> Choose File
         </button>
         <span style={{ fontSize: 11, color: 'var(--t3)' }}>
           or drag & drop · image / PDF · max {maxSizeMB} MB
         </span>
       </div>
+      {cameraOpen && (
+        <ReceiptCamera
+          onCapture={dataUri => { onChange(dataUri); setCameraOpen(false); }}
+          onClose={() => setCameraOpen(false)}
+        />
+      )}
     </div>
   );
 }

@@ -8,7 +8,10 @@ import { VARIETIES } from '@modernex/shared';
 import { useToastStore, useAuthStore } from '@/store';
 import { numericInputValue, selectOnFocus } from '@/utils/format';
 import { ZoomableImage } from '@/components/PhotoViewer';
+import { FrameCapture } from '@/components/FrameCapture';
 import { todayIST } from '../utils/format';
+
+const MAX_INSPECTION_PHOTOS = 36;
 
 const inp: React.CSSProperties = {
   background: 'var(--bg1)', border: '1px solid var(--bd)', borderRadius: 5,
@@ -167,6 +170,7 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
+  const [showFrameCapture, setShowFrameCapture] = useState(false);
   const photoRef = useRef<HTMLInputElement>(null);    // native camera fallback
   const galleryRef = useRef<HTMLInputElement>(null);  // gallery
   const create = useCreateBlockInspection();
@@ -198,8 +202,8 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
   const addFiles = (files: File[]) => {
     const images = files.filter(f => f.type.startsWith('image/'));
     if (!images.length) return;
-    const room = 10 - photos.length;
-    if (room <= 0) { toast('Maximum 10 photos', 'error'); return; }
+    const room = MAX_INSPECTION_PHOTOS - photos.length;
+    if (room <= 0) { toast(`Maximum ${MAX_INSPECTION_PHOTOS} photos`, 'error'); return; }
     images.slice(0, room).forEach(file => {
       if (file.size > 4 * 1024 * 1024) { toast(`${file.name || 'Photo'} is over 4 MB`, 'error'); return; }
       const reader = new FileReader();
@@ -211,8 +215,19 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
     addFiles(Array.from(e.target.files ?? []));
     e.target.value = '';
   };
-  const pushDataUrl = (dataUrl: string) => setPhotos(p => (p.length >= 10 ? p : [...p, { data_url: dataUrl, caption: '' }]));
+  const pushDataUrl = (dataUrl: string) => setPhotos(p => (p.length >= MAX_INSPECTION_PHOTOS ? p : [...p, { data_url: dataUrl, caption: '' }]));
   const removePhoto = (idx: number) => setPhotos(p => p.filter((_, i) => i !== idx));
+  const addRotationFrames = (frames: string[]) => {
+    if (photos.length + frames.length > MAX_INSPECTION_PHOTOS) {
+      toast(`A rotation would exceed the ${MAX_INSPECTION_PHOTOS}-photo limit`, 'error');
+      return;
+    }
+    setPhotos(current => [
+      ...current,
+      ...frames.map((data_url, i) => ({ data_url, caption: `360° frame ${i + 1}/${frames.length}` })),
+    ]);
+    setShowFrameCapture(false);
+  };
 
   // Take a photo: prefer live getUserMedia (works on Mac webcam + mobile);
   // fall back to the native file-capture input if the API is unavailable.
@@ -400,7 +415,17 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
           value={form.notes} placeholder="Any other remark…" onChange={e => set('notes', e.target.value)} />
 
         {/* ── PHOTOS ── */}
-        <label style={lbl}>Photos <span style={{ fontWeight:400, textTransform:'none' }}>({photos.length}/10)</span></label>
+        <label style={lbl}>Photos <span style={{ fontWeight:400, textTransform:'none' }}>({photos.length}/{MAX_INSPECTION_PHOTOS})</span></label>
+
+        {showFrameCapture ? (
+          <div style={{ marginBottom: 16 }}>
+            <FrameCapture
+              variety={`${form.variety || 'Block'} inspection`}
+              onCancel={() => setShowFrameCapture(false)}
+              onDone={addRotationFrames}
+            />
+          </div>
+        ) : null}
 
         {/* Hidden inputs — camera must NOT be `multiple` (mobile browsers ignore
             `capture` when multiple is set, falling back to the gallery picker) */}
@@ -425,7 +450,7 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
           ))}
 
           {/* Add / dropzone tile */}
-          {photos.length < 10 && (
+          {photos.length < MAX_INSPECTION_PHOTOS && (
             <button type="button"
               onClick={() => galleryRef.current?.click()}
               onDragOver={e => { e.preventDefault(); setDragOver(true); }}
@@ -446,11 +471,17 @@ function NewInspectionModal({ vendors, onClose }: { vendors: any[]; onClose: () 
         </div>
 
         {/* Camera shortcut — live webcam (Mac) / rear camera (mobile) */}
-        {photos.length < 10 && (
-          <button type="button" onClick={openCamera}
-            style={{ ...btn('transparent', 'var(--t2)', '1px solid var(--bd)'), width:'100%', fontSize:13, padding:'10px 0', marginBottom:18, display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
-            <span style={{ fontSize:15 }}>⊙</span> Take a photo
-          </button>
+        {photos.length < MAX_INSPECTION_PHOTOS && (
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:18 }}>
+            <button type="button" onClick={openCamera}
+              style={{ ...btn('transparent', 'var(--t2)', '1px solid var(--bd)'), fontSize:13, padding:'10px 0', display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+              <span style={{ fontSize:15 }}>⊙</span> Take a photo
+            </button>
+            <button type="button" onClick={() => setShowFrameCapture(true)}
+              style={{ ...btn('var(--rustW)', 'var(--rust)', '1px solid var(--rust)'), fontSize:13, padding:'10px 0', display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+              <span aria-hidden="true">360°</span> Capture rotation
+            </button>
+          </div>
         )}
 
         {/* ── Actions ── */}
