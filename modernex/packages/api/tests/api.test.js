@@ -100,6 +100,38 @@ describe('API integration', () => {
     cookies = res.headers['set-cookie'];
   });
 
+  it('password recovery requires an answer before issuing a reset token', async () => {
+    const unenrolled = await request(app).post('/api/auth/forgot-password').send({ username: 'admin' });
+    expect(unenrolled.status).toBe(200);
+    expect(unenrolled.body).toMatchObject({ ok: true, requires_setup: true });
+    expect(unenrolled.body.reset_token).toBeUndefined();
+
+    const setup = await request(app)
+      .put('/api/users/me/password-recovery')
+      .set('Cookie', cookies)
+      .send({ current_password: 'admin123', hint: 'First school', answer: 'River stone' });
+    expect(setup.status).toBe(200);
+    expect(setup.body.hint).toBe('First school');
+    expect(setup.body.answer_hash).toBeUndefined();
+
+    const lookup = await request(app).post('/api/auth/forgot-password').send({ username: 'admin' });
+    expect(lookup.status).toBe(200);
+    expect(lookup.body).toMatchObject({ requires_answer: true, hint: 'First school' });
+    expect(lookup.body.reset_token).toBeUndefined();
+
+    const unknown = await request(app).post('/api/auth/forgot-password').send({ username: 'missing-user' });
+    expect(unknown.body).toEqual(unenrolled.body);
+
+    const wrong = await request(app).post('/api/auth/verify-recovery-answer')
+      .send({ username: 'admin', answer: 'wrong answer' });
+    expect(wrong.status).toBe(400);
+
+    const verified = await request(app).post('/api/auth/verify-recovery-answer')
+      .send({ username: 'admin', answer: '  RIVER STONE  ' });
+    expect(verified.status).toBe(200);
+    expect(verified.body.reset_token).toMatch(/^[a-f0-9]{32}$/);
+  });
+
   it('GET /api/products requires auth', async () => {
     const res = await request(app).get('/api/products');
     expect(res.status).toBe(401);

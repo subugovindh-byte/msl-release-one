@@ -197,26 +197,48 @@ authRouter.post('/forgot-password', authLimiter, async (req, res, next) => {
     if (!username) throw new AppError('Username required', 400);
 
     const db = getDb();
-    const user = db.prepare('SELECT id FROM users WHERE username = ? AND active = 1').get(username);
+    const user = db.prepare(`
+      SELECT u.id, pra.hint
+      FROM users u LEFT JOIN password_recovery_answers pra ON pra.user_id = u.id
+      WHERE u.username = ? AND u.active = 1
+    `).get(username);
 
     if (!user) {
       // Constant-time fail — don't reveal whether the username exists
       await bcrypt.hash('dummy', config.bcryptRounds);
-      return res.json({ ok: true });
+      return res.json({ ok: true, requires_setup: true });
     }
 
-    // Invalidate any existing unused tokens for this user
-    db.prepare('UPDATE password_reset_tokens SET used = 1 WHERE user_id = ? AND used = 0').run(user.id);
+    if (!user.hint) {
+      await bcrypt.hash(username, config.bcryptRounds);
+      return res.json({ ok: true, requires_setup: true });
+    }
+    res.json({ ok: true, hint: user.hint, requires_answer: true });
+  } catch (err) { next(err); }
+});
 
+// ─── POST /auth/verify-recovery-answer ───
+authRouter.post('/verify-recovery-answer', authLimiter, async (req, res, next) => {
+  try {
+    const username = String(req.body?.username ?? '');
+    const answer = String(req.body?.answer ?? '').trim().toLocaleLowerCase('en-US');
+    if (!username || !answer) throw new AppError('Username and answer required', 400);
+
+    const db = getDb();
+    const user = db.prepare(`
+      SELECT u.id, pra.answer_hash
+      FROM users u JOIN password_recovery_answers pra ON pra.user_id = u.id
+      WHERE u.username = ? AND u.active = 1
+    `).get(username);
+    const valid = user ? await bcrypt.compare(answer, user.answer_hash) : await bcrypt.compare(answer, '$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy');
+    if (!user || !valid) return res.status(400).json({ error: 'Recovery details could not be verified' });
+
+    db.prepare('UPDATE password_reset_tokens SET used = 1 WHERE user_id = ? AND used = 0').run(user.id);
     const tokenId = crypto.randomBytes(16).toString('hex');
     const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
-
-    db.prepare(
-      'INSERT INTO password_reset_tokens (id, user_id, expires_at) VALUES (?, ?, ?)'
-    ).run(tokenId, user.id, expiresAt);
-
-    audit(req, 'PASSWORD_RESET_REQUEST', 'users', user.id, null, { username });
-
+    db.prepare('INSERT INTO password_reset_tokens (id, user_id, expires_at) VALUES (?, ?, ?)')
+      .run(tokenId, user.id, expiresAt);
+    audit(req, 'PASSWORD_RECOVERY_ANSWER_VERIFIED', 'users', user.id, null, null);
     res.json({ ok: true, reset_token: tokenId, expires_in: 1800 });
   } catch (err) { next(err); }
 });

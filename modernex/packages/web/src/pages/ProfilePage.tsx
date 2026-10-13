@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useMyProfile, useUpdateProfile, useChangeOwnPassword } from '@/hooks/useApi';
+import { useMyProfile, useUpdateProfile, useChangeOwnPassword, useSetPasswordRecovery } from '@/hooks/useApi';
 import { useToastStore } from '@/store';
 import { PageHeader } from '@/components/Shared';
 
@@ -8,6 +8,7 @@ export function ProfilePage() {
   const { data, isLoading } = useMyProfile();
   const updateProfile = useUpdateProfile();
   const changePassword = useChangeOwnPassword();
+  const setPasswordRecovery = useSetPasswordRecovery();
 
   const user = (data as any)?.user ?? {};
 
@@ -15,6 +16,7 @@ export function ProfilePage() {
     full_name: '', email: '', phone: '', address: '', contact: '',
   });
   const [pw, setPw] = useState({ current: '', next: '', confirm: '' });
+  const [recovery, setRecovery] = useState({ current: '', hint: '', answer: '' });
   const [profileDirty, setProfileDirty] = useState(false);
 
   useEffect(() => {
@@ -54,13 +56,26 @@ export function ProfilePage() {
     } catch (err: any) { notify(err.message || 'Failed to change password', 'error'); }
   }
 
+  async function saveRecovery(e: React.FormEvent) {
+    e.preventDefault();
+    try {
+      await setPasswordRecovery.mutateAsync({
+        current_password: recovery.current,
+        hint: recovery.hint,
+        answer: recovery.answer,
+      });
+      notify('Password recovery hint and answer saved', 'success');
+      setRecovery({ current: '', hint: '', answer: '' });
+    } catch (err: any) { notify(err.message || 'Failed to save recovery details', 'error'); }
+  }
+
   if (isLoading) return <div className="page"><p style={{ color: 'var(--t3)' }}>Loading…</p></div>;
 
   return (
     <div className="page">
       <PageHeader title="My Profile" subtitle="Update your personal details and password" />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: 24, alignItems: 'start' }}>
 
         {/* ── Profile details ── */}
         <div style={card}>
@@ -102,6 +117,33 @@ export function ProfilePage() {
               disabled={updateProfile.isPending || !profileDirty}
               style={{ alignSelf: 'flex-start' }}>
               {updateProfile.isPending ? 'Saving…' : 'Save Profile'}
+            </button>
+          </form>
+        </div>
+
+        <div style={card}>
+          <div style={sectionTitle}>Password Recovery</div>
+          <p style={{ color: 'var(--t3)', fontSize: 12, marginTop: -8 }}>
+            Set a private answer and a reminder hint. The answer is stored as a one-way hash.
+          </p>
+          {user.password_recovery_hint && (
+            <p style={{ color: 'var(--t2)', fontSize: 13 }}>Current hint: <strong>{user.password_recovery_hint}</strong></p>
+          )}
+          <form onSubmit={saveRecovery} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <Field label="Current Password *">
+              <input className="fi" type="password" required autoComplete="current-password" value={recovery.current}
+                onChange={e => setRecovery(r => ({ ...r, current: e.target.value }))} />
+            </Field>
+            <Field label="Recovery Hint *">
+              <input className="fi" type="text" required minLength={3} maxLength={120} value={recovery.hint}
+                onChange={e => setRecovery(r => ({ ...r, hint: e.target.value }))} placeholder="A reminder only you understand" />
+            </Field>
+            <Field label="Recovery Answer *">
+              <input className="fi" type="password" required minLength={2} maxLength={200} value={recovery.answer}
+                onChange={e => setRecovery(r => ({ ...r, answer: e.target.value }))} autoComplete="off" />
+            </Field>
+            <button type="submit" className="btn btn-p" disabled={setPasswordRecovery.isPending || !recovery.current || !recovery.hint || !recovery.answer} style={{ alignSelf: 'flex-start' }}>
+              {setPasswordRecovery.isPending ? 'Saving…' : 'Save Recovery Details'}
             </button>
           </form>
         </div>

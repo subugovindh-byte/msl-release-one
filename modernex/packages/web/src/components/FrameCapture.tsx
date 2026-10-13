@@ -120,8 +120,15 @@ export function FrameCapture({
           ))}
         </span>
         <button style={btn()} onClick={() => setGhost(g => !g)} aria-pressed={ghost}
-                title="Ghost the previous frame over the preview to keep framing steady">
-          {ghost ? 'Ghost on' : 'Ghost off'}
+                aria-label={ghost ? 'Turn off previous-frame overlay' : 'Turn on previous-frame overlay'}
+                title="Overlay the previous frame to keep framing steady">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M12 3.5c-4.4 0-7.5 3.1-7.5 7.4v8.6l3.2-2 2.2 2 2.1-2 2.2 2 2.2-2 3.1 2v-8.6c0-4.3-3.1-7.4-7.5-7.4Z" />
+            <circle cx="9" cy="11" r="1" fill="currentColor" stroke="none" />
+            <circle cx="15" cy="11" r="1" fill="currentColor" stroke="none" />
+            <path d="M9 15h6" />
+          </svg>
+          {ghost ? 'Overlay on' : 'Overlay off'}
         </button>
         <button style={btn()} onClick={onCancel}>Cancel</button>
       </div>
