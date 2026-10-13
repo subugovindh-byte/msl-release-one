@@ -199,4 +199,91 @@ describe('API integration', () => {
       .send({ mode: 'NEFT', referenceNo: 'TESTUTR123', amountPaise: 100000 });
     expect([200, 404]).toContain(res.status); // 404 if endpoint not implemented yet
   });
+  it('Payroll: PT within ₹2,500 a year, TDS on the declared regime', async () => {
+    const emp = await request(app).post('/api/payroll/employees').set('Cookie', cookies).send({
+      name: 'Test Manager', joining_date: '2020-04-01', basic_salary_paise: 10000000, hra_paise: 4000000,
+      conveyance_paise: 0, other_allowance_paise: 6000000, pf_applicable: true, esi_applicable: false, pt_applicable: true,
+    });
+    expect(emp.status).toBe(201);
+    const empId = emp.body.employee.id;
+    // ₹2,00,000 a month; old regime with ₹1.5L 80C and ₹3L rent in a non-metro
+    const decl = await request(app).post(`/api/payroll/employees/${empId}/tax-declaration`).set('Cookie', cookies)
+      .send({ fy: '2026-27', tax_regime: 'old', sec_80c_paise: 15000000, hra_rent_paid_annual: 30000000 });
+    expect(decl.status).toBe(200);
+    expect(decl.body.declaration.tax_regime).toBe('old');
+
+    const run = await request(app).post('/api/payroll/runs').set('Cookie', cookies).send({ month: '2026-09' });
+    expect(run.status).toBe(201);
+    const mine = run.body.entries.find(e => e.employee_id === empId);
+    expect(mine.pt).toBe(20833);   // ₹1,250 a half-year, spread monthly
+    // gross ₹24,00,000 − std 50,000 − PT 2,500 − HRA 1,80,000 − 80C 1,50,000 = ₹20,17,500
+    // tax 1,12,500 + 30% × 10,17,500 = 4,17,750; + 4% cess = 4,34,460 → ₹36,205 a month
+    expect(mine.tds).toBe(3620500);
+  });
+  it('Invoice receipts: part-payment, overpayment refused, Payments-screen receipt settles it', async () => {
+    const { getDb } = await import('../src/db/connection.js');
+    const db = getDb();
+    db.prepare(`INSERT OR IGNORE INTO products (id, kind, variety, hsn, uom, rate_paise, stock, active)
+                VALUES ('PRD-TEST-PAY', 'slab', 'Test Black', '2516', 'sqft', 10000, 5, 1)`).run();
+    db.prepare(`INSERT OR IGNORE INTO product_slabs (product_id, size_lw, thickness_mm, sqft)
+                VALUES ('PRD-TEST-PAY', '2600x1600', 18, 10)`).run();
+    const created = await request(app).post('/api/invoices').set('Cookie', cookies).send({
+      customer_id: 'C001', discount_pct: 0,
+      items: [{ product_id: 'PRD-TEST-PAY', hsn: '2516', uom: 'sqft', uom_qty: 10, qty: 1, rate_paise: 10000 }],
+    });
+    expect(created.status).toBe(201);
+    const inv = created.body.invoice;
+    const path = `/api/invoices/${inv.id.replace(/\//g, '~')}`;
+    const owedBefore = db.prepare('SELECT outstanding_paise AS v FROM customers WHERE id = ?').get('C001').v;
+
+    const part = await request(app).post(`${path}/pay`).set('Cookie', cookies).send({ mode: 'NEFT', amount_paise: 50000 });
+    expect(part.status).toBe(200);
+    expect(part.body.invoice.paid).toBe(0);
+    expect(part.body.invoice.received_paise).toBe(50000);
+
+    const over = await request(app).post(`${path}/pay`).set('Cookie', cookies).send({ mode: 'NEFT', amount_paise: inv.total_paise });
+    expect(over.status).toBe(400);
+
+    const edit = await request(app).patch(`${path}/items/1`).set('Cookie', cookies).send({ qty: 2, reason: 'customer took two' });
+    expect(edit.status).toBe(400);   // money received: use a credit / debit note
+
+    const rest = await request(app).post('/api/payments').set('Cookie', cookies).send({
+      type: 'receipt', invoice_id: inv.id, party: 'Test Customer TN', amount_paise: inv.total_paise - 50000, mode: 'NEFT',
+    });
+    expect(rest.status).toBe(201);
+    const after = db.prepare('SELECT paid, received_paise FROM invoices WHERE id = ?').get(inv.id);
+    expect(after).toEqual({ paid: 1, received_paise: inv.total_paise });
+    expect(db.prepare('SELECT outstanding_paise AS v FROM customers WHERE id = ?').get('C001').v).toBe(owedBefore - inv.total_paise);
+
+    // Reversing the second receipt re-opens the invoice with the part-payment still counted
+    const rev = await request(app).post(`/api/payments/${rest.body.payment.id.replace(/\//g, '~')}/reverse`).set('Cookie', cookies);
+    expect(rev.status).toBe(200);
+    expect(db.prepare('SELECT paid, received_paise FROM invoices WHERE id = ?').get(inv.id)).toEqual({ paid: 0, received_paise: 50000 });
+  });
+
+  it('Editing an invoice line keeps stock in step', async () => {
+    const { getDb } = await import('../src/db/connection.js');
+    const db = getDb();
+    const created = await request(app).post('/api/invoices').set('Cookie', cookies).send({
+      customer_id: 'C001', discount_pct: 0,
+      items: [{ product_id: 'PRD-TEST-PAY', hsn: '2516', uom: 'sqft', uom_qty: 10, qty: 1, rate_paise: 10000 }],
+    });
+    expect(created.status).toBe(201);
+    const path = `/api/invoices/${created.body.invoice.id.replace(/\//g, '~')}`;
+    const stock = () => db.prepare("SELECT stock FROM products WHERE id = 'PRD-TEST-PAY'").get().stock;
+    const before = stock();
+    expect((await request(app).patch(`${path}/items/1`).set('Cookie', cookies).send({ qty: 3, reason: 'three slabs' })).status).toBe(200);
+    expect(stock()).toBe(before - 2);
+    expect((await request(app).patch(`${path}/items/1`).set('Cookie', cookies).send({ qty: 50, reason: 'too many' })).status).toBe(400);
+    expect((await request(app).patch(`${path}/items/1`).set('Cookie', cookies).send({ qty: 1, reason: 'back to one' })).status).toBe(200);
+    expect(stock()).toBe(before);
+  });
+  it('GST returns run', async () => {
+    const g1 = await request(app).get('/api/reports/gstr1?from=2020-01-01&to=2099-12-31').set('Cookie', cookies);
+    expect(g1.status).toBe(200);
+    const g3 = await request(app).get('/api/reports/gstr3b?from=2020-01-01&to=2099-12-31').set('Cookie', cookies);
+    expect(g3.status).toBe(200);
+    const g9 = await request(app).get('/api/reports/gstr9?fy=2026-27').set('Cookie', cookies);
+    expect(g9.status).toBe(200);
+  });
 });

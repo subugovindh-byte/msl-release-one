@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getDb } from '../db/connection.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
+import { today as todayIST } from '../services/dates.js';
 
 export const msmeRouter = Router();
 msmeRouter.use(authenticate);
@@ -28,7 +29,7 @@ msmeRouter.get('/vendors', (req, res, next) => {
         SUM(CASE WHEN po.status NOT IN ('cancelled','received') THEN po.total_paise ELSE 0 END) AS outstanding_paise,
         MIN(CASE WHEN po.status NOT IN ('cancelled','received') THEN po.date ELSE NULL END) AS oldest_open_po_date,
         MAX(CASE WHEN po.status NOT IN ('cancelled','received')
-              AND julianday('now') - julianday(po.date) > ? THEN 1 ELSE 0 END) AS has_overdue
+              AND julianday('now', 'localtime') - julianday(po.date) > ? THEN 1 ELSE 0 END) AS has_overdue
       FROM vendors v
       LEFT JOIN purchase_orders po ON po.vendor_id = v.id
       WHERE v.msme = 1
@@ -45,15 +46,15 @@ msmeRouter.get('/vendors', (req, res, next) => {
 msmeRouter.get('/outstanding', (req, res, next) => {
   try {
     const db = getDb();
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayIST();
 
     const rows = db.prepare(`
       SELECT
         po.id AS po_id, po.date AS po_date, po.vendor_id,
         v.name AS vendor_name, v.msme_number,
         po.total_paise, po.variety, po.status AS po_status,
-        CAST(julianday('now') - julianday(po.date) AS INTEGER) AS age_days,
-        MAX(0, CAST(julianday('now') - julianday(po.date) AS INTEGER) - ?) AS overdue_days
+        CAST(julianday('now', 'localtime') - julianday(po.date) AS INTEGER) AS age_days,
+        MAX(0, CAST(julianday('now', 'localtime') - julianday(po.date) AS INTEGER) - ?) AS overdue_days
       FROM purchase_orders po
       JOIN vendors v ON v.id = po.vendor_id
       WHERE v.msme = 1
@@ -90,7 +91,7 @@ msmeRouter.get('/outstanding', (req, res, next) => {
 msmeRouter.get('/interest', (req, res, next) => {
   try {
     const db = getDb();
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayIST();
 
     const overduePos = db.prepare(`
       SELECT po.*, v.name AS vendor_name, v.msme_number, v.gstin AS vendor_gstin
@@ -98,7 +99,7 @@ msmeRouter.get('/interest', (req, res, next) => {
       JOIN vendors v ON v.id = po.vendor_id
       WHERE v.msme = 1
         AND po.status NOT IN ('cancelled','received')
-        AND julianday('now') - julianday(po.date) > ?
+        AND julianday('now', 'localtime') - julianday(po.date) > ?
       ORDER BY po.date ASC
     `).all(MSME_PAYMENT_DAYS);
 
@@ -144,7 +145,7 @@ msmeRouter.get('/form-i', (req, res, next) => {
         ? `${yr}-09-30`
         : `${Number(yr) + 1}-03-31`;
     } else {
-      periodEnd = new Date().toISOString().slice(0, 10);
+      periodEnd = todayIST();
     }
 
     // All amounts outstanding to MSME vendors as of periodEnd that exceeded 45 days
@@ -208,9 +209,9 @@ msmeRouter.get('/payment-register', (req, res, next) => {
         po.id, po.date, po.vendor_id, v.name AS vendor_name, v.msme_number,
         po.variety, po.total_paise, po.status,
         CASE WHEN po.status = 'received' THEN 1 ELSE 0 END AS paid,
-        CAST(julianday('now') - julianday(po.date) AS INTEGER) AS age_days,
+        CAST(julianday('now', 'localtime') - julianday(po.date) AS INTEGER) AS age_days,
         CASE WHEN po.status = 'received' THEN 0
-             ELSE MAX(0, CAST(julianday('now') - julianday(po.date) AS INTEGER) - ?)
+             ELSE MAX(0, CAST(julianday('now', 'localtime') - julianday(po.date) AS INTEGER) - ?)
         END AS overdue_days
       FROM purchase_orders po
       JOIN vendors v ON v.id = po.vendor_id
@@ -250,7 +251,7 @@ msmeRouter.post('/interest-log', requireRole('admin', 'accounts'), (req, res, ne
 
     const dueDate = new Date(invoice_date);
     dueDate.setDate(dueDate.getDate() + MSME_PAYMENT_DAYS);
-    const today = payment_date || new Date().toISOString().slice(0, 10);
+    const today = payment_date || todayIST();
     const { days, interest } = calcInterest(amount_paise, dueDate.toISOString().slice(0, 10), today);
 
     const result = db.prepare(`

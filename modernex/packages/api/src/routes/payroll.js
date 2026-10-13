@@ -3,112 +3,12 @@ import { getDb } from '../db/connection.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
 import { NotFoundError } from '../middleware/error.js';
 import { nextEmployeeId, nextPayrollRunId } from '../services/idGenerator.js';
+import { calcPT, calcPF, calcESI, lwfAmount, calcGratuity, calcBonus, calcHRAExemption, calcTDSSalary }
+  from '../services/payrollCalc.js';
+import { today as todayIST } from '../services/dates.js';
 
 export const payrollRouter = Router();
 payrollRouter.use(authenticate);
-
-// ── Tamil Nadu Professional Tax slabs ────────────────────────────────────────
-// TN PT Act 1992 (as amended): monthly slab → monthly PT in paise
-function calcPT(grossMonthly) {
-  const g = grossMonthly / 100; // paise → rupees
-  if (g <= 21000)  return 0;
-  if (g <= 30000)  return 13500;   // ₹135
-  if (g <= 45000)  return 31500;   // ₹315
-  if (g <= 60000)  return 69000;   // ₹690
-  if (g <= 75000)  return 102500;  // ₹1025
-  return 125000;                   // ₹1250 (annual max ₹2,500 / 2 half-years)
-}
-
-// ── EPF / EPS calculation (EPF & MP Act 1952) ────────────────────────────────
-// Employee: 12% on basic (capped ₹15,000); Employer: 3.67% EPF + 8.33% EPS
-function calcPF(basicPaise, applicable) {
-  if (!applicable) return { employee: 0, employer: 0, eps: 0, edli: 0, admin: 0 };
-  const capped = Math.min(basicPaise, 1500000); // ₹15,000 wage ceiling
-  const employee = Math.round(capped * 0.12);
-  const eps      = Math.round(capped * 0.0833); // 8.33% EPS (employer)
-  const epf_er   = Math.round(capped * 0.0367); // 3.67% EPF (employer, net)
-  const edli     = Math.round(capped * 0.005);  // 0.5% EDLI
-  const admin    = Math.round(capped * 0.005);  // 0.5% admin charge
-  return { employee, employer: epf_er + eps, eps, edli, admin };
-}
-
-// ── ESI calculation (ESI Act 1948) ───────────────────────────────────────────
-// Employee 0.75%, Employer 3.25%; applicable if gross ≤ ₹21,000/month
-function calcESI(grossPaise, applicable) {
-  if (!applicable) return { employee: 0, employer: 0 };
-  if (grossPaise > 2100000) return { employee: 0, employer: 0 };
-  return {
-    employee: Math.round(grossPaise * 0.0075),
-    employer: Math.round(grossPaise * 0.0325),
-  };
-}
-
-// ── TN Labour Welfare Fund (TN LWF Act 1982) ─────────────────────────────────
-// ₹20 employee + ₹40 employer per half-year (June & December)
-function lwfAmount() {
-  return { employee: 2000, employer: 4000 }; // paise
-}
-
-// ── Gratuity (Payment of Gratuity Act 1972) ──────────────────────────────────
-// = (15/26) × Last Basic × Years of Service (max ₹20 lakh)
-function calcGratuity(basicPaise, joiningDate, exitDate = new Date().toISOString().slice(0, 10)) {
-  const join = new Date(joiningDate);
-  const exit = new Date(exitDate);
-  const msPerYear = 365.25 * 24 * 60 * 60 * 1000;
-  const yearsService = (exit - join) / msPerYear;
-  if (yearsService < 5) return { eligible: false, yearsService, gratuityPaise: 0 };
-  const daily = basicPaise / 26;
-  const raw = Math.round(daily * 15 * yearsService);
-  const max = 2000000000; // ₹20 lakh in paise
-  return { eligible: true, yearsService, gratuityPaise: Math.min(raw, max) };
-}
-
-// ── Bonus (Payment of Bonus Act 1965) ────────────────────────────────────────
-// Eligible if basic ≤ ₹21,000/month; min 8.33%, max 20%
-function calcBonus(annualBasicPaise, ratePct = 8.33) {
-  const eligible = annualBasicPaise / 12 <= 2100000; // monthly basic ≤ ₹21,000
-  if (!eligible) return { eligible: false, bonusPaise: 0 };
-  const rate = Math.min(Math.max(ratePct, 8.33), 20);
-  return { eligible: true, bonusPaise: Math.round(annualBasicPaise * rate / 100) };
-}
-
-// ── HRA Exemption (Section 10(13A)) ──────────────────────────────────────────
-// Min of: actual HRA, (50%/40% of basic for metro/non-metro), (rent paid - 10% of basic)
-function calcHRAExemption(basicPaise, hraPaise, rentPaidPaise, isMetro = false) {
-  const metroFactor = isMetro ? 0.5 : 0.4;
-  const a = hraPaise;
-  const b = Math.round(basicPaise * metroFactor);
-  const c = Math.max(0, rentPaidPaise - Math.round(basicPaise * 0.1));
-  return Math.min(a, b, c);
-}
-
-// ── TDS on Salary (Section 192) ───────────────────────────────────────────────
-function calcTDSSalary({ grossAnnual, hraExemption, standardDeduction = 5000000,
-                         sec80c = 0, sec80d = 0, sec80ccd1b = 0,
-                         housingLoanInterest = 0, otherDeductions = 0 }) {
-  const taxableIncome = Math.max(0,
-    grossAnnual - hraExemption - standardDeduction - sec80c - sec80d
-    - sec80ccd1b - housingLoanInterest - otherDeductions
-  );
-  // Tax slabs FY 2025-26 (New Regime default from Budget 2023, as updated)
-  // Old regime kept as option; using new regime here
-  let tax = 0;
-  if (taxableIncome <= 300000)       tax = 0;
-  else if (taxableIncome <= 700000)  tax = Math.round((taxableIncome - 300000) * 0.05);
-  else if (taxableIncome <= 1000000) tax = 20000 + Math.round((taxableIncome - 700000) * 0.10);
-  else if (taxableIncome <= 1200000) tax = 50000 + Math.round((taxableIncome - 1000000) * 0.15);
-  else if (taxableIncome <= 1500000) tax = 80000 + Math.round((taxableIncome - 1200000) * 0.20);
-  else                               tax = 140000 + Math.round((taxableIncome - 1500000) * 0.30);
-
-  // Rebate u/s 87A: if taxable ≤ ₹7,00,000, tax = 0
-  if (taxableIncome <= 700000) tax = 0;
-
-  // Education cess 4%
-  const cess = Math.round(tax * 0.04);
-  const totalTax = tax + cess;
-  const monthlyTDS = Math.round(totalTax / 12);
-  return { taxableIncome, annualTax: totalTax, monthlyTDS };
-}
 
 // ─── GET /payroll/employees ──────────────────────────────────────────────────
 payrollRouter.get('/employees', (req, res) => {
@@ -215,25 +115,24 @@ payrollRouter.post('/runs', requireRole('admin', 'accounts'), (req, res, next) =
         const esi = calcESI(gross, emp.esi_applicable);
         const pt  = emp.pt_applicable ? calcPT(gross) : 0;
 
-        // TDS on salary (monthly) from declaration if available
+        // TDS on salary (monthly): everyone is taxed, on the new regime unless their
+        // declaration opts for the old one; projected from this month's pay.
         const fy = (() => {
           const [y, m] = month.split('-').map(Number);
           const fyStart = m >= 4 ? y : y - 1;
           return `${fyStart}-${String(fyStart + 1).slice(-2)}`;
         })();
         const decl = db.prepare('SELECT * FROM employee_tax_declarations WHERE employee_id=? AND fy=?').get(emp.id, fy);
-        let tds = 0;
-        if (decl) {
-          const grossAnnual = gross * 12;
-          const hraEx = calcHRAExemption(basic, hra, decl.hra_rent_paid_annual, decl.hra_city_type === 'metro');
-          const r = calcTDSSalary({
-            grossAnnual, hraExemption: hraEx * 12,
-            standardDeduction: decl.standard_deduction_paise,
-            sec80c: decl.sec_80c_paise, sec80d: decl.sec_80d_self_paise + decl.sec_80d_parents_paise,
-            sec80ccd1b: decl.sec_80ccd1b_paise, housingLoanInterest: decl.housing_loan_interest_paise,
-          });
-          tds = r.monthlyTDS;
-        }
+        const tds = calcTDSSalary({
+          grossAnnual: gross * 12,
+          regime: decl?.tax_regime || 'new',
+          hraExemption: decl ? calcHRAExemption(basic * 12, hra * 12, decl.hra_rent_paid_annual,
+                                                decl.hra_city_type === 'metro') : 0,
+          professionalTax: pt * 12,
+          sec80c: decl?.sec_80c_paise, sec80dSelf: decl?.sec_80d_self_paise,
+          sec80dParents: decl?.sec_80d_parents_paise, sec80ccd1b: decl?.sec_80ccd1b_paise,
+          housingLoanInterest: decl?.housing_loan_interest_paise, otherIncome: decl?.other_income_paise,
+        }).monthlyTDS;
 
         const deductions = pf.employee + esi.employee + pt + tds;
         const net = gross - deductions;
@@ -535,19 +434,21 @@ payrollRouter.get('/form16/:empId/:fy', requireRole('admin', 'accounts'), (req, 
 
     const decl = db.prepare('SELECT * FROM employee_tax_declarations WHERE employee_id=? AND fy=?')
                    .get(emp.id, req.params.fy);
-    const hraExAnnual = decl
-      ? calcHRAExemption(totals.basic, totals.hra, decl.hra_rent_paid_annual, decl.hra_city_type === 'metro') * 12
+    // The year's actual basic, HRA and rent: no further annualising.
+    const regime = decl?.tax_regime || 'new';
+    const hraExAnnual = decl && regime === 'old'
+      ? calcHRAExemption(totals.basic, totals.hra, decl.hra_rent_paid_annual, decl.hra_city_type === 'metro')
       : 0;
-    const stdDeduction = 5000000; // ₹50,000
-    const sec80c  = decl?.sec_80c_paise || 0;
-    const sec80d  = (decl?.sec_80d_self_paise || 0) + (decl?.sec_80d_parents_paise || 0);
+    const stdDeduction = (regime === 'old' ? 50000 : 75000) * 100;
+    const sec80c  = regime === 'old' ? Math.min(decl?.sec_80c_paise || 0, 15000000) : 0;
+    const sec80d  = regime === 'old' ? Math.min(decl?.sec_80d_self_paise || 0, 2500000)
+                                     + Math.min(decl?.sec_80d_parents_paise || 0, 5000000) : 0;
+    const sec80ccd1b = regime === 'old' ? Math.min(decl?.sec_80ccd1b_paise || 0, 5000000) : 0;
     const taxCalc = calcTDSSalary({
-      grossAnnual: totals.gross,
-      hraExemption: hraExAnnual,
-      standardDeduction: stdDeduction,
-      sec80c, sec80d,
-      sec80ccd1b: decl?.sec_80ccd1b_paise || 0,
-      housingLoanInterest: decl?.housing_loan_interest_paise || 0,
+      grossAnnual: totals.gross, regime, hraExemption: hraExAnnual, professionalTax: totals.pt,
+      sec80c: decl?.sec_80c_paise, sec80dSelf: decl?.sec_80d_self_paise, sec80dParents: decl?.sec_80d_parents_paise,
+      sec80ccd1b: decl?.sec_80ccd1b_paise, housingLoanInterest: decl?.housing_loan_interest_paise,
+      otherIncome: decl?.other_income_paise,
     });
 
     res.json({
@@ -576,9 +477,10 @@ payrollRouter.get('/form16/:empId/:fy', requireRole('admin', 'accounts'), (req, 
           hraReceived:         totals.hra,
           hraExemption:        hraExAnnual,
           standardDeduction:   stdDeduction,
-          professionalTax:     totals.pt,
+          professionalTax:     regime === 'old' ? totals.pt : 0,   // deductible on the old regime only
           netSalaryAfterExemptions: taxCalc.taxableIncome,
-          chapterVIA: { sec80c, sec80d, sec80ccd1b: decl?.sec_80ccd1b_paise || 0 },
+          taxRegime: regime,
+          chapterVIA: { sec80c, sec80d, sec80ccd1b },
           taxableIncome:       taxCalc.taxableIncome,
           taxOnIncome:         taxCalc.annualTax,
           totalTaxPayable:     taxCalc.annualTax,
@@ -706,7 +608,7 @@ payrollRouter.get('/gratuity/:empId', requireRole('admin', 'accounts'), (req, re
     const emp = db.prepare('SELECT * FROM employees WHERE id = ?').get(req.params.empId);
     if (!emp) throw new NotFoundError('Employee not found');
 
-    const exitDate = emp.leaving_date || new Date().toISOString().slice(0, 10);
+    const exitDate = emp.leaving_date || todayIST();
     const calc = calcGratuity(emp.basic_salary_paise, emp.joining_date, exitDate);
 
     const existing = db.prepare('SELECT * FROM gratuity_records WHERE employee_id = ? ORDER BY calc_date DESC LIMIT 1').get(emp.id);
@@ -727,7 +629,7 @@ payrollRouter.post('/gratuity', requireRole('admin'), (req, res, next) => {
     const emp = db.prepare('SELECT * FROM employees WHERE id = ?').get(employee_id);
     if (!emp) throw new NotFoundError('Employee not found');
 
-    const exitDate = calc_date || emp.leaving_date || new Date().toISOString().slice(0, 10);
+    const exitDate = calc_date || emp.leaving_date || todayIST();
     const calc = calcGratuity(emp.basic_salary_paise, emp.joining_date, exitDate);
     if (!calc.eligible) return res.status(400).json({ error: 'Employee not eligible (< 5 years service)' });
 
@@ -877,16 +779,17 @@ payrollRouter.post('/employees/:id/tax-declaration', requireRole('admin', 'accou
       sec_80c_paise = 0, sec_80ccd1b_paise = 0,
       sec_80d_self_paise = 0, sec_80d_parents_paise = 0,
       sec_80e_paise = 0, sec_80g_paise = 0, sec_80tta_paise = 0,
-      housing_loan_interest_paise = 0, other_income_paise = 0,
+      housing_loan_interest_paise = 0, other_income_paise = 0, tax_regime = 'new',
     } = req.body;
+    if (!['new', 'old'].includes(tax_regime)) return res.status(400).json({ error: "tax_regime must be 'new' or 'old'" });
 
     db.prepare(`
       INSERT INTO employee_tax_declarations
         (employee_id, fy, hra_city_type, hra_rent_paid_annual,
          sec_80c_paise, sec_80ccd1b_paise, sec_80d_self_paise, sec_80d_parents_paise,
          sec_80e_paise, sec_80g_paise, sec_80tta_paise, housing_loan_interest_paise,
-         other_income_paise, total_declared_at)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))
+         other_income_paise, tax_regime, total_declared_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))
       ON CONFLICT(employee_id, fy) DO UPDATE SET
         hra_city_type=excluded.hra_city_type, hra_rent_paid_annual=excluded.hra_rent_paid_annual,
         sec_80c_paise=excluded.sec_80c_paise, sec_80ccd1b_paise=excluded.sec_80ccd1b_paise,
@@ -894,11 +797,12 @@ payrollRouter.post('/employees/:id/tax-declaration', requireRole('admin', 'accou
         sec_80e_paise=excluded.sec_80e_paise, sec_80g_paise=excluded.sec_80g_paise,
         sec_80tta_paise=excluded.sec_80tta_paise,
         housing_loan_interest_paise=excluded.housing_loan_interest_paise,
-        other_income_paise=excluded.other_income_paise,
+        other_income_paise=excluded.other_income_paise, tax_regime=excluded.tax_regime,
         total_declared_at=datetime('now'), updated_at=datetime('now')
     `).run(req.params.id, fy, hra_city_type, hra_rent_paid_annual,
            sec_80c_paise, sec_80ccd1b_paise, sec_80d_self_paise, sec_80d_parents_paise,
-           sec_80e_paise, sec_80g_paise, sec_80tta_paise, housing_loan_interest_paise, other_income_paise);
+           sec_80e_paise, sec_80g_paise, sec_80tta_paise, housing_loan_interest_paise, other_income_paise,
+           tax_regime);
 
     res.json({ declaration: db.prepare('SELECT * FROM employee_tax_declarations WHERE employee_id=? AND fy=?').get(req.params.id, fy) });
   } catch (err) { next(err); }

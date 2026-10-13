@@ -10,6 +10,7 @@ import { PageHeader, ConfirmDialog, StatCard, ReceiptAttach } from '@/components
 import { DataGridTable } from '@/components/DataGridTable';
 import { formatINR, selectOnFocus } from '@/utils/format';
 import { statusTone } from '@/styles/ui';
+import { todayIST } from '../utils/format';
 
 const CATEGORIES = ['Consumables', 'Machinery Parts', 'Tools & Equipment', 'Safety & PPE', 'Office & Admin', 'Other'];
 const UNITS = ['Nos', 'Pcs', 'Set', 'Kg', 'Ltr', 'Mtr', 'Roll', 'Box', 'Pair'];
@@ -17,7 +18,7 @@ const PAYMENT_MODES = ['Cash', 'Cheque', 'NEFT', 'RTGS', 'UPI'];
 
 const BLANK_ITEM: CPItem = { description: '', qty: 1, unit: 'Nos', rate_paise: 0, amount_paise: 0 };
 
-function today() { return new Date().toISOString().slice(0, 10); }
+function today() { return todayIST(); }
 
 export function ConsumablesPage() {
   const { notify } = useToastStore();
@@ -36,7 +37,7 @@ export function ConsumablesPage() {
   const [payAmount, setPayAmount] = useState<'full' | 'custom'>('full');
   const [payCustom, setPayCustom] = useState('');
   const [payMode, setPayMode] = useState('NEFT');
-  const [payDate, setPayDate] = useState(new Date().toISOString().slice(0, 10));
+  const [payDate, setPayDate] = useState(todayIST());
   const [payUtr, setPayUtr] = useState('');
   const [payNotes, setPayNotes] = useState('');
   const [payApplyAdvance, setPayApplyAdvance] = useState(false);
@@ -100,7 +101,7 @@ export function ConsumablesPage() {
     setPayAmount('full');
     setPayCustom('');
     setPayMode('NEFT');
-    setPayDate(new Date().toISOString().slice(0, 10));
+    setPayDate(todayIST());
     setPayUtr('');
     setPayNotes('');
     setPayApplyAdvance(false);

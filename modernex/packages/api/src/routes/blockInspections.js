@@ -9,6 +9,7 @@ import {
 import { NotFoundError, AppError } from '../middleware/error.js';
 import { audit } from '../services/audit.js';
 import { nextInspectionId, nextPOId } from '../services/idGenerator.js';
+import { today as todayIST } from '../services/dates.js';
 
 export const blockInspectionsRouter = Router();
 blockInspectionsRouter.use(authenticate);
@@ -84,7 +85,7 @@ blockInspectionsRouter.post('/',
         if (!v) throw new NotFoundError('Vendor not found');
       }
       const id = nextInspectionId();
-      const date = b.date || new Date().toISOString().slice(0, 10);
+      const date = b.date || todayIST();
       db.prepare(`
         INSERT INTO block_inspections
           (id, date, vendor_id, quarry_location, variety, block_count, est_cft,

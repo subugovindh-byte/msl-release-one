@@ -5,6 +5,7 @@ import {
 } from '@/hooks/useApi';
 import { formatINR, numericInputValue, selectOnFocus } from '@/utils/format';
 import { useToastStore } from '@/store';
+import { todayIST } from '../utils/format';
 
 type Tab = 'accounts' | 'vouchers' | 'trial-balance' | 'balance-sheet';
 
@@ -19,7 +20,7 @@ export function ChartOfAccountsPage() {
   const [showCreateAcc, setShowCreateAcc] = useState(false);
   const [showCreateJV, setShowCreateJV] = useState(false);
   const [accForm, setAccForm] = useState({ name: '', group_id: '', code: '', opening_balance_paise: 0, is_debit_balance: true });
-  const [jvForm, setJvForm] = useState({ date: new Date().toISOString().slice(0, 10), narration: '', voucher_type: 'journal', entries: [{ account_id: '', debit_paise: 0, credit_paise: 0, narration: '' }, { account_id: '', debit_paise: 0, credit_paise: 0, narration: '' }] as JVEntry[] });
+  const [jvForm, setJvForm] = useState({ date: todayIST(), narration: '', voucher_type: 'journal', entries: [{ account_id: '', debit_paise: 0, credit_paise: 0, narration: '' }, { account_id: '', debit_paise: 0, credit_paise: 0, narration: '' }] as JVEntry[] });
   const { notify } = useToastStore();
 
   const { data: groupsData } = useAccountGroups();
@@ -74,7 +75,7 @@ export function ChartOfAccountsPage() {
       });
       notify('Journal voucher posted', 'success');
       setShowCreateJV(false);
-      setJvForm({ date: new Date().toISOString().slice(0, 10), narration: '', voucher_type: 'journal', entries: [{ account_id: '', debit_paise: 0, credit_paise: 0, narration: '' }, { account_id: '', debit_paise: 0, credit_paise: 0, narration: '' }] });
+      setJvForm({ date: todayIST(), narration: '', voucher_type: 'journal', entries: [{ account_id: '', debit_paise: 0, credit_paise: 0, narration: '' }, { account_id: '', debit_paise: 0, credit_paise: 0, narration: '' }] });
     } catch (err: any) { notify(err.message || 'Failed', 'error'); }
   };
 

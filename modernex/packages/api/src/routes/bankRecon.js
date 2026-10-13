@@ -3,6 +3,7 @@ import { getDb } from '../db/connection.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
 import { NotFoundError } from '../middleware/error.js';
 import { nextBankAccId } from '../services/idGenerator.js';
+import { today as todayIST } from '../services/dates.js';
 
 export const bankReconRouter = Router();
 bankReconRouter.use(authenticate);
@@ -128,7 +129,7 @@ bankReconRouter.get('/:bankId/brs', requireRole('admin', 'accounts'), (req, res,
     if (!bank) throw new NotFoundError('Bank account not found');
 
     const { as_of } = req.query;
-    const asOf = as_of || new Date().toISOString().slice(0, 10);
+    const asOf = as_of || todayIST();
 
     // Bank balance as per statement
     const lastLine = db.prepare(

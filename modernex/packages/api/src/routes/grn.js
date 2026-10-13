@@ -6,6 +6,7 @@ import { grnSchema, transportUpdateSchema } from '@modernex/shared';
 import { NotFoundError, AppError } from '../middleware/error.js';
 import { audit } from '../services/audit.js';
 import { nextGRNId } from '../services/idGenerator.js';
+import { today as todayIST } from '../services/dates.js';
 
 export const grnRouter = Router();
 grnRouter.use(authenticate);
@@ -55,7 +56,7 @@ grnRouter.post('/',
       }
 
       const id = nextGRNId();
-      const date = g.date || new Date().toISOString().slice(0, 10);
+      const date = g.date || todayIST();
 
       db.transaction(() => {
         db.prepare(`

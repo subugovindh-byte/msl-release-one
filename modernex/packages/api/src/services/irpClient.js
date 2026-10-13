@@ -1,6 +1,7 @@
 import { config } from '../config.js';
 import { logger } from '../utils/logger.js';
 import { generateIRN, generateEWayBill, requiresEWayBill } from '@modernex/shared';
+import { today as todayIST } from './dates.js';
 
 /**
  * Register an invoice with the IRP (Invoice Registration Portal).
@@ -22,7 +23,7 @@ export async function registerWithIRP(invoice) {
       BuyerGstin: invoice.customer_gstin || 'URP',
       DocNo: invoice.id,
       DocTyp: 'INV',
-      DocDt: new Date().toISOString().slice(0, 10).split('-').reverse().join('/'),
+      DocDt: todayIST().split('-').reverse().join('/'),
       TotInvVal: (invoice.total_paise / 100).toFixed(2),
       Irn: irn,
       IrnDt: new Date().toISOString(),

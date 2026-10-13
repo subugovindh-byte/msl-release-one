@@ -1,5 +1,6 @@
 import { getDb } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
+import { today as todayIST } from './dates.js';
 
 /**
  * Multi-currency support.
@@ -105,7 +106,7 @@ export function getFxRate(currency, date) {
  */
 export async function fetchAndStoreTodayRates() {
   const db = getDb();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIST();
 
   try {
     // Using a free public source. For production, consider the RBI's direct feed

@@ -8,6 +8,7 @@ import {
 } from '@/hooks/useApi';
 import { formatINR, numericInputValue, selectOnFocus } from '@/utils/format';
 import { useToastStore, useAuthStore } from '@/store';
+import { todayIST } from '../utils/format';
 
 // ── Status metadata ──────────────────────────────────────────────────────────
 type StatusMeta = { label: string; color: string; bg: string; next: string | null; nextLabel: string };
@@ -42,7 +43,7 @@ interface POFormState {
 }
 const BLANK_FORM = (): POFormState => ({
   vendor_id: '', variety: '', blocks: 1, cft: 0, rate_per_cft_paise: 0,
-  transport_paise: 0, notes: '', date: new Date().toISOString().slice(0, 10),
+  transport_paise: 0, notes: '', date: todayIST(),
   block_number: '', incoterm: '', defect_clause: '', allowance_pct: 0,
 });
 const INCOTERMS = ['', 'EXW', 'FOB', 'CIF', 'DAP', 'DDP', 'FCA'];
@@ -504,7 +505,7 @@ export function PurchasePage() {
   const [payAmount, setPayAmount] = useState<'full' | 'custom'>('full');
   const [payCustom, setPayCustom] = useState('');
   const [payMode, setPayMode] = useState('NEFT');
-  const [payDate, setPayDate] = useState(new Date().toISOString().slice(0, 10));
+  const [payDate, setPayDate] = useState(todayIST());
   const [payUtr, setPayUtr] = useState('');
   const [payNotes, setPayNotes] = useState('');
   const [payApplyAdvance, setPayApplyAdvance] = useState(false);
@@ -590,7 +591,7 @@ export function PurchasePage() {
     setPayAmount('full');
     setPayCustom('');
     setPayMode('NEFT');
-    setPayDate(new Date().toISOString().slice(0, 10));
+    setPayDate(todayIST());
     setPayUtr('');
     setPayNotes('');
     setPayApplyAdvance(false);
@@ -607,7 +608,7 @@ export function PurchasePage() {
       rate_per_cft_paise: po.rate_per_cft_paise || 0,
       transport_paise: po.transport_paise || 0,
       notes: po.notes || '',
-      date: po.date || new Date().toISOString().slice(0, 10),
+      date: po.date || todayIST(),
       block_number: po.block_number || '',
       incoterm: po.incoterm || '',
       defect_clause: po.defect_clause || '',

@@ -83,7 +83,13 @@ export function createApp() {
   // ── STANDARD MIDDLEWARE ──
   app.use(compression());
   app.use(cookieParser());
-  app.use(express.json({ limit: '5mb' }));
+  // A 360 rotation is many images in one request, so the frames route gets
+  // its own larger parser (mounted in the router). Everything else stays at
+  // 5mb — raising the global limit would widen the DoS surface for every
+  // endpoint to buy headroom only one of them needs.
+  const FRAMES_ROUTE = /^\/api\/variety-defaults\/[^/]+\/frames$/;
+  const stdJson = express.json({ limit: '5mb' });
+  app.use((req, res, next) => (FRAMES_ROUTE.test(req.path) ? next() : stdJson(req, res, next)));
   app.use(express.urlencoded({ extended: true, limit: '5mb' }));
   app.use(pinoHttp({
     logger,

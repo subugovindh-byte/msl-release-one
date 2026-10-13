@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { getDb } from '../db/connection.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
+import { today as todayIST } from '../services/dates.js';
+import { gstRateForHSN } from '@modernex/shared';
 
 export const reportsRouter = Router();
 reportsRouter.use(authenticate);
@@ -11,12 +13,81 @@ function dateRange(alias, from, to) {
   return { sql: '', params: [] };
 }
 
+// ─── Helper: HSN summary (GSTR-1 Table 12) ───
+// Per HSN at its own rate (not a hard-coded 5 % / 18 %), on each line's share of
+// the invoice's taxable value so invoice discounts are reflected.
+function hsnSummary(db, homeState, from, to) {
+  const lines = db.prepare(`
+    SELECT ii.hsn, ii.uom, ii.qty, ii.line_total_paise, i.gross_paise, i.taxable_paise, i.customer_state
+    FROM invoice_items ii JOIN invoices i ON i.id = ii.invoice_id
+    ${from && to ? 'WHERE i.date >= ? AND i.date <= ?' : ''}
+  `).all(...(from && to ? [from, to] : []));
+  const groups = {};
+  for (const l of lines) {
+    const rate = gstRateForHSN(l.hsn);
+    const key = `${l.hsn}|${l.uom}|${rate}`;
+    const g = groups[key] ||= { hsn: l.hsn, uom: l.uom, rate, total_qty: 0, taxable_paise: 0, cgst_paise: 0, sgst_paise: 0, igst_paise: 0 };
+    const taxable = l.gross_paise > 0 ? Math.round(l.line_total_paise * l.taxable_paise / l.gross_paise) : l.line_total_paise;
+    const tax = Math.round(taxable * rate);
+    g.total_qty += l.qty;
+    g.taxable_paise += taxable;
+    if (l.customer_state === homeState) {
+      const half = Math.round(tax / 2);
+      g.cgst_paise += half; g.sgst_paise += tax - half;
+    } else {
+      g.igst_paise += tax;
+    }
+  }
+  return Object.values(groups).sort((a, b) => String(a.hsn).localeCompare(String(b.hsn)));
+}
+
+// ─── Helper: ITC for a period ───
+// GST on purchase orders whose goods have arrived (s.16(2)(b)) — IGST when the
+// vendor is in another state, CGST + SGST when in ours. Cancelled POs never count.
+function itcForPeriod(db, homeState, from, to) {
+  const rows = db.prepare(`
+    SELECT po.gst_paise, v.state AS vendor_state FROM purchase_orders po JOIN vendors v ON v.id = po.vendor_id
+    WHERE po.status != 'cancelled' AND (po.received_at IS NOT NULL OR po.status IN ('received', 'closed'))
+      ${from && to ? 'AND po.date >= ? AND po.date <= ?' : ''}
+  `).all(...(from && to ? [from, to] : []));
+  const itc = { igst: 0, cgst: 0, sgst: 0 };
+  for (const r of rows) {
+    if (r.vendor_state && r.vendor_state !== homeState) itc.igst += r.gst_paise;
+    else { const half = Math.round(r.gst_paise / 2); itc.cgst += half; itc.sgst += r.gst_paise - half; }
+  }
+  return itc;
+}
+
+// ─── Helper: confirmed credit or debit notes for a period ───
+function notesForPeriod(db, type, from, to) {
+  return db.prepare(`
+    SELECT COALESCE(SUM(taxable_paise),0) as taxable,
+      COALESCE(SUM(cgst_paise),0) as cgst,
+      COALESCE(SUM(sgst_paise),0) as sgst,
+      COALESCE(SUM(igst_paise),0) as igst
+    FROM debit_credit_notes WHERE type = ? AND status='confirmed' ${from && to ? 'AND date >= ? AND date <= ?' : ''}
+  `).get(type, ...(from && to ? [from, to] : []));
+}
+
+// ─── Helper: ITC set-off (s.49, rule 88A) ───
+// IGST credit goes first — against IGST, then CGST, then SGST; CGST credit then
+// covers CGST then IGST, SGST credit SGST then IGST. CGST and SGST never cross.
+export function setOffITC(out, itc) {
+  const owe = { igst: Math.max(0, out.igst), cgst: Math.max(0, out.cgst), sgst: Math.max(0, out.sgst) };
+  const left = { ...itc };
+  const use = (credit, head) => { const u = Math.min(left[credit], owe[head]); left[credit] -= u; owe[head] -= u; };
+  use('igst', 'igst'); use('igst', 'cgst'); use('igst', 'sgst');
+  use('cgst', 'cgst'); use('cgst', 'igst');
+  use('sgst', 'sgst'); use('sgst', 'igst');
+  return { cash: owe, credit_carried_forward: left };
+}
+
 // ─── GET /reports/dashboard ───
 reportsRouter.get('/dashboard', (req, res) => {
   const db = getDb();
   const revenue    = db.prepare(`SELECT COALESCE(SUM(taxable_paise), 0) as v FROM invoices`).get().v;
-  const ar         = db.prepare(`SELECT COALESCE(SUM(total_paise), 0) as v FROM invoices WHERE paid = 0`).get().v;
-  const collected  = db.prepare(`SELECT COALESCE(SUM(total_paise), 0) as v FROM invoices WHERE paid = 1`).get().v;
+  const ar         = db.prepare(`SELECT COALESCE(SUM(total_paise - received_paise), 0) as v FROM invoices WHERE paid = 0`).get().v;
+  const collected  = db.prepare(`SELECT COALESCE(SUM(received_paise), 0) as v FROM invoices`).get().v;
   const ap         = db.prepare(`SELECT COALESCE(SUM(total_paise), 0) as v FROM purchase_orders`).get().v;
   const gst_output = db.prepare(`SELECT COALESCE(SUM(cgst_paise + sgst_paise + igst_paise), 0) as v FROM invoices`).get().v;
   const gst_itc    = db.prepare(`SELECT COALESCE(SUM(gst_paise), 0) as v FROM purchase_orders`).get().v;
@@ -107,7 +178,7 @@ reportsRouter.get('/pnl', requireRole('admin', 'accounts'), (req, res) => {
 });
 
 // ─── GET /reports/gstr1 — Full GSTR-1 per GST rules ───
-// Returns: B2B (invoice-wise), B2C Large (>2.5L interstate), B2C Small (consolidated),
+// Returns: B2B (invoice-wise), B2C Large (>₹1L interstate, since Aug 2024), B2C Small (consolidated),
 //          CDNR (credit notes against registered), CDN (credit notes against unregistered),
 //          HSN Summary (Table 12), Document Summary (Table 13)
 reportsRouter.get('/gstr1', requireRole('admin', 'accounts'), (req, res) => {
@@ -115,7 +186,7 @@ reportsRouter.get('/gstr1', requireRole('admin', 'accounts'), (req, res) => {
   const db = getDb();
   const homeState = db.prepare('SELECT home_state FROM company_details WHERE id=1').get()?.home_state || 'Tamil Nadu';
   const dr = dateRange('i', from, to);
-  const baseWhere = `WHERE (i.status IS NULL OR i.status != 'cancelled') ${dr.sql}`;
+  const baseWhere = `WHERE 1=1 ${dr.sql}`;
 
   // ── B2B: registered customers, invoice-wise ──
   const b2b = db.prepare(`
@@ -127,14 +198,14 @@ reportsRouter.get('/gstr1', requireRole('admin', 'accounts'), (req, res) => {
     ORDER BY i.date
   `).all(...dr.params);
 
-  // ── B2C Large: unregistered + interstate + >₹2.5L ──
+  // ── B2C Large: unregistered + interstate + invoice value above ₹1 lakh (₹2.5 lakh before Aug 2024) ──
   const b2cLarge = db.prepare(`
     SELECT i.id, i.date, i.customer_name, i.customer_state,
       i.taxable_paise, i.igst_paise, i.total_paise
     FROM invoices i ${baseWhere}
       AND (i.customer_gstin IS NULL OR i.customer_gstin = '')
       AND i.customer_state != '${homeState}'
-      AND i.total_paise >= 25000000
+      AND i.total_paise > 10000000
     ORDER BY i.date
   `).all(...dr.params);
 
@@ -148,7 +219,7 @@ reportsRouter.get('/gstr1', requireRole('admin', 'accounts'), (req, res) => {
       COUNT(*) as invoice_count
     FROM invoices i ${baseWhere}
       AND (i.customer_gstin IS NULL OR i.customer_gstin = '')
-      AND NOT (i.customer_state != '${homeState}' AND i.total_paise >= 25000000)
+      AND NOT (i.customer_state != '${homeState}' AND i.total_paise > 10000000)
     GROUP BY i.customer_state
     ORDER BY i.customer_state
   `).all(...dr.params);
@@ -176,22 +247,8 @@ reportsRouter.get('/gstr1', requireRole('admin', 'accounts'), (req, res) => {
     ORDER BY n.date
   `).all(...(from && to ? [from, to] : []));
 
-  // ── HSN Summary (Table 12) — read from DB view ──
-  const hsnSummary = from && to
-    ? db.prepare(`
-        SELECT ii.hsn, ii.uom, SUM(ii.qty) AS total_qty,
-          SUM(ii.line_total_paise) AS taxable_paise,
-          SUM(CASE WHEN i.customer_state = '${homeState}'
-              THEN ROUND(ii.line_total_paise * CASE WHEN ii.hsn='2517' THEN 0.025 ELSE 0.09 END) ELSE 0 END) AS cgst_paise,
-          SUM(CASE WHEN i.customer_state = '${homeState}'
-              THEN ROUND(ii.line_total_paise * CASE WHEN ii.hsn='2517' THEN 0.025 ELSE 0.09 END) ELSE 0 END) AS sgst_paise,
-          SUM(CASE WHEN i.customer_state != '${homeState}'
-              THEN ROUND(ii.line_total_paise * CASE WHEN ii.hsn='2517' THEN 0.05 ELSE 0.18 END) ELSE 0 END) AS igst_paise
-        FROM invoice_items ii JOIN invoices i ON i.id = ii.invoice_id
-        WHERE (i.status IS NULL OR i.status != 'cancelled') AND i.date >= ? AND i.date <= ?
-        GROUP BY ii.hsn, ii.uom
-      `).all(from, to)
-    : db.prepare('SELECT * FROM v_hsn_summary').all();
+  // ── HSN Summary (Table 12) ──
+  const hsnSummaryRows = hsnSummary(db, homeState, from, to);
 
   // ── Document Summary (Table 13) ──
   const docSummary = db.prepare(`
@@ -200,12 +257,12 @@ reportsRouter.get('/gstr1', requireRole('admin', 'accounts'), (req, res) => {
       MIN(id) AS from_no, MAX(id) AS to_no
     FROM invoices i ${baseWhere}
     UNION ALL
-    SELECT 'Credit Note', COUNT(*), 0, MIN(id), MAX(id)
-    FROM debit_credit_notes WHERE type='credit'
+    SELECT 'Credit Note', COUNT(*), COALESCE(SUM(status = 'cancelled'), 0), MIN(id), MAX(id)
+    FROM debit_credit_notes WHERE type='credit' AND status != 'draft'
       ${from && to ? "AND date >= ? AND date <= ?" : ""}
     UNION ALL
-    SELECT 'Debit Note', COUNT(*), 0, MIN(id), MAX(id)
-    FROM debit_credit_notes WHERE type='debit'
+    SELECT 'Debit Note', COUNT(*), COALESCE(SUM(status = 'cancelled'), 0), MIN(id), MAX(id)
+    FROM debit_credit_notes WHERE type='debit' AND status != 'draft'
       ${from && to ? "AND date >= ? AND date <= ?" : ""}
   `).all(...dr.params, ...(from && to ? [from, to, from, to] : []));
 
@@ -217,7 +274,7 @@ reportsRouter.get('/gstr1', requireRole('admin', 'accounts'), (req, res) => {
   res.json({
     period: { from, to }, home_state: homeState,
     b2b, b2c_large: b2cLarge, b2c_small: b2cSmall,
-    cdnr, cdnur, hsn_summary: hsnSummary, doc_summary: docSummary,
+    cdnr, cdnur, hsn_summary: hsnSummaryRows, doc_summary: docSummary,
     totals: {
       invoice_count: b2b.length + b2cLarge.length + b2cSmall.reduce((s,r) => s + r.invoice_count, 0),
       taxable_paise: totalTaxable,
@@ -241,36 +298,36 @@ reportsRouter.get('/gstr3b', requireRole('admin', 'accounts'), (req, res) => {
     FROM invoices ${invRange}
   `).get(...invParams);
 
-  const itcRaw = db.prepare(`
-    SELECT COALESCE(SUM(gst_paise),0) as total FROM purchase_orders ${invRange}
-  `).get(...invParams);
-  const itcCgst = Math.round(itcRaw.total / 2);
-  const itcSgst = itcRaw.total - itcCgst;
+  const homeState = db.prepare('SELECT home_state FROM company_details WHERE id=1').get()?.home_state || 'Tamil Nadu';
+  const itc = itcForPeriod(db, homeState, from, to);
+  const itcTotal = itc.igst + itc.cgst + itc.sgst;
 
-  // Credit notes reduce output
-  const cnAdjust = db.prepare(`
-    SELECT COALESCE(SUM(taxable_paise),0) as taxable,
-      COALESCE(SUM(cgst_paise),0) as cgst,
-      COALESCE(SUM(sgst_paise),0) as sgst,
-      COALESCE(SUM(igst_paise),0) as igst
-    FROM debit_credit_notes WHERE type='credit' AND status='confirmed' ${from && to ? 'AND date >= ? AND date <= ?' : ''}
-  `).get(...(from && to ? [from, to] : []));
+  // Credit notes reduce output tax; debit notes add to it.
+  const notes = (type) => notesForPeriod(db, type, from, to);
+  const cnAdjust = notes('credit');
+  const dnAdjust = notes('debit');
 
-  const netTaxable = output.taxable - cnAdjust.taxable;
-  const netCgst = output.cgst - cnAdjust.cgst;
-  const netSgst = output.sgst - cnAdjust.sgst;
-  const netIgst = output.igst - cnAdjust.igst;
+  const netTaxable = output.taxable - cnAdjust.taxable + dnAdjust.taxable;
+  const netCgst = output.cgst - cnAdjust.cgst + dnAdjust.cgst;
+  const netSgst = output.sgst - cnAdjust.sgst + dnAdjust.sgst;
+  const netIgst = output.igst - cnAdjust.igst + dnAdjust.igst;
+  const { cash, credit_carried_forward } = setOffITC({ igst: netIgst, cgst: netCgst, sgst: netSgst }, itc);
 
   res.json({
     period: { from, to },
     '3_1_outward': { taxable_paise: netTaxable, cgst: netCgst, sgst: netSgst, igst: netIgst },
     '3_1_1_credit_notes': cnAdjust,
-    '4_itc': { cgst_paise: itcCgst, sgst_paise: itcSgst, total_paise: itcRaw.total },
+    '3_1_1_debit_notes': dnAdjust,
+    '4_itc': { igst_paise: itc.igst, cgst_paise: itc.cgst, sgst_paise: itc.sgst, total_paise: itcTotal },
     net_payable: {
-      cgst_paise: Math.max(0, netCgst - itcCgst),
-      sgst_paise: Math.max(0, netSgst - itcSgst),
-      igst_paise: Math.max(0, netIgst),
-      total_paise: Math.max(0, (netCgst + netSgst + netIgst) - itcRaw.total),
+      cgst_paise: cash.cgst,
+      sgst_paise: cash.sgst,
+      igst_paise: cash.igst,
+      total_paise: cash.cgst + cash.sgst + cash.igst,
+    },
+    itc_carried_forward: {
+      igst_paise: credit_carried_forward.igst, cgst_paise: credit_carried_forward.cgst,
+      sgst_paise: credit_carried_forward.sgst,
     },
   });
 });
@@ -289,7 +346,12 @@ reportsRouter.get('/gstr9', requireRole('admin', 'accounts'), (req, res) => {
   const sgstOut   = db.prepare(`SELECT COALESCE(SUM(sgst_paise),0) as v FROM invoices WHERE date >= ? AND date <= ?`).get(from, to).v;
   const igstOut   = db.prepare(`SELECT COALESCE(SUM(igst_paise),0) as v FROM invoices WHERE date >= ? AND date <= ?`).get(from, to).v;
   const purchases = db.prepare(`SELECT COALESCE(SUM(taxable_paise),0) as v FROM purchase_orders WHERE date >= ? AND date <= ?`).get(from, to).v;
-  const itc       = db.prepare(`SELECT COALESCE(SUM(gst_paise),0) as v FROM purchase_orders WHERE date >= ? AND date <= ?`).get(from, to).v;
+  const homeState = db.prepare('SELECT home_state FROM company_details WHERE id=1').get()?.home_state || 'Tamil Nadu';
+  const itc       = itcForPeriod(db, homeState, from, to);
+  const cn        = notesForPeriod(db, 'credit', from, to);
+  const dn        = notesForPeriod(db, 'debit', from, to);
+  const out = { cgst: cgstOut - cn.cgst + dn.cgst, sgst: sgstOut - cn.sgst + dn.sgst, igst: igstOut - cn.igst + dn.igst };
+  const { cash } = setOffITC(out, itc);
   const payments  = db.prepare(`SELECT COALESCE(SUM(amount_paise),0) as v FROM payments WHERE type='payment' AND date >= ? AND date <= ?`).get(from, to).v;
   const collections = db.prepare(`SELECT COALESCE(SUM(amount_paise),0) as v FROM payments WHERE type='receipt' AND date >= ? AND date <= ?`).get(from, to).v;
 
@@ -301,9 +363,10 @@ reportsRouter.get('/gstr9', requireRole('admin', 'accounts'), (req, res) => {
 
   res.json({
     fy, period: { from, to },
-    pt4_outward_taxable: { taxable_paise: sales, cgst: cgstOut, sgst: sgstOut, igst: igstOut },
-    pt5_itc: { total_paise: itc, cgst: Math.round(itc/2), sgst: Math.round(itc/2) },
-    pt6_tax_paid: { cgst: Math.max(0, cgstOut - Math.round(itc/2)), sgst: Math.max(0, sgstOut - Math.round(itc/2)), igst: igstOut },
+    pt4_outward_taxable: { taxable_paise: sales - cn.taxable + dn.taxable, cgst: out.cgst, sgst: out.sgst, igst: out.igst,
+                           credit_notes: cn, debit_notes: dn },
+    pt5_itc: { total_paise: itc.igst + itc.cgst + itc.sgst, igst: itc.igst, cgst: itc.cgst, sgst: itc.sgst },
+    pt6_tax_paid: { cgst: cash.cgst, sgst: cash.sgst, igst: cash.igst },
     purchase_summary: { taxable_paise: purchases },
     cashflow: { collections_paise: collections, payments_paise: payments },
     hsn_breakdown: hsnBreakdown,
@@ -353,12 +416,12 @@ reportsRouter.get('/aging', requireRole('admin', 'accounts'), (req, res) => {
   const rows = db.prepare(`
     SELECT
       CASE
-        WHEN julianday('now') - julianday(date) <= 30 THEN '0-30'
-        WHEN julianday('now') - julianday(date) <= 60 THEN '31-60'
-        WHEN julianday('now') - julianday(date) <= 90 THEN '61-90'
+        WHEN julianday('now', 'localtime') - julianday(date) <= 30 THEN '0-30'
+        WHEN julianday('now', 'localtime') - julianday(date) <= 60 THEN '31-60'
+        WHEN julianday('now', 'localtime') - julianday(date) <= 90 THEN '61-90'
         ELSE '90+'
       END as bucket,
-      COUNT(*) as count, SUM(total_paise) as amount
+      COUNT(*) as count, SUM(total_paise - received_paise) as amount
     FROM invoices WHERE paid = 0
     GROUP BY bucket
     ORDER BY CASE bucket WHEN '0-30' THEN 1 WHEN '31-60' THEN 2 WHEN '61-90' THEN 3 ELSE 4 END
@@ -474,10 +537,10 @@ reportsRouter.get('/msme-compliance', requireRole('admin', 'accounts'), (req, re
 reportsRouter.get('/overdue-interest', requireRole('admin', 'accounts'), (req, res) => {
   const { as_of } = req.query;
   const db = getDb();
-  const asOf = as_of || new Date().toISOString().slice(0, 10);
+  const asOf = as_of || todayIST();
 
   const unpaid = db.prepare(`
-    SELECT i.id, i.date, i.total_paise, i.customer_id,
+    SELECT i.id, i.date, i.total_paise - i.received_paise AS total_paise, i.received_paise, i.customer_id,
            c.name AS customer_name,
            COALESCE(c.interest_rate_pct, 18.0) AS rate_pct,
            COALESCE(c.credit_days_actual, 30) AS credit_days
@@ -671,12 +734,12 @@ reportsRouter.get('/ar-aging', requireRole('admin', 'accounts'), (req, res) => {
     const bucketAmounts = { '0-30': 0, '31-60': 0, '61-90': 0, '91-120': 0, '120+': 0 };
     for (const r of rows) {
       buckets[r.aging_bucket] = (buckets[r.aging_bucket] || 0) + 1;
-      bucketAmounts[r.aging_bucket] = (bucketAmounts[r.aging_bucket] || 0) + r.total_paise;
+      bucketAmounts[r.aging_bucket] = (bucketAmounts[r.aging_bucket] || 0) + r.balance_paise;
     }
     res.json({
       invoices: rows,
       buckets: Object.keys(buckets).map(k => ({ bucket: k, count: buckets[k], amount_paise: bucketAmounts[k] })),
-      total_outstanding_paise: rows.reduce((s, r) => s + r.total_paise, 0),
+      total_outstanding_paise: rows.reduce((s, r) => s + r.balance_paise, 0),
     });
   } catch { res.json({ invoices: [], buckets: [], total_outstanding_paise: 0 }); }
 });
@@ -706,7 +769,7 @@ reportsRouter.get('/cash-flow', requireRole('admin', 'accounts'), (req, res) => 
   const { from, to } = req.query;
   const db = getDb();
   const fyStart = from || `${new Date().getFullYear()}-04-01`;
-  const fyEnd   = to   || new Date().toISOString().slice(0, 10);
+  const fyEnd   = to   || todayIST();
 
   // Operating activities
   const netSales     = db.prepare('SELECT COALESCE(SUM(total_paise),0) as v FROM invoices WHERE date >= ? AND date <= ?').get(fyStart, fyEnd).v;
@@ -755,7 +818,7 @@ reportsRouter.get('/ratio-analysis', requireRole('admin', 'accounts'), (req, res
   const db = getDb();
 
   // Current Assets (cash + bank + debtors + stock)
-  const arPaise      = db.prepare("SELECT COALESCE(SUM(total_paise),0) as v FROM invoices WHERE paid=0").get().v;
+  const arPaise      = db.prepare("SELECT COALESCE(SUM(total_paise - received_paise),0) as v FROM invoices WHERE paid=0").get().v;
   const stockValue   = db.prepare("SELECT COALESCE(SUM(rate_paise * stock),0) as v FROM products WHERE active=1").get().v;
   const revenue      = db.prepare("SELECT COALESCE(SUM(taxable_paise),0) as v FROM invoices").get().v;
   const apPaise      = db.prepare("SELECT COALESCE(SUM(total_paise),0) as v FROM purchase_orders WHERE status NOT IN ('cancelled','received')").get().v;

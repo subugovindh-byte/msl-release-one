@@ -3,10 +3,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api as apiClient } from '@/utils/api';
 import { formatINR } from '@/utils/format';
 import { useToastStore } from '@/store';
+import { todayIST } from '../utils/format';
 
 type Tab = 'vendors' | 'outstanding' | 'interest' | 'form-i' | 'register';
 
-const TODAY = new Date().toISOString().slice(0, 10);
+const TODAY = todayIST();
 const THIS_YEAR = new Date().getFullYear();
 const MSME_RATE = 19.5; // 3× RBI repo rate (~6.5%) per MSMED Act Sec 16
 

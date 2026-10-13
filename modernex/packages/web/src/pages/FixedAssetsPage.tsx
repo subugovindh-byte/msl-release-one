@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { useFixedAssets, useCreateFixedAsset, useUpdateFixedAsset, useDisposeAsset, useRunDepreciation, useVendors, useAccounts } from '@/hooks/useApi';
 import { formatINR, numericInputValue, selectOnFocus } from '@/utils/format';
 import { useToastStore } from '@/store';
+import { todayIST } from '../utils/format';
 
 const CATEGORIES = ['Plant & Machinery', 'Vehicles', 'Land & Building', 'Furniture & Fixtures', 'Computer & Peripherals', 'Other'];
 const DEP_RATES: Record<string, number> = {
   'Plant & Machinery': 15, 'Vehicles': 15, 'Land & Building': 5,
   'Furniture & Fixtures': 10, 'Computer & Peripherals': 40, 'Other': 15,
 };
-const BLANK = { name: '', category: 'Plant & Machinery', purchase_date: new Date().toISOString().slice(0, 10), purchase_cost_paise: 0, description: '', vendor_id: '', location: '', serial_no: '', depreciation_method: 'WDV', depreciation_rate_pct: 15, account_id: '' };
+const BLANK = { name: '', category: 'Plant & Machinery', purchase_date: todayIST(), purchase_cost_paise: 0, description: '', vendor_id: '', location: '', serial_no: '', depreciation_method: 'WDV', depreciation_rate_pct: 15, account_id: '' };
 
 export function FixedAssetsPage() {
   const [showCreate, setShowCreate] = useState(false);
@@ -18,7 +19,7 @@ export function FixedAssetsPage() {
   const [showDepreciation, setShowDepreciation] = useState(false);
   const [depFy, setDepFy] = useState('2025-26');
   const [disposeId, setDisposeId] = useState<string | null>(null);
-  const [disposeForm, setDisposeForm] = useState({ disposal_date: new Date().toISOString().slice(0, 10), disposal_value_paise: 0 });
+  const [disposeForm, setDisposeForm] = useState({ disposal_date: todayIST(), disposal_value_paise: 0 });
   const { notify } = useToastStore();
 
   const { data: assetsData, isLoading } = useFixedAssets({});
