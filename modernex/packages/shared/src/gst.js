@@ -77,15 +77,16 @@ export function calculateGST(taxablePaise, buyerState, rate = GST_RATE) {
     };
   }
 
+  // CGST and SGST are levied at equal rates, so they are equal amounts; the total is their sum.
   const cgst = Math.round(taxable * (rate / 2));
-  const sgst = totalTax - cgst; // ensures sum matches exactly
+  const sgst = cgst;
   return {
     mode: 'CGST+SGST',
     cgst,
     sgst,
     igst: 0,
-    totalTax,
-    grandTotal: taxable + totalTax,
+    totalTax: cgst + sgst,
+    grandTotal: taxable + cgst + sgst,
   };
 }
 
@@ -127,11 +128,12 @@ export function calculateInvoice(items, buyerState, discountPct = 0) {
   for (const it of enriched) {
     const share = grossPaise > 0 ? it.gross / grossPaise : 0;
     const lineTaxable = Math.round(taxable * share);
-    const rate = gstRateForHSN(it.hsn);
-    if (!hsnGroups[it.hsn]) {
-      hsnGroups[it.hsn] = { hsn: it.hsn, rate, taxable: 0 };
+    const rate = gstRateForHSN(it.hsn, it.product_kind ?? it.kind);
+    const key = `${it.hsn}|${rate}`;
+    if (!hsnGroups[key]) {
+      hsnGroups[key] = { hsn: it.hsn, rate, taxable: 0 };
     }
-    hsnGroups[it.hsn].taxable += lineTaxable;
+    hsnGroups[key].taxable += lineTaxable;
   }
 
   // ─── 3. Compute tax per group ───

@@ -150,7 +150,7 @@ export function App() {
   const company = companyData?.company;
   const COMPANY = company?.name ?? 'MODERNEX STONES LLP';
   const GSTIN = company?.gstin ?? '33ACGFM7745J1ZW';
-  const HSN = company?.hsn ?? '2516';
+  const HSN = company?.hsn ?? '6802';
 
   // Check auth on mount
   useEffect(() => {

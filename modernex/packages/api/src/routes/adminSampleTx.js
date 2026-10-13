@@ -213,7 +213,7 @@ adminSampleTxRouter.post('/', (req, res, next) => {
       db.prepare(`UPDATE products SET stock=stock-1 WHERE id=?`).run(blockId);
       db.prepare(`INSERT INTO production_job_inputs (job_id,product_id,qty_consumed,unit_cost_paise) VALUES (?,?,1,50000)`).run(jobId,blockId);
       db.prepare(`INSERT INTO products (id,kind,variety,hsn,uom,grade,lot_id,current_location_id,rate_paise,stock,source_job_id,source_product_id,active,created_by)
-        VALUES (?,'slab','Paradiso Classic','2516','sqft','A','LOT-001','GANGSAW_OUT',?,?,?,?,1,'sample-tx')`).run(slabId,RATE_PS,SLABS,jobId,blockId);
+        VALUES (?,'slab','Paradiso Classic','6802','sqft','A','LOT-001','GANGSAW_OUT',?,?,?,?,1,'sample-tx')`).run(slabId,RATE_PS,SLABS,jobId,blockId);
       db.prepare(`INSERT INTO product_slabs (product_id,size_lw,thickness_mm,sqft) VALUES (?,'2600×1600',20,?)`).run(slabId,SQFT);
       db.prepare(`INSERT INTO production_job_outputs (job_id,product_id,qty_produced,unit_cost_paise) VALUES (?,?,?,0)`).run(jobId,slabId,SLABS);
       seeded.push(`Cut Job ${jobId} → ${SLABS} slabs`);
@@ -230,7 +230,7 @@ adminSampleTxRouter.post('/', (req, res, next) => {
 
       const invProd=nextProductId();
       db.prepare(`INSERT INTO products (id,kind,variety,hsn,uom,grade,lot_id,current_location_id,rate_paise,stock,active,created_by)
-        VALUES (?,'slab','Paradiso Classic','2516','sqft','A','LOT-001','FINISHED_YARD',?,10,1,'sample-tx')`).run(invProd,RATE_PS);
+        VALUES (?,'slab','Paradiso Classic','6802','sqft','A','LOT-001','FINISHED_YARD',?,10,1,'sample-tx')`).run(invProd,RATE_PS);
       db.prepare(`INSERT INTO product_slabs (product_id,size_lw,thickness_mm,sqft) VALUES (?,'2600×1600',18,?)`).run(invProd,SQFT);
 
       const QTY=3, LINE=Math.round(SQFT*QTY*RATE_PS);
@@ -239,7 +239,7 @@ adminSampleTxRouter.post('/', (req, res, next) => {
         VALUES (?,?,?,'Rajan Tiles & Marbles','Tamil Nadu','33AABCR1234A1Z5',?,0,?,?,?,0,?,0,?,'Sample invoice','sample-tx')`
       ).run(IDS.invoice,daysAgo(20),IDS.customer,LINE,LINE,CGST,SGST,INV_TOTAL,daysAhead(10));
       db.prepare(`INSERT INTO invoice_items (invoice_id,line_no,product_id,product_kind,variety,hsn,uom,uom_qty,qty,rate_paise,line_total_paise,dimension_snapshot,grade)
-        VALUES (?,1,?,'slab','Paradiso Classic','2516','sqft',?,?,?,?,?,'A')`
+        VALUES (?,1,?,'slab','Paradiso Classic','6802','sqft',?,?,?,?,?,'A')`
       ).run(IDS.invoice,invProd,SQFT,QTY,RATE_PS,LINE,JSON.stringify({size:'2600×1600',thickness_mm:18}));
 
       const PAY=5_000_000;

@@ -7,7 +7,7 @@ import { ZoomableImage } from '@/components/PhotoViewer';
 type Tab = 'customers' | 'vendors' | 'varieties' | 'block-prices' | 'slab-prices';
 
 const REGIONS = ['Andhra Pradesh', 'Telangana', 'Tamil Nadu', 'Karnataka', 'Rajasthan', 'Other'];
-const BLANK_VARIETY = { variety_name: '', region: 'Other', hsn_default: '2516', uom_default: 'sqft', kind_default: 'slab', typical_grades: 'A,A+', notes: '', active: true, sort_order: 0 };
+const BLANK_VARIETY = { variety_name: '', region: 'Other', hsn_default: '6802', uom_default: 'sqft', kind_default: 'slab', typical_grades: 'A,A+', notes: '', active: true, sort_order: 0 };
 
 const INDIAN_STATES = [
   'Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh',
@@ -131,7 +131,7 @@ function VarietyList({ varieties, loading, onCreate, onUpdate, onDelete, notify 
 
   const openEdit = (v: any) => {
     setEditingId(v.id);
-    setEditForm({ variety_name: v.variety_name ?? '', region: v.region ?? 'Other', hsn_default: v.hsn_default ?? '2516', uom_default: v.uom_default ?? 'sqft', kind_default: v.kind_default ?? 'slab', typical_grades: v.typical_grades ?? '', notes: v.notes ?? '', active: v.active !== false, sort_order: v.sort_order ?? 0 });
+    setEditForm({ variety_name: v.variety_name ?? '', region: v.region ?? 'Other', hsn_default: v.hsn_default ?? '6802', uom_default: v.uom_default ?? 'sqft', kind_default: v.kind_default ?? 'slab', typical_grades: v.typical_grades ?? '', notes: v.notes ?? '', active: v.active !== false, sort_order: v.sort_order ?? 0 });
   };
 
   const handleEditSave = async (e: React.FormEvent) => {
@@ -191,7 +191,7 @@ function VarietyList({ varieties, loading, onCreate, onUpdate, onDelete, notify 
                   {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
-              <div><label className="fl" title="Harmonised System of Nomenclature code — 2516 is standard for granite, used on invoices">HSN Code</label><input type="text" value={editForm.hsn_default} onChange={e => setEditForm({ ...editForm, hsn_default: e.target.value })} maxLength={8} className="fi" /></div>
+              <div><label className="fl" title="HSN code used on invoices — 6802 for worked granite (slabs, tiles, cut-to-size, 18%), 2516 for granite blocks (5%)">HSN Code</label><input type="text" value={editForm.hsn_default} onChange={e => setEditForm({ ...editForm, hsn_default: e.target.value })} maxLength={8} className="fi" /></div>
               <div><label className="fl" title="Unit of Measure — sqft for slabs, CBM for blocks, kg for chips">Default UOM</label>
                 <select value={editForm.uom_default} onChange={e => setEditForm({ ...editForm, uom_default: e.target.value })} className="fsel">
                   {['sqft','cbm','mt','kg','nos'].map(u => <option key={u} value={u}>{u}</option>)}

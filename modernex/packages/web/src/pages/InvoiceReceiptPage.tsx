@@ -53,7 +53,7 @@ export function InvoiceReceiptPage() {
   const COMPANY = co?.name ?? 'MODERNEX STONES LLP';
   const GSTIN = co?.gstin ?? '33ACGFM7745J1ZW';
   const PAN = co?.pan ?? 'ACGFM7745J';
-  const HSN = co?.hsn ?? '2516';
+  const HSN = co?.hsn ?? '6802';
   const ADDRESS = co ? `${co.address}, ${co.city}, ${co.state} — ${co.pincode}` : 'Krishnagiri, Tamil Nadu — 635203';
   const [eInvoiceQr, setEInvoiceQr] = React.useState<string | null>(null);
   const [paymentQr, setPaymentQr] = React.useState<string | null>(null);
@@ -430,7 +430,7 @@ export function InvoiceReceiptPage() {
           <tbody>
             {derivedItems.map((item: any, i: number) => {
               const desc     = item.description ?? item.variety ?? item.product_id ?? item.productId ?? '—';
-              const hsn      = item.hsn ?? item.hsn_code ?? item.hsnCode ?? '2516';
+              const hsn      = item.hsn ?? item.hsn_code ?? item.hsnCode ?? '6802';
               const uom      = item.uom ?? '—';
               const qty      = item.qty ?? item.quantity ?? 0;
               const rate     = item.rate_paise ?? item.ratePaise ?? 0;

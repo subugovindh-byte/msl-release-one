@@ -56,7 +56,7 @@ describe('API integration', () => {
     // Insert a test product so product-related tests have data
     db.prepare(`
       INSERT OR IGNORE INTO products (id, kind, variety, hsn, uom, rate_paise, stock, active)
-      VALUES ('PRD-TEST-001', 'slab', 'Viscont White', '2516', 'sqft', 5000, 10, 1)
+      VALUES ('PRD-TEST-001', 'slab', 'Viscont White', '6802', 'sqft', 5000, 10, 1)
     `).run();
     // Also insert slab dimensions required by the 1:1 join
     db.prepare(`
@@ -135,7 +135,7 @@ describe('API integration', () => {
           product_id: product.id,
           variety: product.variety,
           grade: product.grade ?? undefined,
-          hsn: '2516',
+          hsn: '6802',
           uom: 'sqft',
           uom_qty: product.dimensions?.sqft || 1,
           qty: 1,
@@ -172,7 +172,7 @@ describe('API integration', () => {
         items: [{
           product_id: product.id,
           variety: product.variety,
-          hsn: '2516',
+          hsn: '6802',
           uom: 'sqft',
           uom_qty: product.dimensions?.sqft || 1,
           qty: 1,
@@ -224,12 +224,12 @@ describe('API integration', () => {
     const { getDb } = await import('../src/db/connection.js');
     const db = getDb();
     db.prepare(`INSERT OR IGNORE INTO products (id, kind, variety, hsn, uom, rate_paise, stock, active)
-                VALUES ('PRD-TEST-PAY', 'slab', 'Test Black', '2516', 'sqft', 10000, 5, 1)`).run();
+                VALUES ('PRD-TEST-PAY', 'slab', 'Test Black', '6802', 'sqft', 10000, 5, 1)`).run();
     db.prepare(`INSERT OR IGNORE INTO product_slabs (product_id, size_lw, thickness_mm, sqft)
                 VALUES ('PRD-TEST-PAY', '2600x1600', 18, 10)`).run();
     const created = await request(app).post('/api/invoices').set('Cookie', cookies).send({
       customer_id: 'C001', discount_pct: 0,
-      items: [{ product_id: 'PRD-TEST-PAY', hsn: '2516', uom: 'sqft', uom_qty: 10, qty: 1, rate_paise: 10000 }],
+      items: [{ product_id: 'PRD-TEST-PAY', hsn: '6802', uom: 'sqft', uom_qty: 10, qty: 1, rate_paise: 10000 }],
     });
     expect(created.status).toBe(201);
     const inv = created.body.invoice;
@@ -266,7 +266,7 @@ describe('API integration', () => {
     const db = getDb();
     const created = await request(app).post('/api/invoices').set('Cookie', cookies).send({
       customer_id: 'C001', discount_pct: 0,
-      items: [{ product_id: 'PRD-TEST-PAY', hsn: '2516', uom: 'sqft', uom_qty: 10, qty: 1, rate_paise: 10000 }],
+      items: [{ product_id: 'PRD-TEST-PAY', hsn: '6802', uom: 'sqft', uom_qty: 10, qty: 1, rate_paise: 10000 }],
     });
     expect(created.status).toBe(201);
     const path = `/api/invoices/${created.body.invoice.id.replace(/\//g, '~')}`;

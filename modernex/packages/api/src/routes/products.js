@@ -135,7 +135,7 @@ productsRouter.post('/',
       const id = nextProductId(db);
       const kindDef = PRODUCT_KINDS[b.kind];
       const uom = b.uom || kindDef?.uom || 'pc';
-      const hsn = b.hsn || kindDef?.hsn || '2516';
+      const hsn = b.hsn || kindDef?.hsn || '6802';
 
       // Approved-PO gate: blocks can only enter Raw Yard from an approved PO
       if (b.kind === 'block') {

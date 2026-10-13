@@ -71,7 +71,7 @@ console.log(`   ✓ Users (${USERS.length})`);
 db.prepare(`
   INSERT OR REPLACE INTO company_details
     (id,name,trade_name,gstin,pan,hsn,address,city,state,pincode,phone,email,fy)
-  VALUES (1,'MODERNEX STONES LLP','MODERNEX STONES','33ACGFM7745J1ZW','ACGFM7745J','2516',
+  VALUES (1,'MODERNEX STONES LLP','MODERNEX STONES','33ACGFM7745J1ZW','ACGFM7745J','6802',
           '225, Gandhi Nagar, Nakkalpatti, Modikuppam','Krishnagiri','Tamil Nadu','635203',
           '9876543210','info@modernexstones.com','2025-26')
 `).run();
@@ -142,10 +142,10 @@ console.log('   ✓ Customers (3)');
 db.prepare(`
   INSERT INTO products (id,kind,variety,hsn,uom,grade,lot_id,rate_paise,stock,active,created_by)
   VALUES
-    ('PRD-001','slab','Paradiso Classic','2516','sqft','A', 'LOT-024', 42000,12,1,'seed'),
-    ('PRD-002','slab','Tan Brown',       '2516','sqft','A', 'LOT-026', 49000, 8,1,'seed'),
-    ('PRD-003','slab','Black Galaxy',    '2516','sqft','A+','LOT-027', 76000, 5,1,'seed'),
-    ('PRD-004','slab','Multicolour Red', '2516','sqft','B', 'LOT-022', 29000,15,1,'seed')
+    ('PRD-001','slab','Paradiso Classic','6802','sqft','A', 'LOT-024', 42000,12,1,'seed'),
+    ('PRD-002','slab','Tan Brown',       '6802','sqft','A', 'LOT-026', 49000, 8,1,'seed'),
+    ('PRD-003','slab','Black Galaxy',    '6802','sqft','A+','LOT-027', 76000, 5,1,'seed'),
+    ('PRD-004','slab','Multicolour Red', '6802','sqft','B', 'LOT-022', 29000,15,1,'seed')
 `).run();
 db.prepare(`
   INSERT INTO product_slabs (product_id,size_lw,thickness_mm,sqft) VALUES
@@ -204,7 +204,7 @@ db.prepare(`
   INSERT INTO invoice_items
     (invoice_id,line_no,product_id,product_kind,variety,hsn,uom,uom_qty,qty,rate_paise,line_total_paise,dimension_snapshot,grade)
   VALUES (?,1,?,?,?,?,?,?,?,?,?,?,?)
-`).run(INV_ID,'PRD-001','slab','Paradiso Classic','2516','sqft',SQFT,QTY,RATE,LINE,
+`).run(INV_ID,'PRD-001','slab','Paradiso Classic','6802','sqft',SQFT,QTY,RATE,LINE,
   JSON.stringify({size:'2600×1600',thickness_mm:18}),'A');
 
 // Generate stub IRN + signed QR payload (same logic as irpClient.js stub)

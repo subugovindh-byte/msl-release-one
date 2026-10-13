@@ -18,13 +18,13 @@ function dateRange(alias, from, to) {
 // the invoice's taxable value so invoice discounts are reflected.
 function hsnSummary(db, homeState, from, to) {
   const lines = db.prepare(`
-    SELECT ii.hsn, ii.uom, ii.qty, ii.line_total_paise, i.gross_paise, i.taxable_paise, i.customer_state
+    SELECT ii.hsn, ii.uom, ii.qty, ii.product_kind, ii.line_total_paise, i.gross_paise, i.taxable_paise, i.customer_state
     FROM invoice_items ii JOIN invoices i ON i.id = ii.invoice_id
     ${from && to ? 'WHERE i.date >= ? AND i.date <= ?' : ''}
   `).all(...(from && to ? [from, to] : []));
   const groups = {};
   for (const l of lines) {
-    const rate = gstRateForHSN(l.hsn);
+    const rate = gstRateForHSN(l.hsn, l.product_kind);
     const key = `${l.hsn}|${l.uom}|${rate}`;
     const g = groups[key] ||= { hsn: l.hsn, uom: l.uom, rate, total_qty: 0, taxable_paise: 0, cgst_paise: 0, sgst_paise: 0, igst_paise: 0 };
     const taxable = l.gross_paise > 0 ? Math.round(l.line_total_paise * l.taxable_paise / l.gross_paise) : l.line_total_paise;
