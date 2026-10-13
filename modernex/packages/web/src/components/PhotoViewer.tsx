@@ -70,7 +70,7 @@ export function PhotoViewer({
   const [zoom, setZoom] = useState(1);
   // 360 spin: a frame sequence is scrubbed by horizontal drag. Needs enough
   // frames to read as rotation rather than as a slideshow.
-  const SPIN_MIN_FRAMES = 8;
+  const SPIN_MIN_FRAMES = 4;
   const canSpin = images.length >= SPIN_MIN_FRAMES;
   const [spin, setSpin] = useState(canSpin);
   const [playing, setPlaying] = useState(false);

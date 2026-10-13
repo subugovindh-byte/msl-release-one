@@ -78,6 +78,17 @@ export function errorHandler(err, req, res, next) {
     });
   }
 
+  // body-parser rejects an oversized payload with entity.too.large. Without
+  // this it lands in the generic handler below as a 500, which tells the
+  // client nothing — the upload just "fails".
+  if (err?.type === 'entity.too.large' || err?.status === 413) {
+    logger.warn({ path: req.path, limit: err.limit, length: err.length }, 'Payload too large');
+    return res.status(413).json({
+      error: 'Upload too large for this endpoint',
+      code: 'PAYLOAD_TOO_LARGE',
+    });
+  }
+
   // Unknown/unexpected errors - always log
   logger.error({
     err: err.message,
