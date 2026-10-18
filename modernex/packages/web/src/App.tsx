@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { BrandMark } from '@/components/BrandMark';
 import { Routes, Route, Navigate, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useQueryClient, useIsFetching } from '@tanstack/react-query';
 import { useAuthStore, useThemeStore, useToastStore, useCartStore } from '@/store';
@@ -226,7 +227,10 @@ export function App() {
             <span></span><span></span><span></span>
           </button>
           <div>
-            <div className="tb-brand">{titleCaseName(COMPANY)}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+              <span style={{ color: 'var(--brand1)' }}><BrandMark size={27} title="" /></span>
+              <div className="tb-brand">{titleCaseName(COMPANY)}</div>
+            </div>
             <div className="tb-sub">
               GST {GSTIN} · HSN {HSN} · FY 2025-26
             </div>
