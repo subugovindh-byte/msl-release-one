@@ -56,7 +56,7 @@ export function PdcPage() {
 
       {/* Summary banner */}
       {dueCount > 0 && (
-        <div style={{ backgroundColor: 'var(--amberW)', border: '1px solid var(--amberB)', borderRadius: 8, padding: '12px 18px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div className="warning-note" role="status" style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 20 }}>⚠</span>
           <div>
             <strong style={{ color: 'var(--amber)' }}>{dueCount} cheque{dueCount > 1 ? 's' : ''} due for deposit within 3 days</strong>

@@ -301,7 +301,7 @@ export function ReportsPage() {
                     ))}
                   </div>
                   {(apAgingData as any)?.msme_overdue_paise > 0 && (
-                    <div style={{ backgroundColor: 'var(--amberW)', border: '1px solid var(--amberB)', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 12 }}>
+                    <div className="warning-note" role="status" style={{ marginBottom: 12, fontSize: 12 }}>
                       ⚠ MSME overdue: {formatINR((apAgingData as any)?.msme_overdue_paise)} — Interest may apply under MSMED Act Sec 16
                     </div>
                   )}

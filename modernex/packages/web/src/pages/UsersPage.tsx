@@ -238,7 +238,7 @@ export function UsersPage() {
 
       {/* ── Temp password display ── */}
       {tempPassword && (
-        <div style={{ border: '1px solid var(--amberB)', borderRadius: 8, padding: 16, marginBottom: 20 }}>
+        <div className="warning-note" role="status" style={{ marginBottom: 20 }}>
           <strong style={{ color: 'var(--amber)' }}>Temporary password (shown once):</strong>
           <code style={{ display: 'block', fontSize: 18, letterSpacing: 2, margin: '8px 0', color: 'var(--t1)' }}>{tempPassword}</code>
           <span style={{ fontSize: 12, color: 'var(--t2)' }}>Share this with the user securely. They will be prompted to change it on first login.</span>

@@ -5,7 +5,7 @@ import type { Toast, ToastType } from '@/types';
 const toastStyles: Record<ToastType, { bg: string; border: string }> = {
   success: { bg: '#10b981', border: '#059669' },
   error: { bg: '#ef4444', border: '#dc2626' },
-  warning: { bg: '#f59e0b', border: '#d97706' },
+  warning: { bg: 'var(--bg1)', border: 'var(--notice-rule)' },
   info: { bg: 'var(--rust)', border: 'var(--rustB)' },
 };
 
@@ -29,24 +29,25 @@ function ToastItem({ toast, onDismiss }: ToastItemProps) {
 
   return (
     <div
-      className="toast-item"
+      className={`toast-item${toast.type === 'warning' ? ' toast-item--warning' : ''}`}
+      role={toast.type === 'error' || toast.type === 'warning' ? 'alert' : 'status'}
       style={{
         backgroundColor: style.bg,
-        borderLeft: `4px solid ${style.border}`,
-        color: '#fff',
+        borderLeft: `${toast.type === 'warning' ? 2 : 4}px solid ${style.border}`,
+        color: toast.type === 'warning' ? 'var(--notice-ink)' : '#fff',
         padding: '12px 16px',
         borderRadius: '6px',
-        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+        boxShadow: toast.type === 'warning' ? 'none' : '0 4px 12px rgba(0, 0, 0, 0.15)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        minWidth: '300px',
-        maxWidth: '500px',
+        width: 'min(360px, calc(100vw - 40px))',
+        maxWidth: '100%',
         marginBottom: '8px',
         animation: 'slideIn 0.3s ease-out',
       }}
     >
-      <div style={{ flex: 1, fontSize: '14px', fontWeight: 500 }}>
+      <div style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere', fontSize: '14px', fontWeight: 500 }}>
         {toast.message}
       </div>
       <button
@@ -54,7 +55,7 @@ function ToastItem({ toast, onDismiss }: ToastItemProps) {
         style={{
           background: 'transparent',
           border: 'none',
-          color: '#fff',
+          color: 'inherit',
           cursor: 'pointer',
           padding: '0 0 0 12px',
           fontSize: '18px',

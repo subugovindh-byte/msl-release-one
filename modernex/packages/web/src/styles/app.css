@@ -307,38 +307,45 @@ a { color: var(--rust); text-decoration: none; }
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--bg0) 88%, white 12%) 0%, var(--bg0) 100%);
+  background: var(--bg0);
 }
 .main-scroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
 }
+.site-page { min-height: 100%; min-width: 0; display: flex; flex-direction: column; }
+.site-page--workspace { height: 100%; }
+.public-shell { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
+.public-main { flex: 1 0 auto; min-height: min(650px, 100dvh); display: flex; }
 .page { padding: 20px; max-width: 100%; min-width: 0; }
-.app-footer {
-  flex-shrink: 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  padding: 12px 20px;
-  border-top: 1px solid var(--bd);
-  background: color-mix(in srgb, var(--bg1) 92%, white 8%);
+.site-footer { flex-shrink: 0; margin-top: auto; background: var(--footer-bg); color: var(--footer-ink); }
+.site-footer-inner { max-width: 1440px; margin: 0 auto; padding: 52px 32px 24px; }
+.site-footer-main { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(0, 2fr); gap: 64px; padding-bottom: 40px; }
+.site-footer-brand { max-width: 320px; }
+.site-footer-brand strong { font-size: 32px; font-weight: 800; letter-spacing: -1px; }
+.site-footer-brand p { margin: 16px 0 12px; font-size: 23px; line-height: 1.25; font-weight: 600; letter-spacing: -.4px; }
+.site-footer-brand > span { display: block; max-width: 260px; font-size: 13px; line-height: 1.7; color: #c7c7cb; }
+.site-footer-navigation { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; }
+.site-footer-group h2 { margin: 7px 0 16px; font-size: 14px; font-weight: 700; }
+.site-footer-group ul { list-style: none; display: grid; gap: 4px; }
+.site-footer a { color: #d4d4d8; text-decoration: none; }
+.site-footer-group a { display: inline-flex; min-height: 40px; align-items: center; font-size: 13px; overflow-wrap: anywhere; }
+.site-footer a:hover { color: #fff; text-decoration: underline; text-underline-offset: 4px; }
+.site-footer :is(a, button):focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
+.site-footer-bottom { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 24px; border-top: 1px solid #525257; padding-top: 24px; }
+.site-footer-bottom p { color: #c7c7cb; font-size: 11px; }
+.site-footer-top { display: inline-flex; align-items: center; justify-content: center; gap: 12px; min-height: 44px; padding: 10px 16px; border: 1px solid #8b8b91; border-radius: 0; color: var(--footer-ink); font-size: 12px; font-weight: 600; }
+.site-footer-top:hover { background: #3f3f46; }
+.warning-note { padding-left: 12px; border-left: 2px solid var(--notice-rule); color: var(--notice-ink); line-height: 1.55; }
+@media (max-width: 900px) {
+  .site-footer-main { grid-template-columns: 1fr; gap: 32px; }
+  .site-footer-brand { max-width: none; }
 }
-.app-footer__brand {
-  font-family: 'Inter', sans-serif;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.2px;
-  color: var(--t1);
-}
-.app-footer__meta {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 8px;
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
-  color: var(--t3);
+@media (max-width: 480px) {
+  .site-footer-inner { padding: 36px 20px 24px; }
+  .site-footer-navigation { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 16px; }
+  .site-footer-bottom { align-items: flex-start; flex-direction: column; }
 }
 .modernex-grid {
   --ag-background-color: var(--grid-bg);
@@ -684,6 +691,7 @@ h3 {
 .login-box { background: var(--bg2); border: 1px solid var(--bd); border-radius: var(--radius-lg); padding: 28px 24px; width: 100%; max-width: 340px; }
 .login-logo { font-family: 'Inter', sans-serif; font-size: 20px; font-weight: 700; color: var(--rust); letter-spacing: -0.5px; text-align: center; }
 .login-sub { font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: var(--t3); letter-spacing: 2px; text-transform: uppercase; text-align: center; margin-top: 4px; }
+.login-box :is(.fi, .btn) { min-height: 44px; }
 
 /* ─── POS ─── */
 .pos-wrap { display: flex; flex: 1; overflow: hidden; min-height: 0; }
@@ -978,6 +986,7 @@ h3 {
   .cart-dock-arrow { transform: rotate(90deg); }
   /* Keep last products reachable above the closed cart bar. */
   .pos-cat { padding-bottom: 64px; }
+  .main-scroll--pos .site-footer { padding-bottom: 64px; }
   .modernex-grid {
     height: min(440px, calc(100dvh - 240px)) !important;
     --ag-font-size: 10px;
@@ -1009,8 +1018,6 @@ h3 {
   .theme-btn span:last-child { display: none; }
 
   .page { padding: 12px; }
-  .app-footer { padding: 10px 12px; align-items: flex-start; }
-  .app-footer__brand, .app-footer__meta { width: 100%; }
   .page-header {
     flex-direction: column;
     align-items: flex-start;
@@ -1161,10 +1168,11 @@ h3 {
 /* ─── Print ──────────────────────────────────────────── */
 @media print {
   .no-print { display: none !important; }
-  .topbar, .sidebar, .app-footer { display: none !important; }
+  .topbar, .topnav, .sidebar, .site-footer { display: none !important; }
   .body-wrap { display: block !important; }
   .main-content { all: unset; display: block; }
   .main-scroll { all: unset; display: block; overflow: visible !important; }
+  .site-page, .public-shell, .public-main { display: block; min-height: 0; overflow: visible; }
   .receipt-wrap { padding: 0; max-width: 100%; }
   .receipt {
     border: none;
@@ -1172,6 +1180,7 @@ h3 {
     padding: 0 0 8mm;
     box-shadow: none;
   }
+
   .receipt::before { margin: 0 0 20px; border-radius: 0; }
   .receipt-tbl thead tr { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .receipt-tbl tbody tr:nth-child(even) td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -1179,3 +1188,8 @@ h3 {
   body { background: white !important; }
   * { -webkit-font-smoothing: antialiased; }
 }
+
+:is(button, [role="button"], a.btn, input[type="button"], input[type="submit"], input[type="reset"]) {
+  border-radius: 0 !important;
+}
+:is(button, a, input, select, textarea):focus-visible { outline: 2px solid var(--rust); outline-offset: 3px; }

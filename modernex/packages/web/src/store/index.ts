@@ -87,10 +87,7 @@ const getInitialTheme = (): Theme => {
   } catch {
     // localStorage disabled
   }
-  if (window.matchMedia?.('(prefers-color-scheme: light)').matches) {
-    return 'light';
-  }
-  return 'dark';
+  return 'light';
 };
 
 export const useThemeStore = create<ThemeState>()(
