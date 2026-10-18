@@ -60,10 +60,14 @@
   --redW: rgba(244, 135, 113, .12);
   --redB: rgba(244, 135, 113, .28);
 
-  /* Warning — editor warning */
-  --amber: #CCA700;
-  --amberW: rgba(204, 167, 0, .12);
-  --amberB: rgba(204, 167, 0, .28);
+  /* Warning — neutral emphasis */
+  --amber: #D4D4D4;
+  --amberW: transparent;
+  --amberB: #8B8B91;
+  --notice-ink: #D4D4D4;
+  --notice-rule: #8B8B91;
+  --footer-bg: #252526;
+  --footer-ink: #E8E8E8;
 
   /* Text — editor foreground */
   --t1: #D4D4D4;
@@ -141,10 +145,12 @@
   --redW: rgba(205, 49, 49, .08);
   --redB: rgba(205, 49, 49, .22);
 
-  /* Warning — darkened from VS Code's #BF8803, which only reaches 3.1:1 */
-  --amber: #8A6400;
-  --amberW: rgba(138, 100, 0, .08);
-  --amberB: rgba(138, 100, 0, .22);
+  /* Warnings use neutral emphasis without a coloured banner. */
+  --amber: #3F3F46;
+  --amberW: transparent;
+  --amberB: #B8B8BC;
+  --notice-ink: #3F3F46;
+  --notice-rule: #B8B8BC;
 
   /* Text */
   --t1: #1F1F1F;

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { BrandMark } from '@/components/BrandMark';
 import { Routes, Route, Navigate, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useQueryClient, useIsFetching } from '@tanstack/react-query';
 import { useAuthStore, useThemeStore, useToastStore, useCartStore } from '@/store';
@@ -34,6 +35,7 @@ import { ConsumablesPage } from '@/pages/ConsumablesPage';
 import { BankReconPage } from '@/pages/BankReconPage';
 import { BudgetPage } from '@/pages/BudgetPage';
 import { ToastContainer } from '@/components/ToastContainer';
+import { SiteFooter } from '@/components/SiteFooter';
 import { useCompany } from '@/hooks/useApi';
 
 interface NavSection {
@@ -198,10 +200,15 @@ export function App() {
   if (!user) {
     return (
       <>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="*" element={<Navigate to="/login" />} />
-        </Routes>
+        <div className="public-shell" data-site-scroll>
+          <main className="public-main" id="page-top">
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="*" element={<Navigate to="/login" />} />
+            </Routes>
+          </main>
+          <SiteFooter companyName={titleCaseName(COMPANY)} />
+        </div>
         <ToastContainer />
       </>
     );
@@ -226,7 +233,10 @@ export function App() {
             <span></span><span></span><span></span>
           </button>
           <div>
-            <div className="tb-brand">{titleCaseName(COMPANY)}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+              <span style={{ color: 'var(--brand1)' }}><BrandMark size={27} title="" /></span>
+              <div className="tb-brand">{titleCaseName(COMPANY)}</div>
+            </div>
             <div className="tb-sub">
               GST {GSTIN} · HSN {HSN} · FY 2025-26
             </div>
@@ -317,7 +327,8 @@ export function App() {
 
       <div className="body-wrap">
         <div className="main-content">
-          <div className="main-scroll">
+          <div className={`main-scroll${pathname === '/pos' ? ' main-scroll--pos' : ''}`} data-site-scroll>
+            <main className={`site-page${pathname === '/pos' || pathname === '/help' ? ' site-page--workspace' : ''}`} id="page-top">
             <Routes>
               <Route path="/" element={<Navigate to="/pos" />} />
               <Route path="/login" element={<Navigate to="/pos" />} />
@@ -353,11 +364,9 @@ export function App() {
               <Route path="/inspections/:id" element={<BlockInspectionDetailPage />} />
               <Route path="*" element={<Navigate to="/pos" />} />
             </Routes>
+            </main>
+            <SiteFooter companyName={titleCaseName(COMPANY)} />
           </div>
-          <footer className="app-footer">
-            <div className="app-footer__brand">MODERNEX STONES LLP</div>
-            <div className="app-footer__meta">Granite ERP · GST {GSTIN} · HSN {HSN}</div>
-          </footer>
         </div>
       </div>
 

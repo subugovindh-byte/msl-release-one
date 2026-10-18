@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { BrandMark } from '@/components/BrandMark';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore, useThemeStore, useToastStore } from '@/store';
 import { useForgotPassword, useResetPassword, useVerifyRecoveryAnswer } from '@/hooks/useApi';
@@ -94,7 +95,9 @@ export function LoginPage() {
           </button>
         </div>
         
-        <div className="login-logo">MODERNEX STONES LLP</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, color: 'var(--rust)' }}>
+          <BrandMark size={26} title="" /><div className="login-logo">MODERNEX STONES LLP</div>
+        </div>
         <div className="login-sub">GST 33AABFM1234A1Z7 · HSN 6802</div>
         <div
           style={{

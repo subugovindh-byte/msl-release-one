@@ -55,12 +55,12 @@ export function statusTone(status?: string): { color: string; bg: string } {
 
 // ── Shared component styles ──
 export const primaryBtn: CSSProperties = {
-  padding: '7px 16px', background: C.rust, color: '#fff', border: 'none',
-  borderRadius: 5, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+  padding: '7px 16px', background: C.rust, color: 'var(--on-primary)', border: 'none',
+  borderRadius: 0, fontSize: 12, fontWeight: 700, cursor: 'pointer',
 };
 export const ghostBtn: CSSProperties = {
   padding: '7px 14px', background: 'transparent', color: C.t2,
-  border: `1px solid ${C.bd}`, borderRadius: 5, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+  border: `1px solid ${C.bd}`, borderRadius: 0, fontSize: 12, fontWeight: 600, cursor: 'pointer',
 };
 export const dangerBtn: CSSProperties = { ...ghostBtn, color: C.red };
 

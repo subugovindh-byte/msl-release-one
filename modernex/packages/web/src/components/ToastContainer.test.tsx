@@ -52,6 +52,15 @@ describe('ToastContainer', () => {
     expect(screen.getByText('Error message')).toBeInTheDocument();
   });
 
+  it('keeps warnings accessible without a yellow notification banner', () => {
+    mockToasts.push({ id: 'warning', message: 'Review this entry', type: 'warning', duration: 0 });
+    render(<ToastContainer />);
+    expect(screen.getByRole('alert')).toHaveTextContent('Review this entry');
+    expect(screen.getByRole('alert')).toHaveClass('toast-item--warning');
+    expect(screen.getByRole('alert')).toHaveStyle({ boxShadow: 'none' });
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+    expect(mockDismiss).toHaveBeenCalledWith('warning');
+  });
   it('should render multiple toasts', () => {
     mockToasts.push(
       { id: '1', message: 'Toast 1', type: 'info', duration: 5000 },

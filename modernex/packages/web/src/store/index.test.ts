@@ -156,7 +156,7 @@ describe('useThemeStore', () => {
 
   it('should initialize with default theme', () => {
     const { result } = renderHook(() => useThemeStore());
-    expect(['dark', 'light']).toContain(result.current.theme);
+    expect(result.current.theme).toBe('light');
   });
 
   it('should toggle theme', () => {

@@ -740,9 +740,8 @@ function BlockRenderer({ block, q }: { block: ContentBlock; q: string }) {
       );
     case 'warn':
       return (
-        <div style={{
+        <div className="warning-note" style={{
           marginBottom: 10, fontSize: 11, lineHeight: 1.5,
-          color: 'var(--t1)',
         }}>
           <strong>⚠ </strong><span dangerouslySetInnerHTML={hl(block.text)} />
         </div>
