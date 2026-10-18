@@ -1,6 +1,7 @@
 # The Modernex Stones logo
 
-Sister to the eModernex logo: the same stone block and granite speckle, cut into slabs that lean together as they come off
+Sister to the eModernex logo: the same stone block and granite speckle — but **sawn square** (sharp corners, square-cut ends, as
+a granite block is cut), cut into slabs that lean together as they come off
 the gang saw, the blade's cut running out through the block beneath them. No letter: the stone and the cut are the sign. The mark is in ghost style (line only, no fill, round ends) in the salt-and-pepper greys; beside it the
 wordmark as the app's top bar sets it (`.tb-brand`): Inter ExtraBold, tight.
 
